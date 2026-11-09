@@ -12,7 +12,9 @@ class ReferenceExecutor:
     def __init__(self, server, model, context, log, key_type='f16', value_type='f16',
                  gpu_layers=99, batch=512, threads=8, startup_timeout=180, request_timeout=1800,
                  ubatch=None, mtp_depth=0, prefix_cache=False, fit=False, backend_sampling=False,
-                 draft_ubatch=None):
+                 draft_ubatch=None, draft_model=None):
+        if draft_model is not None and not mtp_depth:
+            raise ValueError('external draft model requires a positive draft depth')
         self.log_path = Path(log)
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.process = None
@@ -34,6 +36,9 @@ class ReferenceExecutor:
                      '--ctx-checkpoints', '32' if prefix_cache else '0',
                      '--no-webui', '--verbosity', '4']
         if mtp_depth:
+            if draft_model is not None:
+                self.argv[self.argv.index('--spec-type') + 1] = 'draft-dflash'
+                self.argv += ['--spec-draft-model', str(draft_model), '--spec-draft-ngl', str(gpu_layers)]
             self.argv += ['--spec-draft-n-max', str(mtp_depth),
                           '--spec-draft-type-k', 'q8_0', '--spec-draft-type-v', 'q8_0']
             if draft_ubatch is not None:

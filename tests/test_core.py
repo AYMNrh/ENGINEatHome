@@ -13,6 +13,7 @@ from qah.model import inspect_gguf
 from qah.memory import estimate
 from summary import summarize
 from run import allocations
+from qah.executor import ReferenceExecutor
 
 
 def tiny_model():
@@ -28,6 +29,19 @@ def tiny_model():
 
 
 class CoreTests(unittest.TestCase):
+    def test_external_draft_uses_fork_dflash_mode_without_mtp(self):
+        with tempfile.TemporaryDirectory() as folder:
+            executor = ReferenceExecutor('server', 'target', 8192, Path(folder) / 'server.log',
+                                         mtp_depth=15, draft_model='dspine.gguf')
+            args = executor.argv
+            self.assertEqual(args[args.index('--spec-type') + 1], 'draft-dflash')
+            self.assertEqual(args[args.index('--spec-draft-model') + 1], 'dspine.gguf')
+            self.assertEqual(args[args.index('--spec-draft-n-max') + 1], '15')
+            self.assertEqual(args[args.index('--spec-draft-type-k') + 1], 'q8_0')
+            with self.assertRaisesRegex(ValueError, 'positive draft depth'):
+                ReferenceExecutor('server', 'target', 8192, Path(folder) / 'invalid.log',
+                                  draft_model='dspine.gguf')
+
     def test_mtp_allocation_parser_keeps_main_and_draft_caches(self):
         with tempfile.TemporaryDirectory() as folder:
             log = Path(folder) / 'server.log'

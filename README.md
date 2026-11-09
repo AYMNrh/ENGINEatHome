@@ -49,6 +49,32 @@ py -3.9 bench/compare.py --models huihui --contexts 65536 --depths 3 --trials 2 
 
 `--extended-coding` adds interval merging, dependency ordering and JSON merge patch checks. `--needle-depths` varies placement within repeated filler; summaries separate these depths. Coding uses short prompts at the configured capacity; retrieval/decode use capacity minus 257 prompt tokens. Two repetitions do not provide reliable tail-latency estimates.
 
+## DSpine experiment
+
+`--dspine-draft PATH` enables the pinned community DSpine port through its `draft-dflash` mode (DSpine tensors are auto-detected). It requires the Q4_K_M draft SHA-256 recorded by the harness and a DSpine-capable binary; the original Windows b12110 server does not support it. Without this flag, existing MTP runs are unchanged. Draft depths up to 15 are accepted for DSpine; `mtp_depth` is null for active DSpine rows and `draft_tokens` records the selected block length.
+
+For Linux/WSL, run the harness inside Ubuntu with Linux paths, including `/mnt/f/llama.cpp/models` for the existing weights. Example from the workspace root after building the port:
+
+```bash
+python3 bench/compare.py --models huihui --model-dir /mnt/f/llama.cpp/models \
+  --server build/dspine/cuda-build/bin/llama-server \
+  --dspine-draft build/dspine/Qwen3.8-27B-DSpine-b16-Q4_K_M.gguf \
+  --contexts 8192 --depths 3 --trials 1 --extended-coding \
+  --needle-depths 0.1 0.5 0.9 --tasks coding retrieval decode \
+  --output bench/results/huihui-dspine-8k-d3-g99.jsonl
+```
+
+Use the same fork, context, KV and placement for matched MTP/no-speculation controls. Draft weights and extra recurrent verification states cost memory; a fit refusal is an outcome, not a throughput result. DSpine's own sliding window does not shorten target-model attention. Linux process-RAM telemetry is currently unavailable in the shared monitor and remains null.
+
 ## Git repository
 
-This private repository contains the ENGINEatHome source, tests, experiment configuration and documentation. Model weights, llama.cpp binaries, local benchmark results and the nested `.publication/` checkout are excluded. The `.publication/` checkout belongs to a separate QwenAtHome repository and is not part of this source tree.
+This private repository contains the ENGINEatHome source, tests, experiment configuration and documentation. Selected sanitized synthetic benchmark evidence is published under `bench/evidence/`. Model weights, llama.cpp binaries, raw local benchmark results and the nested `.publication/` checkout are excluded. The `.publication/` checkout belongs to a separate QwenAtHome repository and is not part of this source tree.
+
+## Latest measurements
+
+| Experiment | Near-filled-context decoding | Scope |
+| --- | --- | --- |
+| [Huihui MTP3 at 64K](docs/huihui-64k.md) | 51.08 tok/s median, two runs | 26 requests; coding 10/12, retrieval 12/12 |
+| [Huihui DSpine3 versus MTP3 at 8K](docs/dspine-results.md) | 95.76 versus 79.80 tok/s | Single decode probe each; five profiles, 65 requests total |
+
+DSpine3 used all trunk layers on GPU and about 1 GiB more sampled peak VRAM than MTP3. Its draft limit was reduced to three tokens. These DSpine numbers are for 8K only; no DSpine result exists at 64K or longer. The reports retain failures, memory limits and exact settings. [Sanitized evidence manifest](bench/evidence/publication.json) records original and published artifact hashes; original logs and source snapshots remain local.

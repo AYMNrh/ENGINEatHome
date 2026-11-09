@@ -50,3 +50,5 @@ py -3.9 bench/summary.py bench/results/huihui-64k-expanded.jsonl --output bench/
 ```
 
 Local raw evidence: `bench/results/huihui-64k-expanded.jsonl`; grouped summary: `bench/results/huihui-64k-expanded-summary.json`. Run ID `47501660-226c-4e7f-b3a2-c12b344eceff`. Corresponding archived sources, full model audit, server log and generated modules are retained beside the results. All 26 requests have status `ok`; functional failures are separately retained as `quality_pass=false`. No publication or Git push was performed for this run.
+
+Publication update: [sanitized evidence](../bench/evidence/huihui-64k-expanded.jsonl) and [summary](../bench/evidence/huihui-64k-expanded-summary.json) are included in ENGINEatHome. Private paths are replaced and duplicate response output removed; original measurement hashes remain historical provenance. [Publication hashes and scope](../bench/evidence/publication.json) identify the transformed artifacts. Full logs and original source snapshots remain local.

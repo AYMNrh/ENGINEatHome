@@ -75,6 +75,7 @@ def main():
     p.add_argument('--server', default='F:/llama.cpp/b12110-cuda13/llama-server.exe')
     p.add_argument('--contexts', nargs='+', type=int, default=[32768])
     p.add_argument('--depths', nargs='+', type=int, default=[0, 3], help='MTP drafting depth (0 disables)')
+    p.add_argument('--dspine-draft', help='DSpine GGUF; uses draft-dflash auto-detection in the pinned community fork')
     p.add_argument('--trials', type=int, default=3)
     p.add_argument('--extended-coding', action='store_true', help='include three additional functional coding tasks')
     p.add_argument('--needle-depths', nargs='+', type=float, default=[0.5])
@@ -88,8 +89,8 @@ def main():
     args = p.parse_args()
     if any(not 0 <= d <= 1 for d in args.needle_depths):
         p.error('needle depths must be between zero and one')
-    if args.trials < 1 or any(d < 0 or d > 8 for d in args.depths):
-        p.error('positive trials and MTP depths 0..8 required')
+    if args.trials < 1 or any(d < 0 or d > (15 if args.dspine_draft else 8) for d in args.depths):
+        p.error('positive trials; draft depths 0..8 for MTP or 0..15 for DSpine required')
     if args.draft_ubatch is not None and args.draft_ubatch < 1:
         p.error('draft microbatch must be positive')
     output = Path(args.output).resolve()
@@ -104,6 +105,11 @@ def main():
     spec = importlib.util.spec_from_file_location('focused_fixtures', fixture_path)
     focused = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(focused)
+    draft = inspect_gguf(args.dspine_draft, checksum=True) if args.dspine_draft else None
+    if draft:
+        if draft['sha256'] != '0c6c984ac18611288d7b8f497bc347c4921e8231b1b6abf28650481eaf35ff55':
+            raise ValueError('DSpine draft checksum differs from pinned Q4_K_M artifact')
+        (output.parent / (run_id + '-draft-model.json')).write_text(json.dumps(draft, indent=2), encoding='utf-8')
     coding_tasks = list(focused.TASKS)
     extra_fixture = ROOT / 'bench/fixtures/extended_checks.py'
     if args.extended_coding:
@@ -119,6 +125,7 @@ def main():
                 host=host_inventory(), hardware=hardware_inventory(), cli=vars(args),
                 key_type='q4_0', value_type='q4_0', kv_lossy=True, gpu_layers=args.gpu_layers,
                 extended_fixture_sha256=sha256(extra_fixture) if args.extended_coding else None,
+                draft_model_sha256=draft['sha256'] if draft else None,
                 seed=42, attention_semantics='native hybrid, dense full history, no context shifting')
     for label in args.models:
         name, expected_checksum = MODELS[label]
@@ -131,26 +138,35 @@ def main():
         for context in args.contexts:
             for depth in args.depths:
                 row = dict(base, model_label=label, preferred=label == 'huihui', model_path=model['path'],
-                           model_sha256=model['sha256'], model_audit=str(audit), context=context, mtp_depth=depth,
+                           model_sha256=model['sha256'], model_audit=str(audit), context=context,
+                           mtp_depth=None if draft and depth else depth, draft_tokens=depth,
                            draft_ubatch=args.draft_ubatch,
-                           speculation='draft-mtp' if depth else 'none')
-                if context > arch['declared_context'] or (depth and not arch['mtp_layers']):
+                           speculation=('draft-dflash/dspine' if draft else 'draft-mtp') if depth else 'none')
+                if context > arch['declared_context'] or (depth and not draft and not arch['mtp_layers']):
                     append(output, dict(row, phase='gate', status='unsupported'))
                     continue
                 log = output.parent / ('%s-%s-c%d-mtp%d.log' % (run_id, label, context, depth))
                 executor = ReferenceExecutor(args.server, model['path'], context, log, 'q4_0', 'q4_0',
                     gpu_layers=args.gpu_layers, ubatch=128, mtp_depth=depth,
-                    prefix_cache=True, fit=True, backend_sampling=True, draft_ubatch=args.draft_ubatch)
+                    prefix_cache=True, fit=True, backend_sampling=True, draft_ubatch=args.draft_ubatch,
+                    draft_model=args.dspine_draft if depth else None)
                 row.update(reference_argv=executor.argv, raw_log=str(log), gpu_before=gpu_sample())
                 try:
                     with Monitor(executor) as monitor:
                         with executor:
                             fit_failed = 'failed to fit params to free device memory' in log.read_text(
                                 encoding='utf-8', errors='replace')
+                            draft_omitted = bool(draft and depth and 'failed to measure the memory of the extra model'
+                                                 in log.read_text(encoding='utf-8', errors='replace'))
+                            loaded_gpu = gpu_sample()
+                            row['gpu_after_load'] = loaded_gpu
+                            row['reference_fit_draft_omitted'] = draft_omitted
                             row['reference_fit_margin_failed'] = fit_failed
-                            if fit_failed and not args.allow_memory_pressure:
+                            actual_margin_failed = bool(draft and depth and
+                                (loaded_gpu is None or loaded_gpu['free'] < 512 * 1024**2))
+                            if (fit_failed or actual_margin_failed) and not args.allow_memory_pressure:
                                 append(output, dict(row, phase='gate', status='refused_budget',
-                                    error='Reference fitter cannot meet requested 512 MiB reserve; no prefill attempted',
+                                    error='Reference fit or actual post-load free VRAM cannot establish 512 MiB reserve; no prefill attempted',
                                     backend_allocations=allocations(log), memory=monitor.report()))
                                 continue
                             for trial in range(args.trials):

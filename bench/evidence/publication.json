@@ -1,0 +1,66 @@
+{
+  "scope": "Huihui 64K and Tencent DSpine 8K synthetic benchmark evidence, 2026-11-08/09",
+  "sanitization": "Absolute local paths and machine names replaced; duplicate output strings removed from responses. Original model, binary, source and output hashes remain historical provenance. Full logs, source snapshots, generated execution directories, weights and binaries excluded. Published artifacts use UTF-8 LF bytes.",
+  "files": [
+    {
+      "file": "huihui-64k-expanded.jsonl",
+      "original_sha256": "fc820380e54707a3a27319583d873ca46db6f02246a9c231cd9eb12fea01e7c1",
+      "published_sha256": "e11e38a52eb560905d0d82269356f4640bbf5fbdb30b45d81aee1b117034b76b"
+    },
+    {
+      "file": "huihui-64k-expanded-summary.json",
+      "original_sha256": "6f516691e7f0bd580eab534708606d31e4375b3dcfbac36e2939e1c4603adef0",
+      "published_sha256": "7e2d347f29075d01e4f3c0bcdeb5b9680645ae49d8f425e1f6405f48bf620d2c"
+    },
+    {
+      "file": "huihui-dspine-8k-d7-g60.jsonl",
+      "original_sha256": "8553c8fc557e572275c7d02bc488dbcd7226e0ad7f1ebc9c7b14fbd50dd76bdc",
+      "published_sha256": "94193fcf714ab6ff9bca1e19c8ab5b96073394fde70ec40afc6a1c3bc9d42643"
+    },
+    {
+      "file": "huihui-dspine-8k-d7-g60-summary.json",
+      "original_sha256": "5a9fdd7282a2f94753966acbc30fabdf4ded04a37ae88ca79f3d4bcf8bd39365",
+      "published_sha256": "d02837148d3a5770b9ce97e8d9ae2938d5f3e5268e79f9f3ac47ee905c24a616"
+    },
+    {
+      "file": "huihui-dspine-controls-8k-g60.jsonl",
+      "original_sha256": "8edf2ccf186942d0335491dc0812ae0e4fc2dc18d4f1bace214941cbc41edc70",
+      "published_sha256": "f84b8600adf954f33d5392c7b825f7f94fafd9d5fec5f3ebd6d453072629d0cc"
+    },
+    {
+      "file": "huihui-dspine-controls-8k-g60-summary.json",
+      "original_sha256": "d7f46c78e7b5d3f244eefa173228e0cc62c274ac82fa0dfbf0861343e5698550",
+      "published_sha256": "a9fc7b488d78643c1cfff95d84dce1ab864819459056bb8b8b8fae1bf093c4cd"
+    },
+    {
+      "file": "huihui-dspine-8k-d3-g99.jsonl",
+      "original_sha256": "a39fd1c53e0a8416af78a8a2e28530ac8b1dd7d25eb831f4ed3b36e00f024dc8",
+      "published_sha256": "38397931e6b920ea7325b84bec40fb730d4873494cde92255b157a915e8a0f4a"
+    },
+    {
+      "file": "huihui-dspine-8k-d3-g99-summary.json",
+      "original_sha256": "fd23a6b2d27014736dd36725ee68ac95ddc726bb3b2c5b62d2c8d294ba2026be",
+      "published_sha256": "41f030413e1d02e99a8107345e60075a171967752f1912b4efc1763efdc0f9dc"
+    },
+    {
+      "file": "huihui-dspine-mtp-8k-g99.jsonl",
+      "original_sha256": "44c489802c22308eed81bd714a90b1fa41f5e065100c6fbb5f478b9eb791bc87",
+      "published_sha256": "ea7ae8d1349036da27d05b431ba9be61e7a06c08131a5518d9b02717082f500a"
+    },
+    {
+      "file": "huihui-dspine-mtp-8k-g99-summary.json",
+      "original_sha256": "2a46e59be6394f22b08ab5db017894522d44f8132909bacb205b19eb0bb46450",
+      "published_sha256": "0c03290c59ebe72f55b68db049908077eb64d41169809cf1f66fd353f002d3ca"
+    },
+    {
+      "file": "huihui-dspine-combined-summary.json",
+      "original_sha256": "6fbca0dbdfd9f597c169360e42c4bf802e70d322d81d30672831f8279ca4a1ec",
+      "published_sha256": "22199b92e91caa65f1be7aeae3b843b7c263d6cd68a14f9168e4eb88681ddad8"
+    },
+    {
+      "file": "huihui-dspine-8k-full.jsonl",
+      "original_sha256": "53e2fdd5aa2efe2562b9bf797ddac11d9c8d01b755d6a45c6733ec3969cc1fb8",
+      "published_sha256": "0262ddb4b6d440b3286aeabecefe7782d88512f8ea051d1533d4a746ff114072"
+    }
+  ]
+}
