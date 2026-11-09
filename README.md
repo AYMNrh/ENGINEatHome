@@ -25,7 +25,7 @@ Cold requests disable prompt reuse. Warm-prefix requests repeat the exact token 
 
 Each server is isolated on loopback, uses one slot, disables automatic fit, context shifting, speculation and host prompt-cache/checkpoints, and is terminated after its trial. Timeouts/failures are outcomes. `--allocation-only` loads and warms up the model, records allocation details and makes no prefill/decode/quality claim. Check `reference_argv`, actual generation settings and verbosity-4 allocation logs for precise residency and behavior. No existing server is modified. Results are local ignored artifacts under `bench/results/`; summary never turns failed/unknown quality into success.
 
-Completed-request rows include model and binary checksums, reference build/commit, source hash, repository commit (null while unborn), dirty status, exact prompt size/hash, generation, seed/sampling, KV types, placement flags, phase timings, sampled memory peaks and raw-log path. Allocation/gate rows explicitly omit unmeasured request phases. See `bench/schema.json`, `docs/architecture-audit.md`, `docs/memory-model.md`, `docs/benchmark-results.md`, and `docs/progress.md`. No commits or pushes have been made.
+Completed-request rows include model and binary checksums, reference build/commit, source hash, repository commit (null while unborn), dirty status, exact prompt size/hash, generation, seed/sampling, KV types, placement flags, phase timings, sampled memory peaks and raw-log path. Allocation/gate rows explicitly omit unmeasured request phases. See `bench/schema.json`, `docs/architecture-audit.md`, `docs/memory-model.md`, `docs/benchmark-results.md`, and `docs/progress.md`.
 
 ## Preferred-model comparison
 
