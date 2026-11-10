@@ -72,7 +72,9 @@ This private repository contains the ENGINEatHome source, tests, experiment conf
 
 ## Latest measurements
 
-**Current rank 1 (provisional): [Strata IQ3_S, thinking enabled, 64K capacity](docs/strata-iq3-thinking-pilot-20261110.md).** Six of six coding-agent tasks passed and finished normally, at 103–106 accepted output tok/s including reasoning; actual prompts reached 42,699 tokens. Preserve these settings as the best measured Strata agent reference. Full 18-attempt repeatability remains untested, the physical-RAM reserve gate fails, and expert-tail skipping 7 remains approximate. [Saved configuration and measurements](docs/results/strata-iq3-thinking-pilot-20261110.json).
+**Current rank 1 candidate: [OpenCode + Strata IQ3_S, 1K thinking, 64K capacity](docs/strata-iq3-opencode-hard-20261110.md).** It passed both attempts on the hardest saved issue and was fastest among the tied passing setups: 6m28s and 7m08s, at 102.1 accepted output tok/s including reasoning. The 4K setup ranks second (2/2, slower); no explicit thinking cap ranks third (1/2). These are two trials on one issue, so the full six-issue, 18-attempt validation remains pending. [Saved ranking, settings and measurements](docs/results/strata-iq3-opencode-hard-20261110.json). [Shareable benchmark card](docs/assets/strata-opencode-64k-card.png).
+
+The broader [Hermes thinking-on validation](docs/strata-iq3-thinking18-20261110.md) scored 13/18 strict passes and 16/18 correct patches, versus 7/18 and 10/18 with thinking off. OpenCode also used larger step/time/output limits, so this does not isolate the harness effect. The physical-RAM reserve gate still fails, and expert-tail skipping 7 remains approximate. Neither result establishes 128K promotion.
 
 | Experiment | Near-filled-context decoding | Scope |
 | --- | --- | --- |

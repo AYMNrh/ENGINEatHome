@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "profile_id": "strata-flash-iq3_s-int8-mtp4-tail7-thinking",
+  "ranking": {
+    "rank": 1,
+    "status": "best measured Strata coding-agent configuration; 18-attempt repeat completed, promotion gates failed",
+    "promotion_passed": false
+  },
+  "settings": {
+    "model": "Qwen3.8-Flash-Next IQ3_S",
+    "engine": "Strata0.1.59",
+    "context_capacity": 65536,
+    "kv": "int8",
+    "drafting": "MTP",
+    "spec": 4,
+    "spec_min_p": 0.5,
+    "vram_reserve_mib": 1500,
+    "route_tail_skip": 7,
+    "attention": "native unchanged",
+    "ple": true,
+    "thinking": true,
+    "temperature": 0,
+    "seed": 42,
+    "max_turns": 40,
+    "episode_timeout_seconds": 600,
+    "memory_admission": "native Strata; original 8GiB physical reserve still evaluated, not a promotion pass",
+    "reasoning_budget_tokens_requested": 1024,
+    "max_output_tokens": 4096,
+    "placement": "automatic expert arena; GPU/RAM/SSD hybrid",
+    "top_p": 1,
+    "top_k": 1,
+    "min_p": 0,
+    "repeat_penalty": 1
+  },
+  "provenance": {
+    "model_sha256": "4c1eb2ceb4915e1192f4f386021897bde56a97f40a0bb78bb86465e0f7d2aca3",
+    "second_shard_sha256": "316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113",
+    "backend_binary_sha256": "12a21cddb83e3af14c36478590676e5749b0075dedd3568e8630848f20ad819f",
+    "hermes_commit": "b766b76988449e15e3914037d3e03fb96af72774",
+    "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e"
+  },
+  "summary": {
+    "task_attempts": 18,
+    "infrastructure_task_starts": 0,
+    "infrastructure_task_results": 0,
+    "tasks_completed": 18,
+    "tasks_passed": 13,
+    "tasks_failed": 5,
+    "tasks_ungraded": 0,
+    "completed_successful_tasks_per_hour": 11.364162897174932,
+    "task_elapsed_median_seconds": 195.7602220773697,
+    "rates": [
+      {
+        "profile": "strata-flash-iq3_s-int8-mtp4-tail7-thinking",
+        "context": 65536,
+        "prompt_tokens": "0-8K",
+        "prompt_tokens_min": 15,
+        "prompt_tokens_max": 8079,
+        "accepted_output_tokens_per_second": 92.19612844235374,
+        "prefill_tokens_per_second": 1709.6042555678962,
+        "generated_tokens": 30653,
+        "requests": 71
+      },
+      {
+        "profile": "strata-flash-iq3_s-int8-mtp4-tail7-thinking",
+        "context": 65536,
+        "prompt_tokens": "8-32K",
+        "prompt_tokens_min": 8219,
+        "prompt_tokens_max": 32711,
+        "accepted_output_tokens_per_second": 98.19679876144052,
+        "prefill_tokens_per_second": 888.0684071766874,
+        "generated_tokens": 132815,
+        "requests": 347
+      },
+      {
+        "profile": "strata-flash-iq3_s-int8-mtp4-tail7-thinking",
+        "context": 65536,
+        "prompt_tokens": "32-48K",
+        "prompt_tokens_min": 33016,
+        "prompt_tokens_max": 48922,
+        "accepted_output_tokens_per_second": 96.9879822749254,
+        "prefill_tokens_per_second": 726.676260396595,
+        "generated_tokens": 49859,
+        "requests": 112
+      },
+      {
+        "profile": "strata-flash-iq3_s-int8-mtp4-tail7-thinking",
+        "context": 65536,
+        "prompt_tokens": "48-64K",
+        "prompt_tokens_min": 49964,
+        "prompt_tokens_max": 49964,
+        "accepted_output_tokens_per_second": 92.57075471698113,
+        "prefill_tokens_per_second": 157.02479338842974,
+        "generated_tokens": 157,
+        "requests": 1
+      }
+    ],
+    "resources": {
+      "device_vram_peak_sampled_bytes": 15592325120,
+      "device_vram_min_free_bytes": 1180696576,
+      "process_peak_rss_bytes": 52385214464,
+      "host_min_available_bytes": 15515648,
+      "gpu_power_mean_watts": 122.01901399314214,
+      "gpu_power_peak_watts": 261.45,
+      "gpu_energy_wh": 140.5075313829858,
+      "power_covered_seconds": 4145.477794199993,
+      "observed_seconds": 4145.477794199993,
+      "power_coverage_fraction": 0.9836036512606942,
+      "gpu_temperature_peak_c": 59.64,
+      "gpu_utilization_mean_percent": 61.55134570159394,
+      "power_scope": "device-wide GPU including other applications; CPU and wall power unavailable",
+      "samples": 3827,
+      "device_counter_includes_other_processes": true,
+      "exact_vram_peak": false
+    },
+    "tool_call_errors": 39,
+    "tool_calls": 388,
+    "compactions": 0,
+    "compaction_counters_missing": 2,
+    "cached_input_tokens": 10932067,
+    "cached_input_tokens_source": "request stream",
+    "task_groups": [
+      {
+        "profile": "strata-flash-iq3_s-int8-mtp4-tail7-thinking",
+        "phase": "strata_direct_1794309064",
+        "completed": 18,
+        "passed": 13,
+        "elapsed_seconds": 4118.209182977676
+      }
+    ],
+    "gpu_wh_per_passed_task": 10.808271644845062
+  },
+  "patch_passes": 16,
+  "cache_reuse_fraction": 0.9617978048058626,
+  "episodes": [
+    {
+      "instance_id": "psf__requests-1142",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 149.45782566070557,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 159.564772605896,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 147.55527186393738,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 231.95567154884338,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10323",
+      "trial": 0,
+      "strict_pass": false,
+      "patch_pass": true,
+      "elapsed_seconds": 473.78411293029785,
+      "agent_timeout": true,
+      "turn_exit_reason": null
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10449",
+      "trial": 0,
+      "strict_pass": false,
+      "patch_pass": true,
+      "elapsed_seconds": 334.2619812488556,
+      "agent_timeout": false,
+      "turn_exit_reason": "max_iterations_reached(40/40)"
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 101.12469863891602,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 70.43942093849182,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 81.36793184280396,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 273.739315032959,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10323",
+      "trial": 1,
+      "strict_pass": false,
+      "patch_pass": false,
+      "elapsed_seconds": 398.7002513408661,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10449",
+      "trial": 1,
+      "strict_pass": false,
+      "patch_pass": true,
+      "elapsed_seconds": 474.2710704803467,
+      "agent_timeout": true,
+      "turn_exit_reason": null
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 96.12569117546082,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 111.44680786132812,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "trial": 2,
+      "strict_pass": false,
+      "patch_pass": false,
+      "elapsed_seconds": 313.8290390968323,
+      "agent_timeout": false,
+      "turn_exit_reason": "max_iterations_reached(40/40)"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 235.81081914901733,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10323",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 157.79409503936768,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10449",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 306.98040652275085,
+      "agent_timeout": false,
+      "turn_exit_reason": "text_response(finish_reason=stop)"
+    }
+  ],
+  "comparison": {
+    "thinking_off_strict": 7,
+    "thinking_off_patch": 10,
+    "thinking_off_successful_tasks_per_hour": 8.35137,
+    "thinking_on_strict": 13,
+    "thinking_on_patch": 16
+  },
+  "notes": [
+    "18 new attempts; pilot6 not included. Six frozen issues times3.",
+    "Operational startup order changed: model before Docker. Inference settings unchanged. Sequential comparison, not randomized.",
+    "Accepted output includes reasoning. Requested reasoning budget enforcement unverified.",
+    "Expert-tail skip7 remains approximate.",
+    "13/18 strict is below15/18 gate; 8GiB physical reserve also fails.",
+    "Compaction counters unavailable for2timedout episodes. No compaction/resume stability claim.",
+    "GPU energy device-wide GPU-only; no CPU/wall energy. Agent-window100% covered; campaign coverage uses actual finish time rather than later idle reporting time.",
+    "Raw histories/traces/privatepaths/harness changes remain local."
+  ]
+}

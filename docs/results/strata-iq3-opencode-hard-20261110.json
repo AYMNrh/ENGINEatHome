@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "preferred_candidate": "thinking1k",
+  "ranking_status": "provisional; two trials on one frozen issue; full18 pending",
+  "ranking_scope": "same-task OpenCode reasoning-budget comparison, not broad model or isolated harness ranking",
+  "settings": {
+    "model": "Qwen3.8-Flash-Next IQ3_S",
+    "engine": "Strata0.1.59",
+    "context_capacity": 65536,
+    "kv": "int8",
+    "drafting": "MTP",
+    "spec": 4,
+    "spec_min_p": 0.5,
+    "vram_reserve_mib": 1500,
+    "route_tail_skip": 7,
+    "attention": "native unchanged",
+    "ple": true,
+    "thinking": true,
+    "temperature": 0,
+    "seed": 42,
+    "memory_admission": "native Strata; original 8GiB physical reserve still evaluated, not a promotion pass",
+    "reasoning_budget_tokens_requested": 1024,
+    "max_output_tokens": 8192,
+    "placement": "automatic expert arena; GPU/RAM/SSD hybrid",
+    "top_p": 1,
+    "top_k": 1,
+    "min_p": 0,
+    "repeat_penalty": 1,
+    "agent": "OpenCode1.18.16",
+    "max_steps": 100,
+    "agent_timeout_seconds": 1200,
+    "reasoning_effort": "high"
+  },
+  "provenance": {
+    "model_sha256": "4c1eb2ceb4915e1192f4f386021897bde56a97f40a0bb78bb86465e0f7d2aca3",
+    "second_shard_sha256": "316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113",
+    "backend_binary_sha256": "12a21cddb83e3af14c36478590676e5749b0075dedd3568e8630848f20ad819f",
+    "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+    "opencode_version": "1.18.16"
+  },
+  "profiles": [
+    {
+      "rank": 1,
+      "profile": "thinking1k",
+      "requested_reasoning_budget_tokens": 1024,
+      "attempts": 2,
+      "strict_passes": 2,
+      "patch_passes": 2,
+      "elapsed_seconds": [
+        427.8726108074188,
+        387.57480120658875
+      ],
+      "accepted_decode_tokens_per_second": 102.07545466984578,
+      "fresh_prefill_tokens_per_second": 721.3432727799088,
+      "actual_max_prompt_tokens": 41941
+    },
+    {
+      "rank": 2,
+      "profile": "thinking4k",
+      "requested_reasoning_budget_tokens": 4096,
+      "attempts": 2,
+      "strict_passes": 2,
+      "patch_passes": 2,
+      "elapsed_seconds": [
+        432.6406683921814,
+        546.1906657218933
+      ],
+      "accepted_decode_tokens_per_second": 101.96457592711594,
+      "fresh_prefill_tokens_per_second": 817.0042064796501,
+      "actual_max_prompt_tokens": 55346
+    },
+    {
+      "rank": 3,
+      "profile": "thinking-auto",
+      "requested_reasoning_budget_tokens": 0,
+      "attempts": 2,
+      "strict_passes": 1,
+      "patch_passes": 1,
+      "elapsed_seconds": [
+        479.9317057132721,
+        748.6696758270264
+      ],
+      "accepted_decode_tokens_per_second": 103.48039714116092,
+      "fresh_prefill_tokens_per_second": 1104.8214302422411,
+      "actual_max_prompt_tokens": 57324
+    }
+  ],
+  "resources": {
+    "device_vram_peak_sampled_bytes": 15586033664,
+    "device_vram_min_free_bytes": 1186988032,
+    "process_peak_rss_bytes": 51973836800,
+    "host_min_available_bytes": 123400192,
+    "gpu_power_mean_watts": 113.22763533129232,
+    "gpu_power_peak_watts": 266.97,
+    "gpu_energy_wh": 95.08948739606772,
+    "power_covered_seconds": 3023.309226800018,
+    "observed_seconds": 3023.309226800018,
+    "power_coverage_fraction": 1.0,
+    "gpu_temperature_peak_c": 62.75,
+    "gpu_utilization_mean_percent": 54.26570915619389,
+    "power_scope": "device-wide GPU including other applications; CPU and wall power unavailable",
+    "samples": 2785,
+    "device_counter_includes_other_processes": true,
+    "exact_vram_peak": false,
+    "target_sample_interval_seconds": 1.0,
+    "scope": "trial startup through current request; cumulative"
+  },
+  "episodes": [
+    {
+      "profile": "thinking1k",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 427.8726108074188,
+      "api_calls": 48,
+      "tool_calls": 57,
+      "opencode_tool_error_states": 2,
+      "agent_timeout": false
+    },
+    {
+      "profile": "thinking4k",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 432.6406683921814,
+      "api_calls": 42,
+      "tool_calls": 48,
+      "opencode_tool_error_states": 1,
+      "agent_timeout": false
+    },
+    {
+      "profile": "thinking-auto",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 479.9317057132721,
+      "api_calls": 35,
+      "tool_calls": 41,
+      "opencode_tool_error_states": 2,
+      "agent_timeout": false
+    },
+    {
+      "profile": "thinking1k",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 387.57480120658875,
+      "api_calls": 49,
+      "tool_calls": 55,
+      "opencode_tool_error_states": 2,
+      "agent_timeout": false
+    },
+    {
+      "profile": "thinking4k",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 546.1906657218933,
+      "api_calls": 54,
+      "tool_calls": 55,
+      "opencode_tool_error_states": 2,
+      "agent_timeout": false
+    },
+    {
+      "profile": "thinking-auto",
+      "trial": 1,
+      "strict_pass": false,
+      "patch_pass": false,
+      "elapsed_seconds": 748.6696758270264,
+      "api_calls": 100,
+      "tool_calls": 100,
+      "opencode_tool_error_states": 3,
+      "agent_timeout": false
+    }
+  ],
+  "limitations": [
+    "One Sphinx10323 issue repeated twice per setup.",
+    "Expert-tail skip7 approximate; full-expert comparison pending.",
+    "Original8GiB physical-memory reserve fails; no128K promotion.",
+    "Output includes reasoning; fresh prefill excludes reused tokens.",
+    "Budget0 still8192 output cap and server answer-room.",
+    "Custom bash nonzero exit inside completed tool JSON may be omitted from error-state counter. Compaction count unavailable.",
+    "GPU energy device-wide GPU-only with100% agent-window coverage; noCPUwall and no overlapping runtime sum.",
+    "OpenCode step/time/output limits differ from earlier Hermes; no isolated harness-effect claim."
+  ],
+  "publication_scope": "Reviewed findings, ranked reference settings and card only; raw traces, absolute local paths, authentication and unrelated harness changes excluded."
+}
