@@ -1,0 +1,234 @@
+"""Render README cards from published measurements; optional dependency: Pillow."""
+import json
+import re
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
+
+ROOT = Path(__file__).resolve().parents[1]
+ASSETS = ROOT / 'docs/assets'
+W, H, SCALE = 1600, 1080, 2
+BG, PANEL, BORDER = '#090f12', '#111d22', '#273b43'
+WHITE, MUTED, GREEN, CYAN, AMBER = '#edf5f6', '#a6bac2', '#b5f04c', '#58d9e3', '#ffc16b'
+
+
+def load(name):
+    return json.loads((ROOT / 'docs/results' / name).read_text(encoding='utf-8-sig'))
+
+
+class Card:
+    def __init__(self, title, subtitle, number):
+        self.image = Image.new('RGB', (W*SCALE, H*SCALE), BG)
+        self.draw = ImageDraw.Draw(self.image)
+        self.fonts = {}
+        self.rect((24, 24, 1576, 1056), BG, BORDER, 20)
+        self.text(52, 42, 'ENGINEatHome', 22, GREEN, True)
+        self.text(1270, 42, '10 NOV 2026 / '+number, 21, MUTED)
+        self.text(52, 86, title, 46, WHITE, True)
+        self.text(52, 146, subtitle, 24, MUTED)
+
+    def font(self, size, bold):
+        key = size, bold
+        if key not in self.fonts:
+            filename = 'consolab.ttf' if bold else 'consola.ttf'
+            candidates = [Path('C:/Windows/Fonts') / filename,
+                          Path('/usr/share/fonts/truetype/dejavu') /
+                          ('DejaVuSansMono-Bold.ttf' if bold else 'DejaVuSansMono.ttf')]
+            path = next((p for p in candidates if p.is_file()), None)
+            if path is None:
+                raise RuntimeError('Install Consolas or DejaVu Sans Mono to render cards')
+            self.fonts[key] = ImageFont.truetype(str(path), size*SCALE)
+        return self.fonts[key]
+
+    def text(self, x, y, value, size=24, color=WHITE, bold=False, width=None):
+        value = str(value)
+        font = self.font(size, bold)
+        bounds = self.draw.textbbox((0, 0), value, font=font)
+        if (bounds[2]-bounds[0])/SCALE > (W-x-40 if width is None else width):
+            raise ValueError('Text exceeds its card region: '+value)
+        self.draw.text((x*SCALE, y*SCALE), value, font=font, fill=color)
+
+    def rect(self, box, fill=PANEL, outline=None, radius=12):
+        self.draw.rounded_rectangle(tuple(int(v*SCALE) for v in box), radius*SCALE,
+                                    fill=fill, outline=outline, width=SCALE)
+
+    def metric(self, index, label, value, detail, color=GREEN):
+        x = 52+380*index
+        self.rect((x, 198, x+356, 330), outline=BORDER)
+        self.text(x+18, 211, label, 20, MUTED, width=320)
+        self.text(x+18, 241, value, 40, color, True, width=320)
+        self.text(x+18, 297, detail, 19, MUTED, width=320)
+
+    def bar(self, x, y, width, value, maximum, color, label):
+        if not 0 <= value <= maximum:
+            raise ValueError('Bar value outside its explicit zero-based scale')
+        self.rect((x, y, x+width, y+25), '#20323a', radius=4)
+        self.rect((x, y, x+max(2, width*value/maximum), y+25), color, radius=4)
+        self.text(x, y-29, label, 20, MUTED, width=width)
+
+    def footer(self, lines):
+        self.rect((52, 925, 1548, 1035), '#252219', '#6c5431')
+        for i, line in enumerate(lines):
+            self.text(70, 939+i*27, line, 21, AMBER, width=1460)
+
+    def save(self, name):
+        path = ASSETS / name
+        self.image.resize((W, H), Image.Resampling.LANCZOS).save(path, optimize=True)
+        print(path.relative_to(ROOT))
+
+
+def coder_card():
+    r = load('strata-coder-filled64k-20261110.json')
+    resources, requests = r['resources'], r['requests']
+    c = Card('CODER / FILLED 64K', 'RTX 5070 Ti 16GB + 64GB RAM / Strata 0.1.59 / synthetic probe', '01')
+    c.metric(0, 'ACTUAL INPUT', f'{r["actual_input_tokens"]:,}', '65,536 capacity', CYAN)
+    c.metric(1, 'COLD DECODE', f'{requests[0]["decode_tps"]:.1f} tok/s', 'Thinking OFF')
+    c.metric(2, 'CACHED DECODE', f'{max(x["decode_tps"] for x in requests):.1f} tok/s', 'Best of 2 warm requests')
+    checks = sum(x['canary_retrieval_passed'] and x['syntax_passed'] for x in requests)
+    c.metric(3, 'MARKERS + SYNTAX', f'{checks}/{len(requests)}', 'Not coding-agent grades', CYAN)
+    for x, title in [(52, 'DECODE / tok/s'), (824, 'FRESH PREFILL / tok/s')]:
+        c.rect((x, 354, x+724, 654), outline=BORDER)
+        c.text(x+22, 373, title, 25, WHITE, True)
+    for i, request in enumerate(requests):
+        label = ['Cold / no reuse', 'Cached 1 / 57,344 reused', 'Cached 2 / 57,344 reused'][i]
+        y = 452+i*73
+        for x, key, limit, color in [(76, 'decode_tps', 160, GREEN), (848, 'fresh_prefill_tps', 4000, CYAN)]:
+            c.bar(x, y, 520, request[key], limit, color, label)
+            c.text(x+535, y-2, f'{request[key]:,.1f}', 25, color, True, width=146)
+    c.text(76, 625, 'Scale: 0 to 160 / accepted output', 19, MUTED)
+    c.text(848, 625, 'Scale: 0 to 4,000 / fresh input only', 19, MUTED)
+    values = [('PEAK VRAM', f'{resources["device_vram_peak_sampled_bytes"]/2**30:.2f} GiB'),
+              ('NATIVE PEAK RSS', f'{resources["process_peak_rss_bytes"]/2**30:.2f} GiB'),
+              ('MIN HOST RAM FREE', f'{resources["host_min_available_bytes"]/2**30:.2f} GiB'),
+              ('GPU ENERGY', f'{resources["gpu_energy_wh"]:.2f} Wh')]
+    for i, (label, value) in enumerate(values):
+        x = 70+i*380
+        c.text(x, 696, label, 19, MUTED)
+        c.text(x, 729, value, 34, WHITE, True, width=340)
+    c.text(70, 794, f'GPU: {resources["gpu_power_mean_watts"]:.0f} W mean / {resources["gpu_power_peak_watts"]:.0f} W peak / '
+           f'{resources["gpu_temperature_peak_c"]:.1f} C peak', 24, MUTED)
+    c.text(70, 839, '256 experts/layer / 10 active / retained weights 3.5 bpw', 24, CYAN)
+    c.text(70, 878, 'INT8 KV / MTP4 / full PLE / hybrid GPU + RAM + SSD', 23, MUTED)
+    c.footer(['3 requests. Repeated repository text; 3 canaries + Python compile, no code execution.',
+              'Expert-tail skip 7 is approximate. Separate thinking-on agent validation is pending.',
+              'GPU-only device-wide energy includes startup; RSS can include shared/mapped pages.'])
+    c.save('coder-filled64k.png')
+
+
+def quality_card():
+    off = load('strata-iq3-hermes18-20261109.json')['counts']
+    on = load('strata-iq3-thinking18-20261110.json')
+    oc = load('strata-iq3-opencode18-20261110.json')
+    report = (ROOT/'docs/strata-iq3-opencode18-20261110.md').read_text()
+    decode = float(re.search(r'decode: \*\*([\d.]+) tok/s', report)[1])
+    c = Card('CODING AGENTS / MEASURED QUALITY', 'Original IQ3_S / 64K capacity / six selected issues x three attempts', '02')
+    c.metric(0, 'OPENCODE STRICT', f'{oc["validation"]["strict_passes"]}/18', 'Correct patch + clean stop')
+    c.metric(1, 'PASSING PATCHES', f'{oc["validation"]["patch_passes"]}/18', 'Independent held-out tests', CYAN)
+    c.metric(2, 'ACCEPTED DECODE', f'{decode:.1f} tok/s', 'Includes reasoning')
+    c.metric(3, 'MAX ACTUAL INPUT', f'{oc["summary"]["actual_max_prompt_tokens"]:,}', 'Capacity is not prompt size', CYAN)
+    c.rect((52, 354, 1548, 704), outline=BORDER)
+    c.text(74, 372, 'COMPLETED MATRICES / counts out of 18', 25, WHITE, True)
+    c.text(1050, 375, 'STRICT', 21, GREEN, True)
+    c.text(1220, 375, 'PATCH', 21, CYAN, True)
+    rows = [('Hermes / OFF', off['passes'], off['patch_grade_passes']),
+            ('Hermes / ON', on['summary']['tasks_passed'], on['patch_passes']),
+            ('OpenCode / 1K', oc['validation']['strict_passes'], oc['validation']['patch_passes'])]
+    for i, (label, strict, patch) in enumerate(rows):
+        y = 432+i*86
+        c.text(78, y+10, label, 27, WHITE, True, width=310)
+        for offset, value, color in [(0, strict, GREEN), (34, patch, CYAN)]:
+            c.rect((430, y+offset, 1360, y+offset+22), '#20323a', radius=3)
+            c.rect((430, y+offset, 430+930*value/18, y+offset+22), color, radius=3)
+            c.text(1380, y+offset-4, f'{value}/18', 24, color, True, width=140)
+    summary, resources = oc['summary'], oc['resources']
+    for i, (label, value) in enumerate([
+        ('MEDIAN EPISODE', f'{summary["median_task_seconds"]/60:.2f} min'),
+        ('CACHE REUSE', f'{summary["cache_reuse_fraction"]*100:.1f}%'),
+        ('TOOLS / ERRORS', f'{summary["tool_calls"]} / {summary["opencode_tool_error_states"]}'),
+        ('GPU ENERGY', f'{resources["gpu_energy_wh"]:.1f} Wh')]):
+        x = 70+i*380
+        c.text(x, 743, label, 19, MUTED)
+        c.text(x, 775, value, 32, WHITE, True, width=340)
+    c.text(70, 837, 'OpenCode 1.18.16 / high effort / requested thinking 1K / output 8K', 23, MUTED)
+    c.text(70, 875, 'Strict completion = graded patch + normal finish within the agent limits.', 23, CYAN)
+    c.footer(['Historical OpenCode completion scores are affected by the shell-timeout unit bug.',
+              'Harnesses had different step/time/output limits. This is not a full SWE-bench score.',
+              'RAM reserve failed; tail skip 7 is approximate. Coder agent quality is not established.'])
+    c.save('coding-quality.png')
+
+
+def stability_card():
+    r = load('strata-iq3-efficiency-20261110.json')
+    s, a, b = r['stability'], r['profiles']['tail7'], r['profiles']['tail0']
+    c = Card('STABILITY / EXPERT-TAIL COMPARISON', 'Original IQ3_S / corrected tool harness / separate measured experiments', '03')
+    c.metric(0, 'STABILITY', 'PASS' if s['passed'] else 'FAIL', f'{s["elapsed_seconds"]/60:.0f} minutes / review')
+    c.metric(1, 'REVIEW TURNS', str(s['review_turns']), 'Not new coding tasks', CYAN)
+    c.metric(2, 'COMPLETED TOOLS', str(s['completed_tools']), 'Real tool execution')
+    c.metric(3, 'COMPACTIONS', str(s['recorded_compactions']), 'Recorded native events', CYAN)
+    c.rect((52, 354, 776, 752), outline=BORDER)
+    c.text(76, 375, 'ONE-HOUR REVIEW / PASSED', 27, GREEN, True)
+    for i, label in enumerate(['Compaction + exact memory recall', 'Restart + persisted message history',
+                               'Tools working after both checks', 'Existing patch preserved',
+                               f'Held-out grading: {s["grade"]["tests"]}/{s["grade"]["tests"]} tests']):
+        c.text(76, 431+i*47, '+ '+label, 25, WHITE, width=675)
+    c.text(76, 696, f'{s["resources"]["gpu_energy_wh"]:.1f} GPU Wh / review + checks', 23, MUTED)
+    c.rect((824, 354, 1548, 752), outline=BORDER)
+    c.text(848, 375, 'FOUR CODING ATTEMPTS / PROFILE', 26, WHITE, True)
+    for i, (profile, data, color) in enumerate([('Skip 7 / ON', a, GREEN), ('Skip 0 / OFF', b, CYAN)]):
+        y = 455+i*76
+        c.bar(848, y, 500, data['decode_tps'], 120, color, profile+' / decode tok/s')
+        c.text(1365, y-2, f'{data["decode_tps"]:.1f}', 28, color, True, width=150)
+    c.text(848, 595, '                    ON       OFF', 21, MUTED)
+    c.text(848, 630, f'Strict passes       {a["strict_passes"]}/4      {b["strict_passes"]}/4', 25)
+    c.text(848, 666, f'Passing patches     {a["patch_passes"]}/4      {b["patch_passes"]}/4', 25)
+    c.text(848, 706, f'Coding GPU Wh      {a["matched_task_gpu_wh"]:.1f}     {b["matched_task_gpu_wh"]:.1f}', 24, MUTED)
+    c.text(70, 790, 'ON/OFF: Pytest x3 + Sphinx x1. All five strict failures hit 20 minutes.', 24, MUTED)
+    c.text(70, 832, 'Observed coding decode includes reasoning. Different generated trajectories.', 23, MUTED)
+    c.text(70, 875, 'Original IQ3_S RAM reserve: FAILED / 128K promotion: NOT PASSED', 25, AMBER, True)
+    c.footer(['Stability tested an existing patch, not new coding throughput or filled-64K retrieval.',
+              'Four coding attempts/profile cannot establish quality equivalence. No retries removed.',
+              'Coding energy excludes both review runs. All energy is device-wide GPU-only.'])
+    c.save('stability-and-experts.png')
+
+
+def context_card():
+    r = load('strata-coder-long-context-20261110.json')
+    a, b = r['probes']
+    c = Card('CODER / 128K + 256K CONTEXT', 'RTX 5070 Ti 16GB + 64GB RAM / Strata 0.1.59 / cold synthetic probes', '04')
+    c.metric(0, '128K ACTUAL INPUT', f'{a["input_tokens"]:,}', '131,072 capacity', CYAN)
+    c.metric(1, '256K ACTUAL INPUT', f'{b["input_tokens"]:,}', '262,144 capacity', CYAN)
+    c.metric(2, 'DEPTH RETRIEVAL', '3/3 + 3/3', 'Markers at 10 / 50 / 90%')
+    c.metric(3, 'OUTPUT PER PROBE', '54 tokens', 'Thinking OFF / no reuse', AMBER)
+    for x, title in [(52, 'DECODE / tok/s'), (824, 'FRESH PREFILL / tok/s')]:
+        c.rect((x, 354, x+724, 610), outline=BORDER)
+        c.text(x+22, 373, title, 25, WHITE, True)
+    for i, p in enumerate(r['probes']):
+        y = 455+i*85
+        for x, key, limit, color in [(76, 'decode_tps', 120, GREEN), (848, 'fresh_prefill_tps', 4000, CYAN)]:
+            c.bar(x, y, 510, p[key], limit, color, f'{p["capacity"]//1024}K / cold request')
+            c.text(x+525, y-2, f'{p[key]:,.1f}', 25, color, True, width=150)
+    c.text(76, 577, 'Scale: 0 to 120 / short output sample', 19, MUTED)
+    c.text(848, 577, 'Scale: 0 to 4,000 / zero cached input', 19, MUTED)
+    c.text(76, 646, 'MEASURED PER RUN', 27, WHITE, True)
+    c.text(785, 646, '128K', 27, WHITE, True)
+    c.text(1190, 646, '256K', 27, WHITE, True)
+    rows = [('Request latency', 'elapsed_seconds', 's'), ('Peak VRAM', 'vram_gib', 'GiB'),
+            ('Native peak RSS', 'rss_gib', 'GiB'), ('Minimum host RAM free', 'ram_free_gib', 'GiB'),
+            ('GPU energy incl. startup', 'gpu_wh', 'Wh')]
+    for i, (label, key, unit) in enumerate(rows):
+        y = 697+i*38
+        c.text(76, y, label, 24, MUTED, width=620)
+        c.text(785, y, f'{a[key]:.2f} {unit}', 25, WHITE, True, width=300)
+        c.text(1190, y, f'{b[key]:.2f} {unit}', 25, WHITE, True, width=300)
+    c.footer(['One cold request/context; repeated repository filler; 54 output tokens is not sustained speed.',
+              'INT8 KV / MTP4 / full PLE / hybrid GPU + RAM / approximate expert-tail skip 7.',
+              'Three-marker smoke only, not agent quality or promotion. Energy: device-wide GPU-only.'])
+    c.save('coder-long-context.png')
+
+
+if __name__ == '__main__':
+    ASSETS.mkdir(parents=True, exist_ok=True)
+    coder_card()
+    quality_card()
+    stability_card()
+    context_card()

@@ -1,0 +1,63 @@
+{
+  "date": "2026-11-10",
+  "model": "ISTA-DASLab Qwen3.8-Flash-Next GSQ-RCO Coder",
+  "engine": "Strata 0.1.59",
+  "hardware": "RTX 5070 Ti 16GB / 64GB DDR5",
+  "settings": {
+    "kv": "int8",
+    "kv_resident": 32768,
+    "mtp": 4,
+    "spec_min_p": 0.5,
+    "expert_tail_skip": 7,
+    "thinking": false,
+    "output_cap": 128,
+    "full_ple": true
+  },
+  "probes": [
+    {
+      "capacity": 131072,
+      "input_tokens": 128980,
+      "output_tokens": 54,
+      "cached_tokens": 0,
+      "decode_tps": 90.6,
+      "fresh_prefill_tps": 3849.8,
+      "elapsed_seconds": 34.1775560999813,
+      "retrieval_passed": true,
+      "vram_gib": 14.5048828125,
+      "rss_gib": 28.72603988647461,
+      "ram_free_gib": 22.285144805908203,
+      "gpu_wh": 2.722938636411733,
+      "gpu_mean_w": 145.527454261812,
+      "gpu_peak_w": 271.41,
+      "gpu_peak_c": 60.79,
+      "power_coverage_fraction": 1.0,
+      "power_covered_seconds": 67.35896769998362
+    },
+    {
+      "capacity": 262144,
+      "input_tokens": 259968,
+      "output_tokens": 54,
+      "cached_tokens": 0,
+      "decode_tps": 85.7,
+      "fresh_prefill_tps": 3578.0,
+      "elapsed_seconds": 73.47077059998992,
+      "retrieval_passed": true,
+      "vram_gib": 14.5185546875,
+      "rss_gib": 30.729583740234375,
+      "ram_free_gib": 21.831710815429688,
+      "gpu_wh": 5.736667208472822,
+      "gpu_mean_w": 189.0652010060916,
+      "gpu_peak_w": 272.3,
+      "gpu_peak_c": 68.27,
+      "power_coverage_fraction": 1.0,
+      "power_covered_seconds": 109.23216879999381
+    }
+  ],
+  "limitations": [
+    "One cold synthetic request per capacity; repeated repository filler and three markers only",
+    "54 output tokens per probe; decode is not sustained performance",
+    "Approximate expert-tail skipping remains enabled; not an agent-quality or context-promotion gate",
+    "Device-wide GPU-only energy includes startup; CPU/wall energy unavailable",
+    "VRAM peaks sampled; native RSS may include shared/mapped pages"
+  ]
+}
