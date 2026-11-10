@@ -1,0 +1,80 @@
+{
+  "route_tail_skip": 7,
+  "mtp": 4,
+  "kv": "int8",
+  "limitations": [
+    "Synthetic repeated repository fixture, not agent tasks; thinking OFF for speed comparison.",
+    "Three canaries and compile only; generated code not executed.",
+    "GPU-only device-wide energy includes startup; CPU/wall unavailable.",
+    "Native RSS may include shared/mapped pages.",
+    "Approximate expert-tail skipping7; no full-expert equivalence or128K promotion."
+  ],
+  "thinking": false,
+  "exact_baseline_fixture_match": true,
+  "model": "ISTA-DASLab Qwen3.8-Flash-Next GSQ-RCO Coder IQ1_M",
+  "engine": "Strata0.1.59",
+  "hardware": {"gpu": "RTX5070Ti16GB", "host_ram_gb": 64},
+  "main_shard_sha256": "bfa3644db4adfff072fc946c20994f2909d2cf89879d83f80a4c811d4016c211",
+  "retained_experts_per_layer": 256,
+  "active_experts_per_token": 10,
+  "coding_validation": "in_progress_separate_experiment",
+  "resources": {
+    "device_vram_peak_sampled_bytes": 15586033664,
+    "device_vram_min_free_bytes": 1186988032,
+    "process_peak_rss_bytes": 32793985024,
+    "host_min_available_bytes": 23792443392,
+    "gpu_power_mean_watts": 120.9663829422464,
+    "gpu_power_peak_watts": 269.19,
+    "gpu_energy_wh": 2.5600913496169433,
+    "power_covered_seconds": 76.18917450000299,
+    "observed_seconds": 76.18917450000299,
+    "power_coverage_fraction": 1.0,
+    "gpu_temperature_peak_c": 57.27,
+    "gpu_utilization_mean_percent": 45.333333333333336,
+    "power_scope": "device-wide GPU including other applications; CPU and wall power unavailable",
+    "samples": 72,
+    "device_counter_includes_other_processes": true,
+    "exact_vram_peak": false,
+    "target_sample_interval_seconds": 1.0,
+    "scope": "trial startup through current request; cumulative"
+  },
+  "source_revision": "bba88856f8c3c0c9e40e45f82d05e228b814ac43",
+  "context_capacity": 65536,
+  "spec_min_p": 0.5,
+  "actual_input_tokens": 63971,
+  "requests": [
+    {
+      "input_tokens": 63971,
+      "trial": 0,
+      "canary_retrieval_passed": true,
+      "decode_tps": 119.8,
+      "cached_input_tokens": 0,
+      "syntax_passed": true,
+      "fresh_prefill_tps": 3840.7,
+      "api_seconds": 21.5144702999969,
+      "output_tokens": 575
+    },
+    {
+      "input_tokens": 63971,
+      "trial": 1,
+      "canary_retrieval_passed": true,
+      "decode_tps": 132.4,
+      "cached_input_tokens": 57344,
+      "syntax_passed": true,
+      "fresh_prefill_tps": 2812.1,
+      "api_seconds": 9.316832500015153,
+      "output_tokens": 916
+    },
+    {
+      "input_tokens": 63971,
+      "trial": 2,
+      "canary_retrieval_passed": true,
+      "decode_tps": 145.4,
+      "cached_input_tokens": 57344,
+      "syntax_passed": true,
+      "fresh_prefill_tps": 2886.7,
+      "api_seconds": 6.814169199991738,
+      "output_tokens": 651
+    }
+  ]
+}
