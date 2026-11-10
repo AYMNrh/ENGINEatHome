@@ -72,6 +72,8 @@ This private repository contains the ENGINEatHome source, tests, experiment conf
 
 ## Latest measurements
 
+**Current rank 1 (provisional): [Strata IQ3_S, thinking enabled, 64K capacity](docs/strata-iq3-thinking-pilot-20261110.md).** Six of six coding-agent tasks passed and finished normally, at 103–106 accepted output tok/s including reasoning; actual prompts reached 42,699 tokens. Preserve these settings as the best measured Strata agent reference. Full 18-attempt repeatability remains untested, the physical-RAM reserve gate fails, and expert-tail skipping 7 remains approximate. [Saved configuration and measurements](docs/results/strata-iq3-thinking-pilot-20261110.json).
+
 | Experiment | Near-filled-context decoding | Scope |
 | --- | --- | --- |
 | [Huihui MTP3 at 64K](docs/huihui-64k.md) | 51.08 tok/s median, two runs | 26 requests; coding 10/12, retrieval 12/12 |
