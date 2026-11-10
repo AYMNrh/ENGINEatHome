@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "preferred_candidate": "OpenCode1K",
+  "validation": {
+    "attempts": 18,
+    "strict_passes": 16,
+    "patch_passes": 18,
+    "quality_count_criterion_15_of_18_passed": true,
+    "memory_reserve_passed": false,
+    "promotion_passed": false
+  },
+  "settings": {
+    "model": "Qwen3.8-Flash-Next IQ3_S",
+    "engine": "Strata0.1.59",
+    "context_capacity": 65536,
+    "kv": "int8",
+    "drafting": "MTP",
+    "spec": 4,
+    "spec_min_p": 0.5,
+    "vram_reserve_mib": 1500,
+    "route_tail_skip": 7,
+    "attention": "native unchanged",
+    "ple": true,
+    "thinking": true,
+    "temperature": 0,
+    "seed": 42,
+    "memory_admission": "native Strata; original 8GiB physical reserve still evaluated, not a promotion pass",
+    "reasoning_budget_tokens_requested": 1024,
+    "max_output_tokens": 8192,
+    "placement": "automatic expert arena; GPU/RAM/SSD hybrid",
+    "top_p": 1,
+    "top_k": 1,
+    "min_p": 0,
+    "repeat_penalty": 1,
+    "agent": "OpenCode1.18.16",
+    "max_steps": 100,
+    "agent_timeout_seconds": 1200,
+    "reasoning_effort": "high"
+  },
+  "provenance": {
+    "model_sha256": "4c1eb2ceb4915e1192f4f386021897bde56a97f40a0bb78bb86465e0f7d2aca3",
+    "second_shard_sha256": "316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113",
+    "backend_binary_sha256": "12a21cddb83e3af14c36478590676e5749b0075dedd3568e8630848f20ad819f",
+    "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+    "opencode_version": "1.18.16"
+  },
+  "by_task": {
+    "psf__requests-1142": {
+      "strict": 3,
+      "patch": 3
+    },
+    "psf__requests-5414": {
+      "strict": 3,
+      "patch": 3
+    },
+    "pytest-dev__pytest-10081": {
+      "strict": 3,
+      "patch": 3
+    },
+    "pytest-dev__pytest-6202": {
+      "strict": 1,
+      "patch": 3
+    },
+    "sphinx-doc__sphinx-10323": {
+      "strict": 3,
+      "patch": 3
+    },
+    "sphinx-doc__sphinx-10449": {
+      "strict": 3,
+      "patch": 3
+    }
+  },
+  "resources": {
+    "device_vram_peak_sampled_bytes": 15941500928,
+    "device_vram_min_free_bytes": 831520768,
+    "process_peak_rss_bytes": 51973124096,
+    "host_min_available_bytes": 27856896,
+    "gpu_power_mean_watts": 101.82614248105071,
+    "gpu_power_peak_watts": 267.47,
+    "gpu_energy_wh": 146.74343224099385,
+    "power_covered_seconds": 5188.0228710999945,
+    "observed_seconds": 5188.0228710999945,
+    "power_coverage_fraction": 1.0,
+    "gpu_temperature_peak_c": 63.84,
+    "gpu_utilization_mean_percent": 48.69977049864386,
+    "power_scope": "device-wide GPU including other applications; CPU and wall power unavailable",
+    "samples": 4793,
+    "device_counter_includes_other_processes": true,
+    "exact_vram_peak": false,
+    "target_sample_interval_seconds": 1.0,
+    "scope": "trial startup through current request; cumulative"
+  },
+  "summary": {
+    "median_task_seconds": 253.81415367126465,
+    "successful_tasks_per_episode_hour": 11.112516158078003,
+    "cache_reuse_fraction": 0.9741864334947112,
+    "tool_calls": 723,
+    "opencode_tool_error_states": 34,
+    "actual_max_prompt_tokens": 57294,
+    "compactions": null
+  },
+  "episodes": [
+    {
+      "instance_id": "psf__requests-1142",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 103.22913599014282,
+      "agent_steps": 17,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 93.79362058639526,
+      "agent_steps": 17,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 117.04106760025024,
+      "agent_steps": 18,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 259.0008602142334,
+      "agent_steps": 25,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10323",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 297.5099687576294,
+      "agent_steps": 31,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10449",
+      "trial": 0,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 381.177122592926,
+      "agent_steps": 43,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 284.45259833335876,
+      "agent_steps": 24,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 84.28477573394775,
+      "agent_steps": 14,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 227.15211939811707,
+      "agent_steps": 32,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "trial": 1,
+      "strict_pass": false,
+      "patch_pass": true,
+      "elapsed_seconds": 388.9231286048889,
+      "agent_steps": 100,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10323",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 642.9027528762817,
+      "agent_steps": 95,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10449",
+      "trial": 1,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 248.6274471282959,
+      "agent_steps": 28,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 175.20960974693298,
+      "agent_steps": 45,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 62.84416961669922,
+      "agent_steps": 10,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 156.61127495765686,
+      "agent_steps": 21,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "trial": 2,
+      "strict_pass": false,
+      "patch_pass": true,
+      "elapsed_seconds": 399.5115659236908,
+      "agent_steps": 100,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10323",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 670.8173885345459,
+      "agent_steps": 35,
+      "agent_timeout": false
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10449",
+      "trial": 2,
+      "strict_pass": true,
+      "patch_pass": true,
+      "elapsed_seconds": 590.255937576294,
+      "agent_steps": 50,
+      "agent_timeout": false
+    }
+  ],
+  "limitations": [
+    "Historical strict completion scores are harness-affected: ambiguous shell timeout units caused premature command timeouts. Overall agent timeout count was zero; raw scores and passing patch grades are preserved.",
+    "Six frozen issues times3, not18distinctissues.",
+    "Same model settings as pilot; all prior failures preserved.",
+    "64K capacity; actual max57294. No full-context retrieval or compaction/resume stability validation.",
+    "Expert-tail skip7 approximate;8GiB physical reserve fails.",
+    "OpenCode steps/time/output differ from Hermes; not isolated harness-effect comparison.",
+    "Accepted decode includes reasoning.",
+    "Compaction count unavailable. Error-state counter can omit nonzero custombash JSON results.",
+    "GPU energy device-wide GPU-only;100%agent-window5188.02s coverage, startup excluded, overlapping telemetry not summed. NoCPUwallenergy. Raw traces/privatepaths not published."
+  ]
+}

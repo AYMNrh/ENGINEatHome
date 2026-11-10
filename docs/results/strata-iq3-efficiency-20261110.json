@@ -1,0 +1,244 @@
+{
+  "context_capacity": 65536,
+  "inference": "Strata0.1.59 IQ3_S INT8 KV MTP4/min-p0.5",
+  "agent": "OpenCode1.18.16, requested reasoning1024, output8192,100steps,1200seconds,temp0,seed42",
+  "source": "bench/results/strata-iq3-efficiency-20261110",
+  "profiles": {
+    "tail7": {
+      "attempts": 4,
+      "strict_passes": 2,
+      "patch_passes": 2,
+      "tasks": [
+        {
+          "task": "pytest-dev__pytest-6202",
+          "trial": 0,
+          "strict_pass": true,
+          "patch_pass": true,
+          "seconds": 262.1329514980316,
+          "timeout": false,
+          "gpu_wh": 6.313717217449018
+        },
+        {
+          "task": "sphinx-doc__sphinx-10323",
+          "trial": 0,
+          "strict_pass": true,
+          "patch_pass": true,
+          "seconds": 301.0260829925537,
+          "timeout": false,
+          "gpu_wh": 7.992007239628175
+        },
+        {
+          "task": "pytest-dev__pytest-6202",
+          "trial": 1,
+          "strict_pass": false,
+          "patch_pass": false,
+          "seconds": 1203.8369715213776,
+          "timeout": true,
+          "gpu_wh": 14.514001351895908
+        },
+        {
+          "task": "pytest-dev__pytest-6202",
+          "trial": 2,
+          "strict_pass": false,
+          "patch_pass": false,
+          "seconds": 1203.9551498889923,
+          "timeout": true,
+          "gpu_wh": 15.731594476174944
+        }
+      ],
+      "buckets": {
+        "0-8K": {
+          "requests": 22,
+          "decode_tps": 100.16211635532957,
+          "fresh_prefill_tps": 1355.6163966841584
+        },
+        "8-32K": {
+          "requests": 118,
+          "decode_tps": 103.83460136917377,
+          "fresh_prefill_tps": 642.6428828540575
+        },
+        "32-48K": {
+          "requests": 6,
+          "decode_tps": 104.67732386027235,
+          "fresh_prefill_tps": 400.4954582989265
+        }
+      },
+      "decode_tps": 103.34253139542622,
+      "fresh_prefill_tps": 812.9311987802554,
+      "max_prompt": 35158,
+      "cache_reuse_percent": 96.78630182295032,
+      "median_seconds": 752.4315272569656,
+      "strict_passes_per_episode_hour": 2.42346629822548,
+      "tools": 145,
+      "tool_errors": 8,
+      "shell_failures": 2,
+      "shell_timeouts": 1,
+      "matched_task_gpu_wh": 44.551320285148044
+    },
+    "tail0": {
+      "attempts": 4,
+      "strict_passes": 1,
+      "patch_passes": 2,
+      "tasks": [
+        {
+          "task": "pytest-dev__pytest-6202",
+          "trial": 0,
+          "strict_pass": false,
+          "patch_pass": false,
+          "seconds": 1204.361577987671,
+          "timeout": true,
+          "gpu_wh": 15.665371135735844
+        },
+        {
+          "task": "sphinx-doc__sphinx-10323",
+          "trial": 0,
+          "strict_pass": true,
+          "patch_pass": true,
+          "seconds": 317.74968218803406,
+          "timeout": false,
+          "gpu_wh": 5.408396933500638
+        },
+        {
+          "task": "pytest-dev__pytest-6202",
+          "trial": 1,
+          "strict_pass": false,
+          "patch_pass": true,
+          "seconds": 1203.7760183811188,
+          "timeout": true,
+          "gpu_wh": 15.379165523149886
+        },
+        {
+          "task": "pytest-dev__pytest-6202",
+          "trial": 2,
+          "strict_pass": false,
+          "patch_pass": false,
+          "seconds": 1203.4993722438812,
+          "timeout": true,
+          "gpu_wh": 13.821401191375633
+        }
+      ],
+      "buckets": {
+        "0-8K": {
+          "requests": 21,
+          "decode_tps": 74.96833966540025,
+          "fresh_prefill_tps": 1343.4717817431508
+        },
+        "8-32K": {
+          "requests": 87,
+          "decode_tps": 83.95797505007987,
+          "fresh_prefill_tps": 879.4972712774518
+        },
+        "32-48K": {
+          "requests": 24,
+          "decode_tps": 80.32806841352445,
+          "fresh_prefill_tps": 256.6044942389713
+        }
+      },
+      "decode_tps": 81.94657366737933,
+      "fresh_prefill_tps": 900.8863527085016,
+      "max_prompt": 38400,
+      "cache_reuse_percent": 96.13470119856882,
+      "median_seconds": 1203.6376953125,
+      "strict_passes_per_episode_hour": 0.9161735201768488,
+      "tools": 130,
+      "tool_errors": 9,
+      "shell_failures": 4,
+      "shell_timeouts": 3,
+      "matched_task_gpu_wh": 50.274334783762
+    }
+  },
+  "campaign_energy": {
+    "tail7": {
+      "gpu_wh": 152.54820056567522,
+      "covered_seconds": 5398.291914463043,
+      "observed_seconds": 5398.291914463043,
+      "mean_watts": 101.73097912046795,
+      "peak_watts": 270.53
+    },
+    "stability-fixed": {
+      "gpu_wh": 169.84204101970553,
+      "covered_seconds": 3719.707777261734,
+      "observed_seconds": 3719.707777261734,
+      "mean_watts": 164.37617799133824,
+      "peak_watts": 270.61
+    },
+    "tail0": {
+      "gpu_wh": 50.356184954922654,
+      "covered_seconds": 3933.8876342773438,
+      "observed_seconds": 3933.8876342773438,
+      "mean_watts": 46.082217564666955,
+      "peak_watts": 258.54
+    }
+  },
+  "campaign_gpu_wh": 372.7464265403034,
+  "last20_energy": {
+    "tail7": {
+      "gpu_wh": 0,
+      "covered_seconds": 0,
+      "observed_seconds": 0,
+      "mean_watts": null,
+      "peak_watts": null
+    },
+    "stability-fixed": {
+      "gpu_wh": 0,
+      "covered_seconds": 0,
+      "observed_seconds": 0,
+      "mean_watts": null,
+      "peak_watts": null
+    },
+    "tail0": {
+      "gpu_wh": 8.815695859941513,
+      "covered_seconds": 962.2916753292084,
+      "observed_seconds": 962.2916753292084,
+      "mean_watts": 32.98013056689087,
+      "peak_watts": 163.82
+    }
+  },
+  "stability": {
+    "passed": true,
+    "elapsed_seconds": 3717.667260169983,
+    "review_turns": 103,
+    "explicit_compaction_passed": true,
+    "process_resume_passed": true,
+    "patch_preserved": true,
+    "grade": {
+      "passed": true,
+      "tests": 21,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "returncode": 0
+    },
+    "patch_sha256": "d0f5c03e7621e50a9cf454daceb8c805321f5ab307b64048cc006cd0dae8b5f7",
+    "resources": {
+      "device_vram_peak_sampled_bytes": 15700328448,
+      "device_vram_min_free_bytes": 1072693248,
+      "process_peak_rss_bytes": 51975716864,
+      "host_min_available_bytes": 19283968,
+      "gpu_power_mean_watts": 164.47560513683624,
+      "gpu_power_peak_watts": 270.61,
+      "gpu_energy_wh": 169.7972617791036,
+      "power_covered_seconds": 3716.479060199985,
+      "observed_seconds": 3716.479060199985,
+      "power_coverage_fraction": 1.0,
+      "gpu_temperature_peak_c": 68.61,
+      "gpu_utilization_mean_percent": 87.98056537102474,
+      "power_scope": "device-wide GPU including other applications; CPU and wall power unavailable",
+      "samples": 3396,
+      "device_counter_includes_other_processes": true,
+      "exact_vram_peak": false
+    },
+    "note": "One-hour sustained multi-turn review; explicit compaction and same-server-session process restart. Not a filled-64K retrieval or natural-compaction gate.",
+    "completed_tools": 557,
+    "recorded_compactions": 11
+  },
+  "limitations": [
+    "Two issues, four attempts per profile; no general model ranking or full-expert equivalence established.",
+    "Decode includes reasoning; fresh prefill excludes cached tokens. Prompt distributions differ.",
+    "GPU-only device-wide energy, CPU/wall unavailable; child streams are sequential. Startup gaps excluded.",
+    "Matched coding energy excludes both stability runs; whole campaign includes aborted invalid soak.",
+    "Physical RAM reserve failed; native RSS can include mapped/shared pages. No 128K promotion.",
+    "Stability is multi-turn review of an existing patch, not filled-64K retrieval or new coding throughput.",
+    "All failures preserved. Timeout-unit and persistent-tool-permission harness bugs fixed; old soak invalid."
+  ]
+}
