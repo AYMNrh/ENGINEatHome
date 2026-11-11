@@ -6,6 +6,10 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
+[![Coder with 128K capacity: six strict passes, 55,948 maximum actual input](docs/assets/coder-agent128.png)](docs/strata-coder-agent128-20261111.md)
+
+[128K-capacity coding report](docs/strata-coder-agent128-20261111.md) · [Measurements JSON](docs/results/strata-coder-agent128-20261111.json)
+
 [![Coder passed the one-hour 64K stability gate: verified tool use, compaction, restart recall and held-out grading](docs/assets/coder-stability-handoff.png)](docs/strata-coder-stability-handoff-20261111.md)
 
 [Stability report](docs/strata-coder-stability-handoff-20261111.md) · [Measurements JSON](docs/results/strata-coder-stability-handoff-20261111.json)
@@ -30,7 +34,7 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Full report](docs/strata-iq3-efficiency-20261110.md) · [Measurements JSON](docs/results/strata-iq3-efficiency-20261110.json)
 
-**Snapshot: 11 November 2026.** Guided Coder + OpenCode ranks first for observed strict completion on the six selected 64K coding issues (18/18), followed by original IQ3_S + OpenCode (16/18), Hermes with thinking (13/18) and Hermes without thinking (7/18). Model packages and harness limits differ. The later two-turn review passed the full 64K stability gate and unlocked separate 128K-capacity coding tests. The earlier failed checks remain documented. Neither configured capacity nor the 128K/256K synthetic probes establishes agent reliability above 64K.
+**Snapshot: 11 November 2026.** Guided Coder + OpenCode ranks first for observed strict completion on the six selected 64K coding issues (18/18), followed by original IQ3_S + OpenCode (16/18), Hermes with thinking (13/18) and Hermes without thinking (7/18). Model packages and harness limits differ. The later two-turn review passed the full 64K stability gate. All six separate 128K-capacity coding attempts passed, with **55,948 maximum actual input tokens** and no requests above 64K. Reliability above 64K remains untested in agent work.
 
 ### Earlier experiments
 

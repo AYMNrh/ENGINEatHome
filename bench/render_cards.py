@@ -287,6 +287,40 @@ def handoff_card():
     c.save('coder-stability-handoff.png')
 
 
+def agent128_card():
+    r = load('strata-coder-agent128-20261111.json')
+    resources = r['resources']
+    c = Card('CODER / 128K CAPACITY CODING', 'RTX 5070 Ti 16GB + 64GB RAM / guided OpenCode / six selected issues', '07', '11 NOV 2026')
+    c.metric(0, 'STRICT PASSES', f'{r["strict_passes"]}/{r["attempts"]}', '6/6 correct patches')
+    c.metric(1, 'MAX ACTUAL INPUT', f'{r["actual_max_prompt"]:,}', '131,072 capacity', AMBER)
+    c.metric(2, 'ACCEPTED DECODE', f'{r["decode_tps"]:.1f} tok/s', 'Includes reasoning', CYAN)
+    c.metric(3, 'FRESH PREFILL', f'{r["fresh_prefill_tps"]:,.0f} tok/s', '97.3% cache reuse', CYAN)
+    c.rect((52, 354, 776, 893), outline=BORDER)
+    c.text(76, 375, 'SIX ISSUES / ALL PASSED', 26, WHITE, True)
+    for index, task in enumerate(r['tasks']):
+        y = 456 + index*66
+        c.bar(76, y, 515, task['seconds'], 600, GREEN, task['issue'])
+        c.text(608, y-2, f'{task["seconds"]:.1f}s', 24, GREEN, True, width=150)
+    c.text(76, 856, 'Zero-based scale: 0 to 600 seconds', 20, MUTED)
+    c.rect((824, 354, 1548, 893), outline=BORDER)
+    c.text(848, 375, 'ACTUAL CONTEXT / CAPACITY', 26, WHITE, True)
+    c.bar(848, 456, 660, r['actual_max_prompt'], r['capacity'], AMBER, 'Longest actual input: 55,948 tokens')
+    c.rect((1177, 454, 1179, 486), MUTED, radius=0)
+    c.text(848, 495, '0', 19, MUTED)
+    c.text(1160, 495, '64K', 19, MUTED)
+    c.text(1462, 495, '128K', 19, MUTED)
+    c.text(848, 540, 'Zero prompts exceeded 64K.', 25, AMBER, True)
+    for index, label in enumerate([f'{r["task_minutes"]:.2f} task minutes / 0 agent timeouts',
+        f'{resources["gpu_energy_wh"]:.2f} GPU Wh / {resources["gpu_power_mean_watts"]:.0f} W mean',
+        f'{resources["device_vram_peak_sampled_bytes"]/2**30:.2f} GiB VRAM peak / {resources["host_min_available_bytes"]/2**30:.2f} GiB RAM free min',
+        'Full one-hour 64K stability gate passed first.']):
+        c.text(848, 612+index*58, label, 22, CYAN, width=670)
+    c.footer(['Six selected issues. Capacity configured at 128K; coding above 64K remains untested.',
+              'No filler or subagents. INT8 KV / MTP4 / approximate expert-tail skip 7.',
+              'Device-wide GPU-only energy. Stability energy is excluded from these coding figures.'])
+    c.save('coder-agent128.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -295,3 +329,4 @@ if __name__ == '__main__':
     context_card()
     guided_card()
     handoff_card()
+    agent128_card()
