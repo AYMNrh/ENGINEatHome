@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-11",
+  "ranking_scope": "Observed strict completion on the same six selected Python issues, three attempts each; configurations and harness limits differ",
+  "ranking": [
+    {"rank": 1, "configuration": "Pruned Coder + OpenCode + focused workflow guidance", "strict_passes": 18, "patch_passes": 18, "attempts": 18},
+    {"rank": 2, "configuration": "Original IQ3_S + OpenCode", "strict_passes": 16, "patch_passes": 18, "attempts": 18, "caveat": "Historical completion affected by shell-timeout units"},
+    {"rank": 3, "configuration": "Original IQ3_S + Hermes + thinking", "strict_passes": 13, "patch_passes": 16, "attempts": 18},
+    {"rank": 4, "configuration": "Original IQ3_S + Hermes, thinking off", "strict_passes": 7, "patch_passes": 10, "attempts": 18}
+  ],
+  "guided18": {"decode_tps": 110.3094, "fresh_prefill_tps": 1265.4737, "actual_max_prompt": 43633, "capacity": 65536, "cache_reuse_percent": 96.4072, "median_task_seconds": 202.2936, "task_minutes": 73.9578, "gpu_wh": 117.5469, "min_free_ram_gib": 13.1579, "peak_vram_gib": 15.2725, "native_peak_rss_gib": 31.9959, "agent_timeouts": 0},
+  "matched4": {
+    "baseline": {"strict_passes": 2, "patch_passes": 3, "minutes": 51.6494, "gpu_wh": 44.2553},
+    "guided": {"strict_passes": 4, "patch_passes": 4, "minutes": 16.0068, "gpu_wh": 24.6323},
+    "same_inference_config_except_log": true
+  },
+  "stability": {"passed": false, "elapsed_seconds": 1865.7572, "explicit_compaction_recall_passed": true, "persisted_messages_retained": 452, "post_restart_recall_passed": false, "first_summary_marker_omission_seconds": 1526.33, "gpu_wh": 87.8395},
+  "context_promotion_passed": false,
+  "limitations": ["Six selected issues, not a full SWE-bench score", "Maximum actual agent prompt was 43,633 tokens; 128K agent work was skipped", "Approximate expert-tail skipping 7 retained", "Energy is device-wide GPU-only; stability energy is separate"]
+}

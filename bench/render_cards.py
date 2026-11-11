@@ -17,13 +17,13 @@ def load(name):
 
 
 class Card:
-    def __init__(self, title, subtitle, number):
+    def __init__(self, title, subtitle, number, date='10 NOV 2026'):
         self.image = Image.new('RGB', (W*SCALE, H*SCALE), BG)
         self.draw = ImageDraw.Draw(self.image)
         self.fonts = {}
         self.rect((24, 24, 1576, 1056), BG, BORDER, 20)
         self.text(52, 42, 'ENGINEatHome', 22, GREEN, True)
-        self.text(1270, 42, '10 NOV 2026 / '+number, 21, MUTED)
+        self.text(1270, 42, date+' / '+number, 21, MUTED)
         self.text(52, 86, title, 46, WHITE, True)
         self.text(52, 146, subtitle, 24, MUTED)
 
@@ -226,9 +226,40 @@ def context_card():
     c.save('coder-long-context.png')
 
 
+def guided_card():
+    r = load('strata-coder-workflow-20261111.json')
+    measured = r['guided18']
+    baseline, guided = (r['matched4'][key] for key in ('baseline', 'guided'))
+    leader = r['ranking'][0]
+    c = Card('GUIDED CODER / #1 IN CODING TASKS', 'RTX 5070 Ti 16GB + 64GB RAM / OpenCode / six selected issues x three', '05', '11 NOV 2026')
+    c.metric(0, 'STRICT PASSES', f'{leader["strict_passes"]}/{leader["attempts"]}', '18/18 correct patches')
+    c.metric(1, 'ACCEPTED DECODE', f'{measured["decode_tps"]:.1f} tok/s', 'Includes reasoning', CYAN)
+    c.metric(2, 'FRESH PREFILL', f'{measured["fresh_prefill_tps"]:,.0f} tok/s', '43,633 max actual input', CYAN)
+    c.metric(3, 'MIN HOST RAM FREE', f'{measured["min_free_ram_gib"]:.2f} GiB', '15.27 GiB peak VRAM')
+    for x, title, key, limit in [(52, 'MATCHED 4 / TASK MINUTES', 'minutes', 60),
+                                 (824, 'MATCHED 4 / GPU Wh', 'gpu_wh', 50)]:
+        c.rect((x, 354, x+724, 630), outline=BORDER)
+        c.text(x+24, 373, title, 25, WHITE, True)
+        for y, data, label, color in [(455, baseline, 'Baseline / 2 strict, 3 patches', CYAN),
+                                      (540, guided, 'Guidance / 4 strict, 4 patches', GREEN)]:
+            c.bar(x+24, y, 510, data[key], limit, color, label)
+            c.text(x+550, y-2, f'{data[key]:.2f}', 25, color, True, width=140)
+        c.text(x+24, 596, f'Zero-based scale: 0 to {limit}', 20, MUTED)
+    c.rect((52, 657, 1548, 904), outline=BORDER)
+    c.text(76, 680, 'STABILITY GATE FAILED / 128K AGENT WORK SKIPPED', 29, AMBER, True)
+    c.text(76, 736, 'Compaction recall passed initially. Recall after restart returned unknown.', 23, WHITE)
+    c.text(76, 783, 'All 452 saved messages survived. Recent summaries omitted the marker.', 23, MUTED)
+    c.text(76, 830, f'Coding 18: {measured["gpu_wh"]:.2f} GPU Wh / no agent timeouts / median {measured["median_task_seconds"]:.0f}s', 23, CYAN)
+    c.footer(['Ranking applies to these six selected issues. Harness limits differ across configurations.',
+              '64K capacity, no filler. INT8 KV / MTP4 / approximate expert-tail skip 7.',
+              'Device-wide GPU energy only. Stability energy is separate from coding.'])
+    c.save('coder-guided18.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
     quality_card()
     stability_card()
     context_card()
+    guided_card()

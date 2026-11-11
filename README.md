@@ -6,6 +6,10 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
+[![Rank 1 for measured coding: guided Coder 18/18, faster matched tasks, restart recall failed](docs/assets/coder-guided18.png)](docs/strata-coder-guided18-20261111.md)
+
+[Coding report](docs/strata-coder-guided18-20261111.md) · [Stability verdict](docs/strata-coder-workflow-verdict-20261111.md) · [Rankings & measurements](docs/results/strata-coder-workflow-20261111.json)
+
 [![Coder filled-64K benchmark: actual input, cold and cached decode, fresh prefill, memory and GPU energy](docs/assets/coder-filled64k.png)](docs/strata-coder-filled64k-20261110.md)
 
 [Full report](docs/strata-coder-filled64k-20261110.md) · [Measurements JSON](docs/results/strata-coder-filled64k-20261110.json)
@@ -22,7 +26,7 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Full report](docs/strata-iq3-efficiency-20261110.md) · [Measurements JSON](docs/results/strata-iq3-efficiency-20261110.json)
 
-**Snapshot: 10 November 2026.** Coder coding validation is paused. The separate 128K/256K smoke tests passed; full agent-quality gates and context promotion remain unpassed. Original IQ3_S remains the provisional coding reference. Energy figures are GPU-only; approximate expert-tail skipping is disclosed on each card.
+**Snapshot: 11 November 2026.** Guided Coder + OpenCode ranks first for observed strict completion on the six selected 64K coding issues (18/18), followed by original IQ3_S + OpenCode (16/18), Hermes with thinking (13/18) and Hermes without thinking (7/18). Model packages and harness limits differ. Guided Coder failed restart recall, so 128K agent work was skipped. The separate 128K/256K synthetic probes do not establish agent reliability.
 
 ### Earlier experiments
 
