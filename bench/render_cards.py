@@ -256,6 +256,37 @@ def guided_card():
     c.save('coder-guided18.png')
 
 
+def handoff_card():
+    r = load('strata-coder-stability-handoff-20261111.json')
+    resources = r['resources']
+    c = Card('CODER / ONE-HOUR STABILITY PASS', 'RTX 5070 Ti 16GB + 64GB RAM / OpenCode / verified read then summary', '06', '11 NOV 2026')
+    seconds = round(r['elapsed_seconds'])
+    c.metric(0, 'STABILITY TIME', f'{seconds//60}m {seconds%60:02d}s', '64K capacity / no filler')
+    c.metric(1, 'VERIFIED HANDOFFS', str(r['review_pairs']), 'One read, then summary', CYAN)
+    c.metric(2, 'RECALL CHECKS', f'{r["recall_passes"]}/3', 'Compaction, restart, final')
+    c.metric(3, 'HELD-OUT TESTS', f'{r["held_out_tests_passed"]}/{r["held_out_tests"]}', 'Existing patch unchanged', CYAN)
+    c.rect((52, 354, 776, 740), outline=BORDER)
+    c.text(76, 375, 'CHECKPOINTS / VERIFIED', 26, WHITE, True)
+    for index, label in enumerate(['Compaction and exact recall',
+        f'Restart retained {r["messages_retained_on_restart"]:,} messages', 'Tools worked after both checkpoints',
+        'Final recall and patch grading passed', f'Max {r["max_dispatches_per_turn"]}/{r["dispatch_limit"]} requests per turn; no cap hit']):
+        c.text(76, 430+index*53, '+ '+label, 23, GREEN, width=670)
+    c.rect((824, 354, 1548, 740), outline=BORDER)
+    c.text(848, 375, 'MEASURED / FULL HOUR', 26, WHITE, True)
+    for index, label in enumerate([f'{r["decode_tps"]:.1f} tok/s accepted decode',
+        f'{r["fresh_prefill_tps"]:,.0f} tok/s fresh prefill / {r["actual_max_prompt"]:,} max input',
+        f'{resources["device_vram_peak_sampled_bytes"]/2**30:.2f} GiB VRAM peak / {resources["host_min_available_bytes"]/2**30:.2f} GiB RAM free min',
+        f'{resources["gpu_energy_wh"]:.2f} GPU Wh / {resources["gpu_power_mean_watts"]:.0f} W mean',
+        f'{resources["gpu_power_peak_watts"]:.1f} W peak / {resources["gpu_temperature_peak_c"]:.1f} C peak']):
+        c.text(848, 430+index*53, label, 22, CYAN, width=670)
+    c.text(70, 782, '128K CAPACITY CODING STAGE UNLOCKED', 30, GREEN, True)
+    c.text(70, 840, 'Separate coding run. Measure actual input before making longer-context claims.', 23, MUTED)
+    c.footer(['Review of an existing patch, not new coding throughput or filled-context retrieval.',
+              'INT8 KV / MTP4 / approximate expert-tail skip 7. Earlier failed checks remain recorded.',
+              'Device-wide GPU-only energy. Decode includes reasoning. Resource peaks are sampled.'])
+    c.save('coder-stability-handoff.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -263,3 +294,4 @@ if __name__ == '__main__':
     stability_card()
     context_card()
     guided_card()
+    handoff_card()
