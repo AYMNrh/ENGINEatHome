@@ -471,6 +471,44 @@ def dense_live_card():
     c.save('dense-iq3s-live.png')
 
 
+def dense_supervision_card():
+    data = load('dense-iq3s-supervision-20261112.json')
+    leader, _, guarded = data['ranked']
+    hybrid = data['hybrid_partial']
+    c = Card('64K CODING / GUARDED AND HYBRID QWEN',
+             'RTX 5070 Ti 16GB / guided OpenCode / four frozen attempts', '13', '12 NOV 2026')
+    c.metric(0, 'RANK 1 / STRATA CODER', f'{leader["strict"]}/4 strict', f'{leader["minutes"]:.1f} task minutes')
+    c.metric(1, 'GUARDED QWEN', f'{guarded["strict"]}/4 strict', f'{guarded["minutes"]:.1f} task minutes', CYAN)
+    c.metric(2, 'HYBRID / PARTIAL', f'{hybrid["strict"]}/{hybrid["graded"]} strict', '2/2 passing patches', AMBER)
+    c.metric(3, 'HYBRID / GRADED TIME', f'{hybrid["task_minutes"]:.1f} min', 'Two graded attempts', AMBER)
+    c.rect((52, 354, 776, 893), outline=BORDER)
+    c.text(76, 375, 'COMPLETED PROFILES / TASK TIME', 24, WHITE, True)
+    labels = ('Strata Flash-Next Coder', 'Dense IQ3_S + DFlash2', 'Dense IQ3_S + guard')
+    for i, (profile, row) in enumerate(zip(labels, data['ranked'])):
+        y = 473 + 121*i
+        color = GREEN if i == 0 else CYAN
+        label = f'{row["rank"]}. {profile} / {row["strict"]} strict, {row["patch"]} patch'
+        c.bar(76, y, 540, row['minutes'], 40, color, label)
+        c.text(630, y-3, f'{row["minutes"]:.1f}m', 24, color, True)
+    c.text(76, 846, 'Scale 0 to 40 min / four attempts per profile', 19, MUTED)
+    c.rect((824, 354, 1548, 893), outline=BORDER)
+    c.text(848, 375, 'CODEX + QWEN / STOPPED BY USER', 24, WHITE, True)
+    usage = hybrid['supervisor_usage']
+    for i, label in enumerate((
+        'Pytest: strict pass and held-out patch pass',
+        'Sphinx: step cap, held-out patch pass',
+        'One interrupted trial / one never started',
+        f'{hybrid["supervisor_calls"]} Codex calls / {hybrid["supervisor_seconds"]:.0f}s on graded cases',
+        f'{usage["input_tokens"]:,} input / {usage["output_tokens"]:,} output tokens',
+        f'{hybrid["takeovers"]} takeovers / Qwen wrote both patches',
+    )):
+        c.text(848, 451+64*i, label, 22, CYAN if i >= 3 else MUTED, width=665)
+    c.footer(['Ranking uses strict passes, then held-out patch passes, then total task time.',
+              'Hybrid is unranked. Its time and token figures above cover the two graded cases.',
+              'One Pytest trial passed after a guard pause. Guarded Sphinx timed out.'])
+    c.save('dense-iq3s-supervision.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -483,3 +521,4 @@ if __name__ == '__main__':
     dense_iq3s_cards()
     dense_dflash2_cards()
     dense_live_card()
+    dense_supervision_card()

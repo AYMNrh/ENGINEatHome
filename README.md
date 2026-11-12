@@ -6,6 +6,10 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
+[![Strata Coder ranks first on four matched live coding attempts; Codex-supervised Qwen is partial](docs/assets/dense-iq3s-supervision.png)](docs/dense-iq3s-supervision-20261112.md)
+
+[Matched coding ranking and supervision pilot](docs/dense-iq3s-supervision-20261112.md) · [Measurements JSON](docs/results/dense-iq3s-supervision-20261112.json)
+
 [![Dense DFlash2 vs Strata Coder live coding, with matched 64K retrieval](docs/assets/dense-iq3s-live.png)](docs/dense-iq3s-live-20261112.md)
 
 [Live coding and retrieval report](docs/dense-iq3s-live-20261112.md) · [Measurements JSON](docs/results/dense-iq3s-live-20261112.json)

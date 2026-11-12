@@ -1,0 +1,171 @@
+{
+  "hardware": "RTX 5070 Ti 16GB / 64GB DDR5",
+  "context_capacity": 65536,
+  "ranking_rule": "Completed four-attempt profiles, ordered by strict passes, then passing patches, then time.",
+  "ranked": [
+    {
+      "rank": 1,
+      "profile": "Strata Flash-Next Coder",
+      "strict": 4,
+      "patch": 4,
+      "minutes": 16.0068,
+      "tool_calls": 122,
+      "gpu_wh": 24.6323
+    },
+    {
+      "rank": 2,
+      "profile": "Dense IQ3_S + DFlash2",
+      "strict": 3,
+      "patch": 4,
+      "minutes": 33.4347,
+      "tool_calls": 228,
+      "gpu_wh": 111.3134
+    },
+    {
+      "rank": 3,
+      "profile": "Dense IQ3_S + DFlash2 + guard",
+      "strict": 3,
+      "patch": 3,
+      "minutes": 35.9475,
+      "tool_calls": 213,
+      "gpu_wh": 108.6853
+    }
+  ],
+  "guarded": {
+    "status": "completed",
+    "planned": 4,
+    "started": 4,
+    "graded": 4,
+    "strict": 3,
+    "patch": 3,
+    "task_minutes": 35.9475,
+    "tools": 213,
+    "guard_pauses": 2,
+    "takeovers": 0,
+    "decode_tps": 121.9636,
+    "prefill_tps": 1237.8448,
+    "supervisor_calls": 0,
+    "supervisor_seconds": 0,
+    "supervisor_usage": {
+      "input_tokens": 0,
+      "cached_input_tokens": 0,
+      "output_tokens": 0,
+      "reasoning_output_tokens": 0
+    },
+    "interrupted": 0,
+    "cases": [
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 0,
+        "strict": true,
+        "patch": true,
+        "seconds": 267.3522,
+        "tool_calls": 33,
+        "stop_reasons": [],
+        "supervisor_actions": []
+      },
+      {
+        "issue": "sphinx-doc__sphinx-10323",
+        "trial": 0,
+        "strict": false,
+        "patch": false,
+        "seconds": 1203.5071,
+        "tool_calls": 97,
+        "stop_reasons": [
+          "repeated_shell_no_progress",
+          "agent_timeout"
+        ],
+        "supervisor_actions": []
+      },
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 1,
+        "strict": true,
+        "patch": true,
+        "seconds": 436.1653,
+        "tool_calls": 50,
+        "stop_reasons": [],
+        "supervisor_actions": []
+      },
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 2,
+        "strict": true,
+        "patch": true,
+        "seconds": 249.8283,
+        "tool_calls": 33,
+        "stop_reasons": [
+          "repeated_shell_no_progress"
+        ],
+        "supervisor_actions": []
+      }
+    ],
+    "gpu_wh": 108.6853
+  },
+  "hybrid_partial": {
+    "status": "interrupted",
+    "planned": 4,
+    "started": 3,
+    "graded": 2,
+    "strict": 1,
+    "patch": 2,
+    "task_minutes": 23.8773,
+    "tools": 166,
+    "guard_pauses": 1,
+    "takeovers": 0,
+    "decode_tps": 102.2377,
+    "prefill_tps": 1211.9231,
+    "supervisor_calls": 6,
+    "supervisor_seconds": 54.864,
+    "supervisor_usage": {
+      "input_tokens": 117705,
+      "cached_input_tokens": 53248,
+      "output_tokens": 1810,
+      "reasoning_output_tokens": 1313
+    },
+    "interrupted": 1,
+    "cases": [
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 0,
+        "strict": true,
+        "patch": true,
+        "seconds": 512.0255,
+        "tool_calls": 67,
+        "stop_reasons": [
+          "repeated_shell_no_progress"
+        ],
+        "supervisor_actions": [
+          "guide",
+          "retry",
+          "accept"
+        ]
+      },
+      {
+        "issue": "sphinx-doc__sphinx-10323",
+        "trial": 0,
+        "strict": false,
+        "patch": true,
+        "seconds": 920.6107,
+        "tool_calls": 99,
+        "stop_reasons": [
+          "step_cap"
+        ],
+        "supervisor_actions": [
+          "guide",
+          "retry",
+          "accept"
+        ]
+      }
+    ],
+    "all_completed_supervisor_usage": {
+      "input_tokens": 135581,
+      "cached_input_tokens": 64384,
+      "output_tokens": 1991,
+      "reasoning_output_tokens": 1397
+    },
+    "all_completed_supervisor_calls": 7
+  },
+  "supervisor_model": "gpt-6-sol",
+  "scope": "Same frozen four attempts and guided OpenCode workflow. Distinct model/runtime for Strata. Hybrid stopped by user and unranked."
+}
