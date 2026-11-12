@@ -380,6 +380,61 @@ def dense_iq3s_cards():
     c.save('dense-iq3s-context.png')
 
 
+def dense_dflash2_cards():
+    data = load('dense-iq3s-dflash2-20261112.json')
+    sweep, replay = data['depth_sweep'], data['replay']
+    code, edit = (sweep[-1]['requests'][task] for task in ('decode', 'edit'))
+    c = Card('DENSE 27B / DFLASH2 DEPTH SWEEP',
+             'RTX 5070 Ti 16GB / Qwen3.8-27B UD-IQ3_S / llama.cpp CUDA', '10', '12 NOV 2026')
+    c.metric(0, 'FRESH CODE DECODE', f'{code["decode_tps"]:.1f} tok/s', 'DFlash2 depth 7')
+    c.metric(1, 'CODE EDIT DECODE', f'{edit["decode_tps"]:.1f} tok/s', 'DFlash2 depth 7')
+    c.metric(2, 'FRESH PREFILL', f'{(code["prefill_tps"]+edit["prefill_tps"])/2:,.0f} tok/s', 'Depth 7 / two prompts', CYAN)
+    c.metric(3, 'ACTUAL INPUT', f'{code["input_tokens"]:,}', '512 output per prompt', AMBER)
+    c.rect((52, 354, 1548, 893), outline=BORDER)
+    c.text(76, 375, 'DEPTH', 25, WHITE, True)
+    c.text(290, 375, 'FRESH CODE / TOK/S', 25, WHITE, True)
+    c.text(929, 375, 'CODE EDIT / TOK/S', 25, WHITE, True)
+    for index, row in enumerate(sweep):
+        y = 458 + 96*index
+        c.text(76, y, f'{row["depth"]} drafts', 24, WHITE)
+        for x, task, color in ((290, 'decode', GREEN), (929, 'edit', CYAN)):
+            value = row['requests'][task]['decode_tps']
+            c.rect((x, y+3, x+474, y+29), '#20323a', radius=4)
+            c.rect((x, y+3, x+474*value/120, y+29), color, radius=4)
+            c.text(x+491, y, f'{value:.1f}', 24, color, True)
+    c.text(76, 842, 'Scale 0 to 120 tok/s / Q4 target KV / Q8 draft KV / GPU layer and cache placement', 20, MUTED)
+    c.footer(['One cold sample per prompt and depth. Synthetic repository text with repeated filler.',
+              'Depth 7 leads both prompts and advances to the OpenCode history replay.',
+              'Throughput probes only. Coding and retrieval quality are unscored.'])
+    c.save('dense-iq3s-dflash2-depths.png')
+
+    cold, warm = (row['dflash2-7'] for row in replay[-2:])
+    c = Card('DENSE 27B / OPENCODE HISTORY REPLAY',
+             'RTX 5070 Ti 16GB / Qwen3.8-27B UD-IQ3_S / one saved Sphinx session', '11', '12 NOV 2026')
+    c.metric(0, '64K COLD DECODE', f'{cold["decode_tps"]:.1f} tok/s', '63,529 fresh input')
+    c.metric(1, '64K CACHED DECODE', f'{warm["decode_tps"]:.1f} tok/s', '64,000 actual input')
+    c.metric(2, '64K FRESH PREFILL', f'{cold["prefill_tps"]:,.0f} tok/s', 'DFlash2 depth 7', CYAN)
+    c.metric(3, '64K CACHED REQUEST', f'{warm["elapsed_seconds"]:.2f}s', '63,525 reused tokens', AMBER)
+    c.rect((52, 354, 1548, 893), outline=BORDER)
+    c.text(76, 375, 'ACTUAL INPUT / CACHE', 25, WHITE, True)
+    c.text(432, 375, 'DFLASH2 DEPTH 7 / TOK/S', 25, WHITE, True)
+    c.text(987, 375, 'MTP5 / TOK/S', 25, WHITE, True)
+    for index, row in enumerate(replay):
+        y = 432 + 64*index
+        label = 'cached' if row['phase'] == 'warm' else 'cold'
+        c.text(76, y, f'{row["dflash2-7"]["input_tokens"]:,} / {label}', 23, WHITE)
+        for x, profile, color in ((432, 'dflash2-7', GREEN), (987, 'mtp5', CYAN)):
+            value = row[profile]['decode_tps']
+            c.rect((x, y+3, x+395, y+25), '#20323a', radius=4)
+            c.rect((x, y+3, x+395*value/180, y+25), color, radius=4)
+            c.text(x+413, y, f'{value:.1f}', 23, color, True)
+    c.text(76, 843, 'Scale 0 to 180 tok/s / 256 output per request / Q4 target KV / Q8 draft KV', 20, MUTED)
+    c.footer(['Reconstructed turns and tool outputs. Four saved source files extend the longest pair.',
+              'DFlash2 peak device VRAM 14.95 GiB. MTP5 peak 14.08 GiB.',
+              'Single-stream speed only. Tools were not executed and patches were not graded.'])
+    c.save('dense-iq3s-dflash2-replay.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -390,3 +445,4 @@ if __name__ == '__main__':
     handoff_card()
     agent128_card()
     dense_iq3s_cards()
+    dense_dflash2_cards()

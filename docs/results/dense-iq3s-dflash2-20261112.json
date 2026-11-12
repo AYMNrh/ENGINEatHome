@@ -1,0 +1,390 @@
+{
+  "date": "2026-11-12",
+  "model": "Unsloth Qwen3.8-27B UD-IQ3_S",
+  "model_sha256": "d847e2c1e4aa276e4b7b8e9ad7628050e61e165d49ab995407bc36677a6f3864",
+  "draft_sha256": "d169ad335929adc0d77e10e2523f968f3e75f547637ad739b0a137ccde111b5f",
+  "hardware": "RTX 5070 Ti 16GB / 64GB DDR5",
+  "engine": "llama.cpp b12110 Windows CUDA",
+  "settings": {
+    "context_capacity": 65536,
+    "target_kv": "q4_0",
+    "draft_kv": "q8_0",
+    "batch": 512,
+    "ubatch": 256,
+    "draft_ubatch": 64
+  },
+  "depth_sweep": [
+    {
+      "depth": 3,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "cached_tokens": 0,
+          "fresh_tokens": 64000,
+          "output_tokens": 512,
+          "prefill_tps": 1221.4507,
+          "decode_tps": 80.4337,
+          "ttft_seconds": 52.4151,
+          "elapsed_seconds": 58.7708,
+          "drafts": 444,
+          "accepted_drafts": 362,
+          "peak_device_vram_mib": 14505.0,
+          "gpu_wh": 4.5911,
+          "energy_sample_seconds": 58.0869,
+          "energy_samples": 55
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "cached_tokens": 0,
+          "fresh_tokens": 64000,
+          "output_tokens": 512,
+          "prefill_tps": 1220.8635,
+          "decode_tps": 77.2151,
+          "ttft_seconds": 52.4453,
+          "elapsed_seconds": 59.066,
+          "drafts": 474,
+          "accepted_drafts": 353,
+          "peak_device_vram_mib": 14525.0,
+          "gpu_wh": 4.6178,
+          "energy_sample_seconds": 58.0007,
+          "energy_samples": 55
+        }
+      }
+    },
+    {
+      "depth": 4,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "cached_tokens": 0,
+          "fresh_tokens": 64000,
+          "output_tokens": 512,
+          "prefill_tps": 1224.417,
+          "decode_tps": 97.2325,
+          "ttft_seconds": 52.289,
+          "elapsed_seconds": 57.5475,
+          "drafts": 477,
+          "accepted_drafts": 391,
+          "peak_device_vram_mib": 14860.0,
+          "gpu_wh": 4.371,
+          "energy_sample_seconds": 56.9212,
+          "energy_samples": 54
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "cached_tokens": 0,
+          "fresh_tokens": 64000,
+          "output_tokens": 512,
+          "prefill_tps": 1223.5436,
+          "decode_tps": 91.3084,
+          "ttft_seconds": 52.3487,
+          "elapsed_seconds": 57.9478,
+          "drafts": 515,
+          "accepted_drafts": 382,
+          "peak_device_vram_mib": 14870.0,
+          "gpu_wh": 4.4849,
+          "energy_sample_seconds": 56.8665,
+          "energy_samples": 54
+        }
+      }
+    },
+    {
+      "depth": 5,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "cached_tokens": 0,
+          "fresh_tokens": 64000,
+          "output_tokens": 512,
+          "prefill_tps": 1221.8342,
+          "decode_tps": 90.1625,
+          "ttft_seconds": 52.3975,
+          "elapsed_seconds": 58.068,
+          "drafts": 602,
+          "accepted_drafts": 390,
+          "peak_device_vram_mib": 14988.0,
+          "gpu_wh": 4.571,
+          "energy_sample_seconds": 57.8891,
+          "energy_samples": 55
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "cached_tokens": 0,
+          "fresh_tokens": 64000,
+          "output_tokens": 512,
+          "prefill_tps": 1222.5034,
+          "decode_tps": 95.0647,
+          "ttft_seconds": 52.3723,
+          "elapsed_seconds": 57.7504,
+          "drafts": 577,
+          "accepted_drafts": 395,
+          "peak_device_vram_mib": 14992.0,
+          "gpu_wh": 4.5221,
+          "energy_sample_seconds": 56.8314,
+          "energy_samples": 54
+        }
+      }
+    },
+    {
+      "depth": 7,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "cached_tokens": 0,
+          "fresh_tokens": 64000,
+          "output_tokens": 512,
+          "prefill_tps": 1220.7936,
+          "decode_tps": 106.16,
+          "ttft_seconds": 52.4423,
+          "elapsed_seconds": 57.2586,
+          "drafts": 659,
+          "accepted_drafts": 416,
+          "peak_device_vram_mib": 15283.0,
+          "gpu_wh": 4.4961,
+          "energy_sample_seconds": 56.8536,
+          "energy_samples": 54
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "cached_tokens": 0,
+          "fresh_tokens": 64000,
+          "output_tokens": 512,
+          "prefill_tps": 1221.6433,
+          "decode_tps": 104.6281,
+          "ttft_seconds": 52.4268,
+          "elapsed_seconds": 57.3136,
+          "drafts": 675,
+          "accepted_drafts": 413,
+          "peak_device_vram_mib": 15283.0,
+          "gpu_wh": 4.5238,
+          "energy_sample_seconds": 56.9219,
+          "energy_samples": 54
+        }
+      }
+    }
+  ],
+  "replay": [
+    {
+      "target": 8192,
+      "phase": "cold",
+      "mtp5": {
+        "input_tokens": 8387,
+        "cached_tokens": 0,
+        "fresh_tokens": 8387,
+        "output_tokens": 256,
+        "prefill_tps": 1701.1791,
+        "decode_tps": 114.7455,
+        "ttft_seconds": 4.9335,
+        "elapsed_seconds": 7.1567,
+        "drafts": 280,
+        "accepted_drafts": 199,
+        "peak_device_vram_mib": 14400.0,
+        "gpu_wh": 0.4504,
+        "energy_sample_seconds": 6.4651,
+        "energy_samples": 7
+      },
+      "dflash2-7": {
+        "input_tokens": 8387,
+        "cached_tokens": 0,
+        "fresh_tokens": 8387,
+        "output_tokens": 256,
+        "prefill_tps": 1837.7592,
+        "decode_tps": 137.6064,
+        "ttft_seconds": 4.5793,
+        "elapsed_seconds": 6.4333,
+        "drafts": 325,
+        "accepted_drafts": 208,
+        "peak_device_vram_mib": 15265.0,
+        "gpu_wh": 0.3954,
+        "energy_sample_seconds": 5.373,
+        "energy_samples": 6
+      }
+    },
+    {
+      "target": 8192,
+      "phase": "warm",
+      "mtp5": {
+        "input_tokens": 8770,
+        "cached_tokens": 8383,
+        "fresh_tokens": 387,
+        "output_tokens": 256,
+        "prefill_tps": 1225.9366,
+        "decode_tps": 139.6918,
+        "ttft_seconds": 0.3197,
+        "elapsed_seconds": 2.146,
+        "drafts": 225,
+        "accepted_drafts": 209,
+        "peak_device_vram_mib": 14405.0,
+        "gpu_wh": 0.0447,
+        "energy_sample_seconds": 1.0803,
+        "energy_samples": 2
+      },
+      "dflash2-7": {
+        "input_tokens": 8770,
+        "cached_tokens": 8383,
+        "fresh_tokens": 387,
+        "output_tokens": 256,
+        "prefill_tps": 1230.2547,
+        "decode_tps": 162.2965,
+        "ttft_seconds": 0.3187,
+        "elapsed_seconds": 1.8907,
+        "drafts": 284,
+        "accepted_drafts": 214,
+        "peak_device_vram_mib": 15280.0,
+        "gpu_wh": 0.0476,
+        "energy_sample_seconds": 1.0802,
+        "energy_samples": 2
+      }
+    },
+    {
+      "target": 32768,
+      "phase": "cold",
+      "mtp5": {
+        "input_tokens": 32641,
+        "cached_tokens": 0,
+        "fresh_tokens": 32641,
+        "output_tokens": 256,
+        "prefill_tps": 1475.9519,
+        "decode_tps": 127.5511,
+        "ttft_seconds": 22.1256,
+        "elapsed_seconds": 24.1268,
+        "drafts": 215,
+        "accepted_drafts": 212,
+        "peak_device_vram_mib": 14415.0,
+        "gpu_wh": 1.8432,
+        "energy_sample_seconds": 23.747,
+        "energy_samples": 23
+      },
+      "dflash2-7": {
+        "input_tokens": 32641,
+        "cached_tokens": 0,
+        "fresh_tokens": 32641,
+        "output_tokens": 256,
+        "prefill_tps": 1545.4297,
+        "decode_tps": 170.2157,
+        "ttft_seconds": 21.1313,
+        "elapsed_seconds": 22.6312,
+        "drafts": 235,
+        "accepted_drafts": 221,
+        "peak_device_vram_mib": 15305.0,
+        "gpu_wh": 1.7155,
+        "energy_sample_seconds": 21.5568,
+        "energy_samples": 21
+      }
+    },
+    {
+      "target": 32768,
+      "phase": "warm",
+      "mtp5": {
+        "input_tokens": 33112,
+        "cached_tokens": 32637,
+        "fresh_tokens": 475,
+        "output_tokens": 256,
+        "prefill_tps": 902.3591,
+        "decode_tps": 128.4354,
+        "ttft_seconds": 0.537,
+        "elapsed_seconds": 2.5243,
+        "drafts": 215,
+        "accepted_drafts": 212,
+        "peak_device_vram_mib": 14412.0,
+        "gpu_wh": 0.1304,
+        "energy_sample_seconds": 2.1693,
+        "energy_samples": 3
+      },
+      "dflash2-7": {
+        "input_tokens": 33112,
+        "cached_tokens": 32637,
+        "fresh_tokens": 475,
+        "output_tokens": 256,
+        "prefill_tps": 912.4315,
+        "decode_tps": 170.2947,
+        "ttft_seconds": 0.531,
+        "elapsed_seconds": 2.0303,
+        "drafts": 235,
+        "accepted_drafts": 221,
+        "peak_device_vram_mib": 15307.0,
+        "gpu_wh": 0.0422,
+        "energy_sample_seconds": 1.0581,
+        "energy_samples": 2
+      }
+    },
+    {
+      "target": 64000,
+      "phase": "cold",
+      "mtp5": {
+        "input_tokens": 63529,
+        "cached_tokens": 0,
+        "fresh_tokens": 63529,
+        "output_tokens": 256,
+        "prefill_tps": 1161.5783,
+        "decode_tps": 109.4442,
+        "ttft_seconds": 54.7115,
+        "elapsed_seconds": 57.0449,
+        "drafts": 215,
+        "accepted_drafts": 212,
+        "peak_device_vram_mib": 14417.0,
+        "gpu_wh": 4.4652,
+        "energy_sample_seconds": 56.8847,
+        "energy_samples": 54
+      },
+      "dflash2-7": {
+        "input_tokens": 63529,
+        "cached_tokens": 0,
+        "fresh_tokens": 63529,
+        "output_tokens": 256,
+        "prefill_tps": 1223.4515,
+        "decode_tps": 147.6837,
+        "ttft_seconds": 51.9456,
+        "elapsed_seconds": 53.6757,
+        "drafts": 237,
+        "accepted_drafts": 221,
+        "peak_device_vram_mib": 15297.0,
+        "gpu_wh": 4.1827,
+        "energy_sample_seconds": 52.6663,
+        "energy_samples": 50
+      }
+    },
+    {
+      "target": 64000,
+      "phase": "warm",
+      "mtp5": {
+        "input_tokens": 64000,
+        "cached_tokens": 63525,
+        "fresh_tokens": 475,
+        "output_tokens": 256,
+        "prefill_tps": 676.0815,
+        "decode_tps": 109.6,
+        "ttft_seconds": 0.7205,
+        "elapsed_seconds": 3.0506,
+        "drafts": 215,
+        "accepted_drafts": 212,
+        "peak_device_vram_mib": 14417.0,
+        "gpu_wh": 0.1301,
+        "energy_sample_seconds": 2.1601,
+        "energy_samples": 3
+      },
+      "dflash2-7": {
+        "input_tokens": 64000,
+        "cached_tokens": 63525,
+        "fresh_tokens": 475,
+        "output_tokens": 256,
+        "prefill_tps": 706.1874,
+        "decode_tps": 148.8425,
+        "ttft_seconds": 0.6917,
+        "elapsed_seconds": 2.4084,
+        "drafts": 237,
+        "accepted_drafts": 221,
+        "peak_device_vram_mib": 15302.0,
+        "gpu_wh": 0.1188,
+        "energy_sample_seconds": 2.1462,
+        "energy_samples": 3
+      }
+    }
+  ],
+  "scope": {
+    "depth_sweep": "Two synthetic cold prompts per depth; repeated repository filler",
+    "replay": "One reconstructed saved Sphinx OpenCode session, longest pair augmented with four saved repository source files",
+    "quality": "Unscored",
+    "energy": "Sampled device-wide GPU only"
+  }
+}

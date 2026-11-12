@@ -6,6 +6,12 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
+[![DFlash2 depth 7 exceeds 100 tok/s on both filled 64K fixtures](docs/assets/dense-iq3s-dflash2-depths.png)](docs/dense-iq3s-dflash2-20261112.md)
+
+[![DFlash2 depth 7 versus MTP5 on reconstructed OpenCode history](docs/assets/dense-iq3s-dflash2-replay.png)](docs/dense-iq3s-dflash2-20261112.md#opencode-history-replay)
+
+[DFlash2 sweep and replay report](docs/dense-iq3s-dflash2-20261112.md) · [Measurements JSON](docs/results/dense-iq3s-dflash2-20261112.json)
+
 [![Dense Qwen3.8-27B IQ3_S filled 64K decode, up to 84.8 tokens per second](docs/assets/dense-iq3s-64k.png)](docs/dense-iq3s-20261112.md)
 
 [![Dense Qwen3.8-27B IQ3_S context fit at 64K, 128K and 256K](docs/assets/dense-iq3s-context.png)](docs/dense-iq3s-20261112.md#context-fit-with-mtp-off)
