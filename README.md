@@ -6,6 +6,12 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
+[![Dense Qwen3.8-27B IQ3_S filled 64K decode, up to 84.8 tokens per second](docs/assets/dense-iq3s-64k.png)](docs/dense-iq3s-20261112.md)
+
+[![Dense Qwen3.8-27B IQ3_S context fit at 64K, 128K and 256K](docs/assets/dense-iq3s-context.png)](docs/dense-iq3s-20261112.md#context-fit-with-mtp-off)
+
+[Dense IQ3_S speed report](docs/dense-iq3s-20261112.md) · [Measurements JSON](docs/results/dense-iq3s-20261112.json)
+
 [![Coder with 128K capacity: six strict passes, 55,948 maximum actual input](docs/assets/coder-agent128.png)](docs/strata-coder-agent128-20261111.md)
 
 [128K-capacity coding report](docs/strata-coder-agent128-20261111.md) · [Measurements JSON](docs/results/strata-coder-agent128-20261111.json)

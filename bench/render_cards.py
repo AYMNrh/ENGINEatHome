@@ -321,6 +321,65 @@ def agent128_card():
     c.save('coder-agent128.png')
 
 
+def dense_iq3s_cards():
+    data = load('dense-iq3s-20261112.json')
+    rows = data['extended_64k_sweep']
+    context64, context128, context256 = data['context_probes']
+    c = Card('DENSE QWEN3.8-27B / 64K DECODE',
+             'RTX 5070 Ti 16GB / Unsloth UD-IQ3_S / llama.cpp CUDA', '08', '12 NOV 2026')
+    c.metric(0, 'PEAK EDIT DECODE', f'{rows[2]["requests"]["edit"]["decode_tps"]:.1f} tok/s', 'MTP5 / Q4 KV')
+    c.metric(1, 'PEAK FRESH CODE', f'{rows[1]["requests"]["decode"]["decode_tps"]:.1f} tok/s', 'MTP4 / Q4 KV')
+    c.metric(2, 'BEST FRESH PREFILL', f'{rows[4]["requests"]["decode"]["fresh_prefill_tps"]:,.0f} tok/s',
+             'DFlash2 / depth 3', CYAN)
+    c.metric(3, 'ACTUAL INPUT', f'{rows[0]["requests"]["decode"]["input_tokens"]:,}', '512 output per prompt', AMBER)
+    c.rect((52, 354, 1548, 893), outline=BORDER)
+    c.text(76, 375, 'PROFILE', 25, WHITE, True)
+    c.text(410, 375, 'FRESH CODE / TOK/S', 25, WHITE, True)
+    c.text(963, 375, 'CODE EDIT / TOK/S', 25, WHITE, True)
+    labels = ('MTP3', 'MTP4', 'MTP5', 'MTP7', 'DFlash2 depth 3', 'DSpine3 (WSL)', 'MTP3 control (WSL)')
+    for index, (label, profile) in enumerate(zip(labels, rows)):
+        y = 432 + 55*index
+        c.text(76, y, label, 22, MUTED if index >= 5 else WHITE, width=300)
+        for x, task, color in ((410, 'decode', GREEN), (963, 'edit', CYAN)):
+            value = profile['requests'][task]['decode_tps']
+            c.rect((x, y+2, x+415, y+23), '#20323a', radius=4)
+            c.rect((x, y+2, x+415*value/100, y+23), color, radius=4)
+            c.text(x+434, y-1, f'{value:.1f}', 22, color, True, width=82)
+    c.text(76, 851, 'Scale 0 to 100 tok/s / two cold prompts per profile / GPU layer and cache placement', 20, MUTED)
+    c.footer(['Q4 target KV and Q8 draft KV throughout this chart. Repeated repository filler.',
+              'DFlash2 finished both cold requests in about 59s; MTP5 took 61 to 62s.',
+              'Speed probes only. Draft and KV settings still need coding and retrieval checks.'])
+    c.save('dense-iq3s-64k.png')
+
+    c = Card('DENSE QWEN3.8-27B / CONTEXT FIT',
+             'RTX 5070 Ti 16GB / Unsloth UD-IQ3_S / MTP off', '09', '12 NOV 2026')
+    c.metric(0, '64K PREFILL', f'{context64["fresh_prefill_tps"]:,.0f} tok/s', '64,000 fresh input', CYAN)
+    c.metric(1, '128K PREFILL', f'{context128["fresh_prefill_tps"]:,.0f} tok/s', '130,816 fresh input', CYAN)
+    c.metric(2, '128K DECODE', f'{context128["decode_tps"]:.1f} tok/s', '128 output tokens')
+    c.metric(3, '256K RESULT', 'Stopped', 'Shared GPU memory', AMBER)
+    c.rect((52, 354, 776, 893), outline=BORDER)
+    c.text(76, 375, 'MEASURED DECODE / TOK/S', 25, WHITE, True)
+    for index, (label, result) in enumerate((('64K / Q8 KV / 32 output', context64),
+                                             ('128K / Q4 KV / 128 output', context128))):
+        y = 473 + index*146
+        c.bar(76, y, 520, result['decode_tps'], 50, GREEN, label)
+        c.text(610, y-3, f'{result["decode_tps"]:.1f}', 26, GREEN, True)
+        c.text(76, y+43, f'{result["peak_device_vram_mib"]/1024:.2f} GiB peak device VRAM', 21, MUTED)
+    c.text(76, 838, 'Zero-based scale: 0 to 50 tok/s', 20, MUTED)
+    c.rect((824, 354, 1548, 893), outline=BORDER)
+    c.text(848, 375, '256K / STOPPED AT PLACEMENT', 25, WHITE, True)
+    for index, attempt in enumerate(context256['attempts']):
+        y = 473 + index*146
+        c.bar(848, y, 520, attempt['shared_mib'], 1500, AMBER, f'Microbatch {attempt["ubatch"]} / shared GPU memory')
+        c.text(1382, y-3, f'{attempt["shared_mib"]:,.0f} MiB', 22, AMBER, True)
+    c.text(848, 767, 'GPU residency check refused both loads.', 21, AMBER, True)
+    c.text(848, 838, 'Zero-based scale: 0 to 1,500 MiB', 20, MUTED)
+    c.footer(['64K and 128K use different KV precision and output lengths.',
+              '256K attempted Q4 KV at both microbatch sizes. No prefill or decode was run.',
+              'Synthetic speed probes only. Agent and retrieval quality are unscored.'])
+    c.save('dense-iq3s-context.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -330,3 +389,4 @@ if __name__ == '__main__':
     guided_card()
     handoff_card()
     agent128_card()
+    dense_iq3s_cards()

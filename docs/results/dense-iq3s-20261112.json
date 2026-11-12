@@ -1,0 +1,534 @@
+{
+  "date": "2026-11-12",
+  "hardware": "RTX 5070 Ti 16GB / 64GB DDR5",
+  "model": "Unsloth Qwen3.8-27B UD-IQ3_S",
+  "model_sha256": "d847e2c1e4aa276e4b7b8e9ad7628050e61e165d49ab995407bc36677a6f3864",
+  "batch": 512,
+  "ubatch": 256,
+  "draft_ubatch": 64,
+  "draft_kv": "q8_0",
+  "initial_64k_sweep": [
+    {
+      "profile": "q8-control",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q8_0",
+      "value_type": "q8_0",
+      "mtp_depth": 0,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1248.721,
+          "decode_tps": 40.2857,
+          "fresh_prefill_seconds": 51.2524,
+          "elapsed_seconds": 57.6076,
+          "ttft_seconds": 51.2751,
+          "drafts": null,
+          "accepted_drafts": null,
+          "peak_device_vram_mib": 13708.0,
+          "gpu_wh": 4.4313
+        }
+      }
+    },
+    {
+      "profile": "q8-mtp1",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q8_0",
+      "value_type": "q8_0",
+      "mtp_depth": 1,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1158.3794,
+          "decode_tps": 61.1932,
+          "fresh_prefill_seconds": 55.2496,
+          "elapsed_seconds": 59.4376,
+          "ttft_seconds": 55.2677,
+          "drafts": 132,
+          "accepted_drafts": 122,
+          "peak_device_vram_mib": 14640.0,
+          "gpu_wh": 4.6498
+        }
+      }
+    },
+    {
+      "profile": "q8-mtp2",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q8_0",
+      "value_type": "q8_0",
+      "mtp_depth": 2,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1158.4857,
+          "decode_tps": 65.2577,
+          "fresh_prefill_seconds": 55.2445,
+          "elapsed_seconds": 59.1727,
+          "ttft_seconds": 55.2622,
+          "drafts": 189,
+          "accepted_drafts": 160,
+          "peak_device_vram_mib": 14785.0,
+          "gpu_wh": 4.6437
+        }
+      }
+    },
+    {
+      "profile": "q8-mtp3",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q8_0",
+      "value_type": "q8_0",
+      "mtp_depth": 3,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1158.5088,
+          "decode_tps": 71.3206,
+          "fresh_prefill_seconds": 55.2434,
+          "elapsed_seconds": 58.8391,
+          "ttft_seconds": 55.2607,
+          "drafts": 236,
+          "accepted_drafts": 176,
+          "peak_device_vram_mib": 14915.0,
+          "gpu_wh": 4.5678
+        }
+      }
+    },
+    {
+      "profile": "q8-ngram",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q8_0",
+      "value_type": "q8_0",
+      "mtp_depth": 0,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1246.6128,
+          "decode_tps": 40.0221,
+          "fresh_prefill_seconds": 51.3391,
+          "elapsed_seconds": 57.7639,
+          "ttft_seconds": 51.3897,
+          "drafts": null,
+          "accepted_drafts": null,
+          "peak_device_vram_mib": 13716.0,
+          "gpu_wh": 4.582
+        }
+      }
+    },
+    {
+      "profile": "q8-gpu-sampling",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q8_0",
+      "value_type": "q8_0",
+      "mtp_depth": 0,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1245.7142,
+          "decode_tps": 40.4811,
+          "fresh_prefill_seconds": 51.3762,
+          "elapsed_seconds": 57.6961,
+          "ttft_seconds": 51.3942,
+          "drafts": null,
+          "accepted_drafts": null,
+          "peak_device_vram_mib": 13708.0,
+          "gpu_wh": 4.5687
+        }
+      }
+    },
+    {
+      "profile": "q8k-q4v-mtp3",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q8_0",
+      "value_type": "q4_0",
+      "mtp_depth": 3,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1160.1874,
+          "decode_tps": 73.1808,
+          "fresh_prefill_seconds": 55.1635,
+          "elapsed_seconds": 58.6858,
+          "ttft_seconds": 55.1983,
+          "drafts": 232,
+          "accepted_drafts": 177,
+          "peak_device_vram_mib": 14410.0,
+          "gpu_wh": 4.5765
+        }
+      }
+    },
+    {
+      "profile": "q4-control",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 0,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1248.3027,
+          "decode_tps": 40.1379,
+          "fresh_prefill_seconds": 51.2696,
+          "elapsed_seconds": 57.6727,
+          "ttft_seconds": 51.317,
+          "drafts": null,
+          "accepted_drafts": null,
+          "peak_device_vram_mib": 12690.0,
+          "gpu_wh": 4.5708
+        }
+      }
+    },
+    {
+      "profile": "q4-mtp3",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 3,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 256,
+          "fresh_prefill_tps": 1159.0597,
+          "decode_tps": 73.3403,
+          "fresh_prefill_seconds": 55.2172,
+          "elapsed_seconds": 58.7341,
+          "ttft_seconds": 55.2544,
+          "drafts": 228,
+          "accepted_drafts": 179,
+          "peak_device_vram_mib": 13898.0,
+          "gpu_wh": 4.578
+        }
+      }
+    }
+  ],
+  "extended_64k_sweep": [
+    {
+      "profile": "q4-mtp3",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 3,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1160.9034,
+          "decode_tps": 77.239,
+          "fresh_prefill_seconds": 55.1295,
+          "elapsed_seconds": 61.766,
+          "ttft_seconds": 55.147,
+          "drafts": 438,
+          "accepted_drafts": 365,
+          "peak_device_vram_mib": 13925.0,
+          "gpu_wh": 4.7268
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1160.938,
+          "decode_tps": 71.5698,
+          "fresh_prefill_seconds": 55.1278,
+          "elapsed_seconds": 62.3055,
+          "ttft_seconds": 55.1628,
+          "drafts": 474,
+          "accepted_drafts": 353,
+          "peak_device_vram_mib": 13940.0,
+          "gpu_wh": 4.8934
+        }
+      }
+    },
+    {
+      "profile": "q4-mtp4",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 4,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1158.5833,
+          "decode_tps": 81.9272,
+          "fresh_prefill_seconds": 55.2399,
+          "elapsed_seconds": 61.4974,
+          "ttft_seconds": 55.2574,
+          "drafts": 508,
+          "accepted_drafts": 383,
+          "peak_device_vram_mib": 14065.0,
+          "gpu_wh": 4.8097
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1158.9364,
+          "decode_tps": 79.688,
+          "fresh_prefill_seconds": 55.223,
+          "elapsed_seconds": 61.6564,
+          "ttft_seconds": 55.2412,
+          "drafts": 523,
+          "accepted_drafts": 380,
+          "peak_device_vram_mib": 14080.0,
+          "gpu_wh": 4.8341
+        }
+      }
+    },
+    {
+      "profile": "q4-mtp5",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 5,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1159.112,
+          "decode_tps": 80.2948,
+          "fresh_prefill_seconds": 55.2147,
+          "elapsed_seconds": 61.5994,
+          "ttft_seconds": 55.2326,
+          "drafts": 587,
+          "accepted_drafts": 393,
+          "peak_device_vram_mib": 14189.0,
+          "gpu_wh": 4.8347
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1159.6375,
+          "decode_tps": 84.7678,
+          "fresh_prefill_seconds": 55.1897,
+          "elapsed_seconds": 61.2423,
+          "ttft_seconds": 55.2113,
+          "drafts": 558,
+          "accepted_drafts": 399,
+          "peak_device_vram_mib": 14223.0,
+          "gpu_wh": 4.78
+        }
+      }
+    },
+    {
+      "profile": "q4-mtp7",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 7,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1155.5327,
+          "decode_tps": 80.1222,
+          "fresh_prefill_seconds": 55.3857,
+          "elapsed_seconds": 61.7839,
+          "ttft_seconds": 55.4032,
+          "drafts": 715,
+          "accepted_drafts": 408,
+          "peak_device_vram_mib": 14507.0,
+          "gpu_wh": 4.8166
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1159.226,
+          "decode_tps": 78.0281,
+          "fresh_prefill_seconds": 55.2093,
+          "elapsed_seconds": 61.7787,
+          "ttft_seconds": 55.2269,
+          "drafts": 737,
+          "accepted_drafts": 405,
+          "peak_device_vram_mib": 14518.0,
+          "gpu_wh": 4.8561
+        }
+      }
+    },
+    {
+      "profile": "external-draft3",
+      "engine": "llama.cpp b12110 Windows",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 0,
+      "external_draft_depth": 3,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1221.4507,
+          "decode_tps": 80.4337,
+          "fresh_prefill_seconds": 52.3967,
+          "elapsed_seconds": 58.7708,
+          "ttft_seconds": 52.4151,
+          "drafts": 444,
+          "accepted_drafts": 362,
+          "peak_device_vram_mib": 14505.0,
+          "gpu_wh": 4.5911
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1220.8635,
+          "decode_tps": 77.2151,
+          "fresh_prefill_seconds": 52.4219,
+          "elapsed_seconds": 59.066,
+          "ttft_seconds": 52.4453,
+          "drafts": 474,
+          "accepted_drafts": 353,
+          "peak_device_vram_mib": 14525.0,
+          "gpu_wh": 4.6178
+        }
+      }
+    },
+    {
+      "profile": "external-draft3",
+      "engine": "llama.cpp d493f84 WSL",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 0,
+      "external_draft_depth": 3,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1184.0397,
+          "decode_tps": 72.9025,
+          "fresh_prefill_seconds": 54.0522,
+          "elapsed_seconds": 61.0796,
+          "ttft_seconds": 54.0672,
+          "drafts": 444,
+          "accepted_drafts": 362,
+          "peak_device_vram_mib": 14709.0,
+          "gpu_wh": 4.4784
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1226.6815,
+          "decode_tps": 77.4526,
+          "fresh_prefill_seconds": 52.1733,
+          "elapsed_seconds": 58.7841,
+          "ttft_seconds": 52.1841,
+          "drafts": 462,
+          "accepted_drafts": 356,
+          "peak_device_vram_mib": 14714.0,
+          "gpu_wh": 4.5634
+        }
+      }
+    },
+    {
+      "profile": "q4-mtp3",
+      "engine": "llama.cpp d493f84 WSL",
+      "key_type": "q4_0",
+      "value_type": "q4_0",
+      "mtp_depth": 3,
+      "external_draft_depth": null,
+      "requests": {
+        "decode": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1138.6913,
+          "decode_tps": 74.5679,
+          "fresh_prefill_seconds": 56.2049,
+          "elapsed_seconds": 63.0733,
+          "ttft_seconds": 56.2174,
+          "drafts": 438,
+          "accepted_drafts": 365,
+          "peak_device_vram_mib": 13953.0,
+          "gpu_wh": 4.7768
+        },
+        "edit": {
+          "input_tokens": 64000,
+          "output_tokens": 512,
+          "fresh_prefill_tps": 1167.258,
+          "decode_tps": 70.5783,
+          "fresh_prefill_seconds": 54.8294,
+          "elapsed_seconds": 62.082,
+          "ttft_seconds": 54.8396,
+          "drafts": 474,
+          "accepted_drafts": 353,
+          "peak_device_vram_mib": 13953.0,
+          "gpu_wh": 4.8431
+        }
+      }
+    }
+  ],
+  "context_probes": [
+    {
+      "capacity": 65536,
+      "kv": "q8_0",
+      "mtp_depth": 0,
+      "status": "measured",
+      "batch": 512,
+      "ubatch": 256,
+      "input_tokens": 64000,
+      "output_tokens": 32,
+      "fresh_prefill_tps": 1241.4332,
+      "decode_tps": 39.6881,
+      "fresh_prefill_seconds": 51.5533,
+      "elapsed_seconds": 52.3344,
+      "ttft_seconds": null,
+      "drafts": null,
+      "accepted_drafts": null,
+      "peak_device_vram_mib": 14890.0,
+      "gpu_wh": 3.9737
+    },
+    {
+      "capacity": 131072,
+      "kv": "q4_0",
+      "mtp_depth": 0,
+      "status": "measured",
+      "batch": 512,
+      "ubatch": 128,
+      "input_tokens": 130816,
+      "output_tokens": 128,
+      "fresh_prefill_tps": 814.531,
+      "decode_tps": 30.5309,
+      "fresh_prefill_seconds": 160.6029,
+      "elapsed_seconds": 164.828,
+      "ttft_seconds": 160.663,
+      "drafts": null,
+      "accepted_drafts": null,
+      "peak_device_vram_mib": 15073.0,
+      "gpu_wh": 12.8089
+    },
+    {
+      "capacity": 262144,
+      "kv": "q4_0",
+      "mtp_depth": 0,
+      "status": "stopped_before_inference",
+      "cuda_kv_mib": 4608,
+      "attempts": [
+        {
+          "ubatch": 128,
+          "dedicated_mib": 15759.67,
+          "shared_mib": 1114.0,
+          "cuda_compute_mib": 1113.01
+        },
+        {
+          "ubatch": 32,
+          "dedicated_mib": 15565.81,
+          "shared_mib": 1186.0,
+          "cuda_compute_mib": 1046.25
+        }
+      ]
+    }
+  ]
+}
