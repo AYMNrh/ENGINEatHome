@@ -435,6 +435,42 @@ def dense_dflash2_cards():
     c.save('dense-iq3s-dflash2-replay.png')
 
 
+def dense_live_card():
+    data = load('dense-iq3s-live-20261112.json')
+    dense, coder = data['dense'], data['coder']
+    c = Card('DENSE 27B VS STRATA CODER / LIVE AGENT',
+             'RTX 5070 Ti 16GB / 64K capacity / four matched guided OpenCode attempts', '12', '12 NOV 2026')
+    c.metric(0, 'DENSE STRICT PASSES', f'{dense["strict"]}/{dense["attempts"]}', '4/4 held-out patch passes', AMBER)
+    c.metric(1, 'STRATA STRICT PASSES', f'{coder["strict"]}/{coder["attempts"]}', '4/4 held-out patch passes')
+    c.metric(2, 'DENSE DECODE', f'{dense["decode_tps"]:.1f} tok/s', 'Includes reasoning', CYAN)
+    c.metric(3, 'DENSE RETRIEVAL', '3/3 each', 'DFlash2 on and off')
+    for x, field, scale, title, unit in (
+        (52, 'task_minutes', 40, 'TOTAL CODING TIME', 'min'),
+        (824, 'gpu_wh', 120, 'CODING ENERGY / GPU ONLY', 'Wh'),
+    ):
+        c.rect((x, 354, x+724, 893), outline=BORDER)
+        c.text(x+24, 375, title, 25, WHITE, True)
+        for index, (model, label, color) in enumerate((
+            (dense, 'Dense IQ3_S + DFlash2 depth 7', CYAN),
+            (coder, 'Strata Flash-Next GSQ-RCO Coder', GREEN),
+        )):
+            y = 483 + index*137
+            value = model[field]
+            c.bar(x+24, y, 490, value, scale, color, label)
+            c.text(x+532, y-2, f'{value:.1f} {unit}', 25, color, True, width=166)
+        if field == 'task_minutes':
+            c.text(x+24, 736, f'{dense["tool_calls"]} dense tool calls / {coder["tool_calls"]} Strata', 22, MUTED)
+            c.text(x+24, 783, 'Final dense Pytest hit the 100-step cap.', 21, AMBER)
+        else:
+            c.text(x+24, 736, 'Device-wide GPU energy / sampled', 22, MUTED)
+            c.text(x+24, 783, 'Coding windows exclude retrieval.', 21, MUTED)
+        c.text(x+24, 841, f'Scale 0 to {scale} {unit}', 20, MUTED)
+    c.footer(['Four frozen attempts per profile. Both produced four passing patches.',
+              'Dense retrieval: exact matches at 10%, 50%, and 90% of 64,000 fresh tokens.',
+              'Dense and Strata use different models and runtimes. Coding prompts use no filler.'])
+    c.save('dense-iq3s-live.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -446,3 +482,4 @@ if __name__ == '__main__':
     agent128_card()
     dense_iq3s_cards()
     dense_dflash2_cards()
+    dense_live_card()

@@ -1,0 +1,170 @@
+{
+  "date": "2026-11-12",
+  "hardware": "RTX 5070 Ti 16GB / 64GB DDR5",
+  "context_capacity": 65536,
+  "dense": {
+    "attempts": 4,
+    "strict": 3,
+    "patch": 4,
+    "task_minutes": 33.4347,
+    "decode_tps": 126.4551,
+    "fresh_prefill_tps": 1222.3223,
+    "max_actual_prompt": 57092,
+    "native_requests": 231,
+    "tool_calls": 228,
+    "tool_errors": 12,
+    "shell_failures": 6,
+    "timeouts": 0,
+    "device_vram_peak_mib": 15335.0,
+    "gpu_wh": 111.3134,
+    "gpu_coverage": 1.0,
+    "cases": [
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 0,
+        "strict": true,
+        "patch": true,
+        "seconds": 277.7508,
+        "calls": 31,
+        "model_steps": 29
+      },
+      {
+        "issue": "sphinx-doc__sphinx-10323",
+        "trial": 0,
+        "strict": true,
+        "patch": true,
+        "seconds": 524.1108,
+        "calls": 48,
+        "model_steps": 48
+      },
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 1,
+        "strict": true,
+        "patch": true,
+        "seconds": 413.4059,
+        "calls": 50,
+        "model_steps": 50
+      },
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 2,
+        "strict": false,
+        "patch": true,
+        "seconds": 790.8134,
+        "calls": 99,
+        "model_steps": 100
+      }
+    ],
+    "first_three_decode_tps": 102.4735,
+    "cache_reuse_percent": 95.9849,
+    "draft_acceptance_percent": 63.3259
+  },
+  "coder": {
+    "attempts": 4,
+    "strict": 4,
+    "patch": 4,
+    "task_minutes": 16.0068,
+    "decode_tps": 108.025,
+    "fresh_prefill_tps": 1139.5006,
+    "max_actual_prompt": 29661,
+    "native_requests": 128,
+    "tool_calls": 122,
+    "tool_errors": 12,
+    "shell_failures": 2,
+    "timeouts": 0,
+    "device_vram_peak_mib": 15458.0,
+    "gpu_wh": 24.6323,
+    "gpu_coverage": 1.0,
+    "cases": [
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 0,
+        "strict": true,
+        "patch": true,
+        "seconds": 209.5736,
+        "calls": 28,
+        "model_steps": 28
+      },
+      {
+        "issue": "sphinx-doc__sphinx-10323",
+        "trial": 0,
+        "strict": true,
+        "patch": true,
+        "seconds": 411.6447,
+        "calls": 42,
+        "model_steps": 42
+      },
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 1,
+        "strict": true,
+        "patch": true,
+        "seconds": 192.8055,
+        "calls": 28,
+        "model_steps": 28
+      },
+      {
+        "issue": "pytest-dev__pytest-6202",
+        "trial": 2,
+        "strict": true,
+        "patch": true,
+        "seconds": 146.3818,
+        "calls": 24,
+        "model_steps": 24
+      }
+    ]
+  },
+  "retrieval": {
+    "dflash2-7": [
+      {
+        "depth": 0.1,
+        "input_tokens": 64000,
+        "passed": true,
+        "fresh_prefill_tps": 1218.4906
+      },
+      {
+        "depth": 0.5,
+        "input_tokens": 64000,
+        "passed": true,
+        "fresh_prefill_tps": 1218.8429
+      },
+      {
+        "depth": 0.9,
+        "input_tokens": 64000,
+        "passed": true,
+        "fresh_prefill_tps": 1219.1915
+      }
+    ],
+    "off": [
+      {
+        "depth": 0.1,
+        "input_tokens": 64000,
+        "passed": true,
+        "fresh_prefill_tps": 1247.4048
+      },
+      {
+        "depth": 0.5,
+        "input_tokens": 64000,
+        "passed": true,
+        "fresh_prefill_tps": 1246.6806
+      },
+      {
+        "depth": 0.9,
+        "input_tokens": 64000,
+        "passed": true,
+        "fresh_prefill_tps": 1247.5386
+      }
+    ]
+  },
+  "dense_final_trial": {
+    "step_cap": 100,
+    "repeats_per_command": 28,
+    "repeated_commands": 2
+  },
+  "scope": {
+    "tasks": "Same four frozen attempts with focused OpenCode guidance. Models and runtimes differ.",
+    "retrieval": "One exact-match fixture at each of three positions. Same Q4_0 KV and 64,000 fresh input tokens.",
+    "energy": "Device-wide GPU only; coding windows exclude retrieval"
+  }
+}
