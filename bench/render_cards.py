@@ -509,6 +509,50 @@ def dense_supervision_card():
     c.save('dense-iq3s-supervision.png')
 
 
+def qwen36_hardest_context_card():
+    data = load('qwen36-hardest-context-20261114.json')
+    p64, p92, p128 = data['profiles']
+    c = Card('QWEN3.6 / HARDEST TASK WINNER',
+             '35B-A3B IQ3_XXS / OpenCode / Q4 KV / Flash Attention / speculation off',
+             '14', '14 NOV 2026')
+    c.metric(0, 'HISTORICAL BASELINE', '0/9 strict', 'Sphinx #10449 / 2 patches', AMBER)
+    c.metric(1, '128K RESULT', '1/1 strict', '21/21 held-out tests')
+    c.metric(2, '128K DECODE', f'{p128["decode_tokens_per_second"]:.1f} tok/s',
+             '37,333 max actual prompt', CYAN)
+    c.metric(3, '92K HEADROOM', f'{p92["minimum_free_device_vram_mib"]:.0f} MiB',
+             '72,937 max actual prompt', CYAN)
+
+    c.rect((52, 354, 776, 893), outline=BORDER)
+    c.text(76, 375, 'AGENT RESULT / SAME HARDEST ISSUE', 24, WHITE, True)
+    for index, profile in enumerate(data['profiles']):
+        y = 471 + index*131
+        capacity = profile['context_capacity'] // 1024
+        result = 'STRICT PASS' if profile['strict_pass'] else 'PATCH PASS / STEP CAP'
+        color = GREEN if profile['strict_pass'] else AMBER
+        c.text(76, y-52, f'{capacity}K / {result}', 21, color, True, width=650)
+        c.bar(76, y+18, 490, profile['decode_tokens_per_second'], 180, color,
+              f'{profile["maximum_actual_prompt_tokens"]:,} max actual prompt')
+        c.text(582, y+16, f'{profile["decode_tokens_per_second"]:.1f}', 24, color, True)
+    c.text(76, 844, 'Bars: aggregate accepted decode / scale 0-180 tok/s', 19, MUTED)
+
+    c.rect((824, 354, 1548, 893), outline=BORDER)
+    c.text(848, 375, 'GPU MEMORY / STATIC CONTEXT ALLOCATION', 24, WHITE, True)
+    for index, profile in enumerate(data['profiles']):
+        y = 471 + index*131
+        capacity = profile['context_capacity'] // 1024
+        free = profile['minimum_free_device_vram_mib']
+        c.text(848, y-52, f'{capacity}K / {profile["explicit_gpu_buffers_mib"]:,.0f} MiB explicit',
+               21, CYAN, True, width=650)
+        c.bar(848, y+18, 490, free, 600, CYAN,
+              f'Q4 KV {profile["gpu_kv_buffer_mib"]:,.0f} MiB / minimum free')
+        c.text(1354, y+16, f'{free:.0f} MiB', 24, CYAN, True, width=160)
+    c.text(848, 844, 'Peak includes CUDA/runtime and other device users.', 19, MUTED)
+    c.footer(['Provisional hardest-task winner: first strict pass after 0/9 historical attempts.',
+              'Strata Coder retains the broader 18/18 consistency result.',
+              'Single attempts; 128K strict pass peaked at 37,333 actual prompt tokens.'])
+    c.save('qwen36-hardest-context.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -522,3 +566,4 @@ if __name__ == '__main__':
     dense_dflash2_cards()
     dense_live_card()
     dense_supervision_card()
+    qwen36_hardest_context_card()

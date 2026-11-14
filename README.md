@@ -1,10 +1,14 @@
 # ENGINEatHome
 
-**RTX 5070 Ti 16GB · 64GB DDR5 · Current focus: 64K**
+**RTX 5070 Ti 16GB · 64GB DDR5 · Current focus: 64K–128K coding agents**
 
 Building a specialized local inference engine. Current measurements use Strata and llama.cpp; the independent transformer graph and CUDA kernels are not implemented yet.
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
+
+[![Qwen3.6 hardest-task result at 64K, 92K and 128K capacity](docs/assets/qwen36-hardest-context.png)](docs/qwen36-hardest-context-20261114.md)
+
+[Qwen3.6 hardest-task and context-allocation report](docs/qwen36-hardest-context-20261114.md) · [Measurements JSON](docs/results/qwen36-hardest-context-20261114.json)
 
 [![Strata Coder ranks first on four matched live coding attempts; Codex-supervised Qwen is partial](docs/assets/dense-iq3s-supervision.png)](docs/dense-iq3s-supervision-20261112.md)
 
@@ -54,7 +58,7 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Full report](docs/strata-iq3-efficiency-20261110.md) · [Measurements JSON](docs/results/strata-iq3-efficiency-20261110.json)
 
-**Snapshot: 11 November 2026.** Guided Coder + OpenCode ranks first for observed strict completion on the six selected 64K coding issues (18/18), followed by original IQ3_S + OpenCode (16/18), Hermes with thinking (13/18) and Hermes without thinking (7/18). Model packages and harness limits differ. The later two-turn review passed the full 64K stability gate. All six separate 128K-capacity coding attempts passed, with **55,948 maximum actual input tokens** and no requests above 64K. Reliability above 64K remains untested in agent work.
+**Snapshot: 14 November 2026.** Qwen3.6-35B-A3B IQ3_XXS is the provisional hardest-task winner: it delivered the first strict pass on Sphinx #10449 after 0/9 strict passes in saved history, at **161.4 tok/s decode** with 128K capacity. Its separate 92K run reached **72,937 actual prompt tokens** and produced a passing patch, but hit the 100-call completion ceiling. Guided Strata Coder remains the broader consistency leader at 18/18 strict passes on the selected six-issue matrix. Model packages, task samples and runtimes differ.
 
 ### Earlier experiments
 
