@@ -427,7 +427,9 @@
       "strict": 16,
       "patches": 18,
       "task_minutes": 86.38907573620479,
-      "median_seconds": 253.81415367126465
+      "median_seconds": 253.81415367126465,
+      "decode_tps": 97.63780439433815,
+      "prefill_tps": 833.7886399127016
     },
     {
       "label": "Strata IQ3_S + Hermes (thinking)",
@@ -436,7 +438,9 @@
       "strict": 13,
       "patches": 16,
       "task_minutes": 68.63681971629461,
-      "median_seconds": 195.7602220773697
+      "median_seconds": 195.7602220773697,
+      "decode_tps": 97.00356918099678,
+      "prefill_tps": 1022.1199566875382
     },
     {
       "label": "Qwen3.6 + OpenCode",
@@ -469,7 +473,9 @@
       "strict": 7,
       "patches": 10,
       "task_minutes": 50.29113730192184,
-      "median_seconds": 131.11469745635986
+      "median_seconds": 131.11469745635986,
+      "decode_tps": 117.6013730547592,
+      "prefill_tps": 793.5855058776748
     },
     {
       "label": "Edge0-145B + OpenCode",

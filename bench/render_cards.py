@@ -555,28 +555,34 @@ def qwen36_hardest_context_card():
 
 def bonsai_cards():
     data = load('bonsai-dsh-256k-20261117.json')
-    card = Card('Coding quality and task time',
+    card = Card('Coding quality, runtime and throughput',
                 'Same six frozen issues / three attempts each / model and harness settings vary',
                 'CODING', date='17 NOV 2026')
     card.text(54, 207, 'Configuration / capacity', 22, MUTED)
-    card.text(590, 207, 'Strict (green) / patch (cyan) out of 18', 20, MUTED)
-    card.text(1100, 207, 'Total task time (0–250 min)', 20, MUTED)
+    card.text(530, 207, 'Strict / patch (out of 18)', 19, MUTED)
+    card.text(850, 207, 'Task time (min)', 19, MUTED)
+    card.text(1125, 207, 'Fresh prefill', 19, MUTED)
+    card.text(1370, 207, 'Decode', 19, MUTED)
+    card.text(1125, 231, 'tok/s', 17, MUTED)
+    card.text(1370, 231, 'tok/s', 17, MUTED)
     for i, row in enumerate(data['matched_issue_matrices']):
         y = 260 + 87*i
-        card.text(54, y+4, row['label'], 22, WHITE, True)
+        card.text(54, y+4, row['label'], 21, WHITE, True)
         card.text(54, y+32, f"{row['capacity']//1024}K capacity", 19, MUTED)
         for offset, key, color in [(0, 'strict', GREEN), (26, 'patches', CYAN)]:
             value = row[key]
-            card.rect((590, y+offset, 915, y+offset+17), '#20323a', radius=3)
+            card.rect((530, y+offset, 755, y+offset+17), '#20323a', radius=3)
             if value:
-                card.rect((590, y+offset, 590+325*value/18, y+offset+17), color, radius=3)
-            card.text(936, y+offset-4, f'{value:2d}/18', 19, color)
+                card.rect((530, y+offset, 530+225*value/18, y+offset+17), color, radius=3)
+            card.text(765, y+offset-4, f'{value:2d}/18', 19, color)
         minutes = row['task_minutes']
-        card.rect((1100, y+10, 1400, y+31), '#20323a', radius=3)
-        card.rect((1100, y+10, 1100+300*minutes/250, y+31), AMBER, radius=3)
-        card.text(1417, y+10, f'{minutes:.1f}', 21, AMBER)
-    card.footer(['Strict pass = normal completion and passing held-out tests.',
-                 'Task time sums individual attempts, including failures.'])
+        card.rect((850, y+10, 1020, y+31), '#20323a', radius=3)
+        card.rect((850, y+10, 850+170*minutes/250, y+31), AMBER, radius=3)
+        card.text(1030, y+10, f'{minutes:.1f}', 20, AMBER)
+        card.text(1125, y+8, f"{row['prefill_tps']:,.1f}", 24, CYAN, True)
+        card.text(1370, y+8, f"{row['decode_tps']:,.1f}", 24, GREEN, True)
+    card.footer(['Strict pass = normal completion and passing held-out tests. Task time includes failures.',
+                 'Prefill counts fresh tokens. Decode includes reasoning. Both are weighted by engine time.'])
     card.save('bonsai-coding-comparison.png')
 
     card = Card('Bonsai DSH / all 18 attempts', '256K capacity / 20-minute agent budget per attempt',
