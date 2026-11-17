@@ -6,6 +6,8 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
+[![Qwen3.8-Flash-Next GSQ-RCO IQ3_S at 128K on Strata 0.1.60. 4K prefill chunks deliver 2.33 times the cold prefill throughput of 1K chunks.](docs/assets/strata-iq3s-128k-prefill.png)](docs/strata-iq3s-128k-prefill-20261117.md)
+
 [![Coding quality and runtime across seven 18-attempt configurations](docs/assets/bonsai-coding-comparison.png)](docs/bonsai-dsh-256k-20261117.md)
 
 [Bonsai DSH 256K report](docs/bonsai-dsh-256k-20261117.md) · [All 18 attempt times](docs/assets/bonsai-dsh-attempts.png) · [Bonsai vs. Ornith context plots](docs/assets/bonsai-ornith-context.png) · [Measurements JSON](docs/results/bonsai-dsh-256k-20261117.json)

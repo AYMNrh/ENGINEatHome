@@ -1,0 +1,42 @@
+{
+  "model": "Qwen3.8-Flash-Next GSQ-RCO IQ3_S",
+  "model_repo": "ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF",
+  "model_revision": "ed59f92082b1e93c0e96d60a8b11aab089b52f09",
+  "strata_version": "0.1.60",
+  "context_capacity": 131072,
+  "input_tokens": 130783,
+  "output_tokens": 128,
+  "cached_reused_tokens": 130776,
+  "runs": [
+    {
+      "chunk_tokens": 4096,
+      "resident_headroom_gib": 4,
+      "cold_prefill_tps": 2503.4,
+      "cold_decode_tps": 88.5,
+      "cached_decode_tps": 104.0,
+      "cold_total_s": 53.79319390002638,
+      "expert_file_reads": 525,
+      "lendable_slots": 908,
+      "lendable_slots_copied_to_ram": 342,
+      "expert_ram_gib": 40.47,
+      "expert_vram_gib": 7.01,
+      "peak_device_vram_bytes": 14998831104,
+      "min_available_ram_bytes": 586776576
+    },
+    {
+      "chunk_tokens": 1024,
+      "resident_headroom_gib": 3.875,
+      "cold_prefill_tps": 1075.5,
+      "cold_decode_tps": 91.4,
+      "cached_decode_tps": 98.9,
+      "cold_total_s": 123.091803599993,
+      "expert_file_reads": 0,
+      "lendable_slots": 486,
+      "lendable_slots_copied_to_ram": 486,
+      "expert_ram_gib": 40.75,
+      "expert_vram_gib": 7.01,
+      "peak_device_vram_bytes": 14949548032,
+      "min_available_ram_bytes": 1989021696
+    }
+  ]
+}

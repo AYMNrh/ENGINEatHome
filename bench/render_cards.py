@@ -645,6 +645,40 @@ def bonsai_cards():
     card.save('bonsai-ornith-context.png')
 
 
+def strata_iq3s_prefill_card():
+    data = load('strata-iq3s-128k-prefill-20261117.json')
+    large, small = data['runs']
+    ratio = large['cold_prefill_tps'] / small['cold_prefill_tps']
+    card = Card(data['model'], '128K capacity / RTX 5070 Ti 16 GB + 64 GB RAM / Strata 0.1.60',
+                'SPEED', '17 NOV 2026')
+    card.metric(0, 'COLD PREFILL / 4K', f'{large["cold_prefill_tps"]:,.1f} tok/s', 'Fastest measured')
+    card.metric(1, 'COLD PREFILL / 1K', f'{small["cold_prefill_tps"]:,.1f} tok/s', 'All experts resident', CYAN)
+    card.metric(2, 'PREFILL SPEEDUP / 4K', f'{ratio:.2f}x', 'Same synthetic prompt')
+    card.metric(3, 'ACTUAL INPUT', f'{data["input_tokens"]:,}', '128 output tokens', CYAN)
+    card.rect((52, 365, 1548, 575), outline=BORDER)
+    card.text(74, 383, 'COLD PREFILL / tok/s (0 to 3,000)', 26, WHITE, True)
+    for run, color, y in ((large, GREEN, 461), (small, CYAN, 532)):
+        label = f'{run["chunk_tokens"]:,}-token chunks'
+        card.bar(76, y, 1210, run['cold_prefill_tps'], 3000, color, label)
+        card.text(1315, y-2, f'{run["cold_prefill_tps"]:,.1f}', 25, color, True)
+
+    card.rect((52, 603, 1548, 886), outline=BORDER)
+    columns = (76, 404, 669, 963, 1220)
+    labels = ('PREFILL CHUNK', 'COLD TOTAL', 'COLD DECODE', 'CACHED DECODE', 'SSD EXPERT READS')
+    for x, label in zip(columns, labels):
+        card.text(x, 630, label, 20, MUTED)
+    for run, color, y in ((large, GREEN, 692), (small, CYAN, 754)):
+        values = (f'{run["chunk_tokens"]:,} tokens', f'{run["cold_total_s"]:.1f} s',
+                  f'{run["cold_decode_tps"]:.1f} tok/s', f'{run["cached_decode_tps"]:.1f} tok/s',
+                  str(run['expert_file_reads']))
+        for x, value in zip(columns, values):
+            card.text(x, y, value, 25, color, True)
+    card.text(76, 828, 'Both: INT8 KV / MTP4 / expert-tail skip 7 / ~14 GiB peak device VRAM', 22, MUTED)
+    card.footer(['One cold request and one replay per setup. Synthetic speed test.',
+                 '1K covered all 486 borrowed GPU slots in RAM. The PLE lookup table stays SSD-backed.'])
+    card.save('strata-iq3s-128k-prefill.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -661,3 +695,4 @@ if __name__ == '__main__':
     qwen36_hardest_context_card()
     if (ROOT / 'docs/results/bonsai-dsh-256k-20261117.json').is_file():
         bonsai_cards()
+    strata_iq3s_prefill_card()
