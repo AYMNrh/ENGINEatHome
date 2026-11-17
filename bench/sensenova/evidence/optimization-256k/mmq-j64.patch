@@ -1,0 +1,22 @@
+diff --git a/ggml/src/ggml-cuda/mmq.cu b/ggml/src/ggml-cuda/mmq.cu
+index 49e0ce9..92fc917 100644
+--- a/ggml/src/ggml-cuda/mmq.cu
++++ b/ggml/src/ggml-cuda/mmq.cu
+@@ -248,6 +248,17 @@ void ggml_cuda_mul_mat_q(
+         }
+ 
+         J_best = ggml_cuda_mmq_get_J_best(src0->type, ncols_opt, fallback, cc, smpbo, prec_src1, &nthreads_best);
++
++        // Keep one full K reduction per tile. Only resize the fused dense Q4_K prefill tile.
++        static const bool use_fused_j64 = getenv("GGML_CUDA_FUSED_Q4K_J64") != nullptr;
++        if (use_fused_j64 && blackwell_mma_available(cc) && !ids && gate &&
++                src0->type == GGML_TYPE_Q4_K && !fallback && ncols_opt == 1024 && J_best == 128) {
++            const auto config = ggml_cuda_mmq_get_config(src0->type, 64, fallback, cc, prec_src1);
++            if (config.type != GGML_TYPE_COUNT && mmq_get_nbytes_shared(config, cc) <= smpbo) {
++                J_best = 64;
++                nthreads_best = config.nthreads;
++            }
++        }
+     }
+     GGML_ASSERT(J_best > 0);
+ 

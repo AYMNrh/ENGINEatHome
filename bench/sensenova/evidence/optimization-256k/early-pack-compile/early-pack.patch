@@ -1,0 +1,48 @@
+diff --git a/ggml/src/ggml-cuda/fattn-mma-f16.cuh b/ggml/src/ggml-cuda/fattn-mma-f16.cuh
+index 56decfa..784ab34 100644
+--- a/ggml/src/ggml-cuda/fattn-mma-f16.cuh
++++ b/ggml/src/ggml-cuda/fattn-mma-f16.cuh
+@@ -730,6 +730,16 @@ static __device__ __forceinline__ void flash_attn_ext_f16_iter(
+         }
+     }
+ 
++#if defined(TURING_MMA_AVAILABLE)
++    constexpr bool pack_early = DKQ == 256 && DV == 256 && ncols1 == 16 && ncols2 == 4 &&
++        !use_logit_softcap && !V_is_K_view && !use_sparse;
++#else
++    constexpr bool pack_early = false;
++#endif
++
++    T_B_VKQ B[nbatch_fa/(np*2*T_B_VKQ::J)];
++    static_assert(nbatch_fa % (np*2*T_B_VKQ::J) == 0, "bad loop size");
++
+     float KQ_max_new[cols_per_thread];
+ #pragma unroll
+     for (int col = 0; col < cols_per_thread; ++col) {
+@@ -891,6 +901,10 @@ static __device__ __forceinline__ void flash_attn_ext_f16_iter(
+                     KQ_C[(k0/(np*T_C_KQ::J))].x[l] = 0.0f;
+                 }
+             }
++            if constexpr (pack_early) {
++                const int fragment = k0 / (np*T_C_KQ::J);
++                B[fragment] = get_half2(KQ_C[fragment]);
++            }
+         }
+     }
+ 
+@@ -965,14 +979,12 @@ static __device__ __forceinline__ void flash_attn_ext_f16_iter(
+     }
+ 
+     // Convert KQ C tiles into B tiles for VKQ calculation:
+-    T_B_VKQ B[nbatch_fa/(np*2*T_B_VKQ::J)];
+-    static_assert(nbatch_fa % (np*2*T_B_VKQ::J) == 0, "bad loop size");
+     if constexpr (cols_per_warp == 8) {
+ #pragma unroll
+         for (int k = 0; k < nbatch_fa/(np*2*T_B_VKQ::J); ++k) {
+             B[k] = get_transposed(get_half2(KQ_C[k]));
+         }
+-    } else {
++    } else if constexpr (!pack_early) {
+         for (int k = 0; k < nbatch_fa/(np*2*T_B_VKQ::J); ++k) {
+             B[k] = get_half2(KQ_C[k]);
+         }

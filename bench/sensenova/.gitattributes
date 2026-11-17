@@ -1,0 +1,3 @@
+evidence/** -text whitespace=cr-at-eol,-blank-at-eof
+evidence/**/*.patch whitespace=cr-at-eol,-blank-at-eof,-blank-at-eol
+setup.sh text eol=lf

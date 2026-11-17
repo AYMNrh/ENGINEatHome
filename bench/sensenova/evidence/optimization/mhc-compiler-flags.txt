@@ -1,0 +1,1 @@
+CUDA_FLAGS = -O3 -DNDEBUG -std=c++17 "--generate-code=arch=compute_120a,code=[compute_120a,sm_120a]" -Xcompiler=-fPIC -extended-lambda -compress-mode=size -Xcompiler "-Wmissing-declarations -Wmissing-noreturn -Wall -Wextra -Wpedantic -Wcast-qual -Wno-unused-function -Wno-array-bounds -Wextra-semi -Wno-pedantic" --ftz=false --prec-div=true --prec-sqrt=true

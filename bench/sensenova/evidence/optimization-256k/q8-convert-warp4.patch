@@ -1,0 +1,86 @@
+diff --git a/ggml/src/ggml-cuda/convert.cu b/ggml/src/ggml-cuda/convert.cu
+index 77fd288..f1c2f56 100644
+--- a/ggml/src/ggml-cuda/convert.cu
++++ b/ggml/src/ggml-cuda/convert.cu
+@@ -40,40 +40,53 @@ static __global__ void dequantize_block(const void * __restrict__ vx, dst_t * __
+     }
+ }
+ 
+-template <bool need_check>
++template <bool need_check, int warps = 1>
+ static __global__ void dequantize_block_q8_0_f16(const void * __restrict__ vx, half * __restrict__ y, const int64_t k) {
+ #if __CUDA_ARCH__ >= GGML_CUDA_CC_PASCAL
+     constexpr int nint = CUDA_Q8_0_NE_ALIGN/sizeof(int) + WARP_SIZE;
+ 
+-    const int64_t   i0 = CUDA_Q8_0_NE_ALIGN*blockIdx.x;
+-    const int * x0 = ((int *) vx) + blockIdx.x * nint;
++    const int warp = threadIdx.x / WARP_SIZE;
++    const int lane = threadIdx.x % WARP_SIZE;
++    const int64_t tile = int64_t(blockIdx.x)*warps + warp;
++    const int64_t i0 = CUDA_Q8_0_NE_ALIGN*tile;
++    if constexpr (warps > 1) {
++        if (i0 >= k) {
++            return;
++        }
++    }
++    const int * x0 = ((int *) vx) + tile*nint;
+     half2 * y2 = (half2 *) (y + i0);
+ 
+-    __shared__ int vals[nint];
++    __shared__ int tiles[warps][nint];
++    int * vals = tiles[warp];
+ 
+ #pragma unroll
+     for (int ix0 = 0; ix0 < nint; ix0 += WARP_SIZE) {
+-        if (need_check && i0*sizeof(block_q8_0)/QK8_0 + sizeof(int)*(ix0 + threadIdx.x) >= k*sizeof(block_q8_0)/QK8_0) {
++        if (need_check && i0*sizeof(block_q8_0)/QK8_0 + sizeof(int)*(ix0 + lane) >= k*sizeof(block_q8_0)/QK8_0) {
+             break;
+         }
+ 
+-        const int ix = ix0 + threadIdx.x;
++        const int ix = ix0 + lane;
+         vals[ix] = x0[ix];
+     }
+ 
+-    __syncthreads();
++    if constexpr (warps == 1) {
++        __syncthreads();
++    } else {
++        __syncwarp();
++    }
+ 
+ #pragma unroll
+     for (int iy = 0; iy < CUDA_Q8_0_NE_ALIGN; iy += 2*WARP_SIZE) {
+-        if (need_check && i0 + iy + 2*threadIdx.x >= k) {
++        if (need_check && i0 + iy + 2*lane >= k) {
+             return;
+         }
+ 
+-        const half * b0 = ((const half  *) vals) + (sizeof(block_q8_0)/sizeof(half)) * ((iy + 2*threadIdx.x)/QK8_0);
++        const half * b0 = ((const half  *) vals) + (sizeof(block_q8_0)/sizeof(half)) * ((iy + 2*lane)/QK8_0);
+         const half    d = *b0;
+-        const char2  qs = ((const char2 *) (b0 + 1))[threadIdx.x % (QK8_0/2)];
++        const char2  qs = ((const char2 *) (b0 + 1))[lane % (QK8_0/2)];
+ 
+-        y2[iy/2 + threadIdx.x] = __hmul2(make_half2(qs.x, qs.y), __half2half2(d));
++        y2[iy/2 + lane] = __hmul2(make_half2(qs.x, qs.y), __half2half2(d));
+     }
+ #else
+     GGML_UNUSED_VARS(vx, y, k);
+@@ -267,6 +280,16 @@ static void dequantize_block_cont_cuda(const void * __restrict__ vx, dst_t * __r
+ static void dequantize_block_q8_0_f16_cuda(const void * __restrict__ vx, half * __restrict__ y, const int64_t k, cudaStream_t stream) {
+     const int num_blocks = (k + CUDA_Q8_0_NE_ALIGN - 1) / CUDA_Q8_0_NE_ALIGN;
+     if (k % CUDA_Q8_0_NE_ALIGN == 0) {
++#if !defined(GGML_USE_HIP) && !defined(GGML_USE_MUSA)
++        // Co-schedule four independent tiles for long, aligned flash-attention K/V conversion.
++        static const bool group_warps = getenv("GGML_CUDA_LONG_Q8_CONVERT_WARP4") != nullptr;
++        if (group_warps && k >= (1LL << 26)) {
++            constexpr int warps = 4;
++            dequantize_block_q8_0_f16<false, warps>
++                <<<(num_blocks + warps - 1)/warps, warps*WARP_SIZE, 0, stream>>>(vx, y, k);
++            return;
++        }
++#endif
+         const bool need_check = false;
+         dequantize_block_q8_0_f16<need_check><<<num_blocks, WARP_SIZE, 0, stream>>>(vx, y, k);
+     } else {
