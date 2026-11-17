@@ -6,6 +6,10 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
+[![Coding quality and runtime across seven 18-attempt configurations](docs/assets/bonsai-coding-comparison.png)](docs/bonsai-dsh-256k-20261117.md)
+
+[Bonsai DSH 256K report](docs/bonsai-dsh-256k-20261117.md) · [All 18 attempt times](docs/assets/bonsai-dsh-attempts.png) · [Bonsai vs. Ornith context plots](docs/assets/bonsai-ornith-context.png) · [Measurements JSON](docs/results/bonsai-dsh-256k-20261117.json)
+
 [![Qwen3.6 hardest-task result at 64K, 92K and 128K capacity](docs/assets/qwen36-hardest-context.png)](docs/qwen36-hardest-context-20261114.md)
 
 [Qwen3.6 hardest-task and context-allocation report](docs/qwen36-hardest-context-20261114.md) · [Measurements JSON](docs/results/qwen36-hardest-context-20261114.json)

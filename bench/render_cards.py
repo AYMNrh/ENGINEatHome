@@ -553,6 +553,92 @@ def qwen36_hardest_context_card():
     c.save('qwen36-hardest-context.png')
 
 
+def bonsai_cards():
+    data = load('bonsai-dsh-256k-20261117.json')
+    card = Card('Coding quality and task time',
+                'Same six frozen issues / three attempts each / model and harness settings vary',
+                'CODING', date='17 NOV 2026')
+    card.text(54, 207, 'Configuration / capacity', 22, MUTED)
+    card.text(590, 207, 'Strict (green) / patch (cyan) out of 18', 20, MUTED)
+    card.text(1100, 207, 'Total task time (0–250 min)', 20, MUTED)
+    for i, row in enumerate(data['matched_issue_matrices']):
+        y = 260 + 87*i
+        card.text(54, y+4, row['label'], 22, WHITE, True)
+        card.text(54, y+32, f"{row['capacity']//1024}K capacity", 19, MUTED)
+        for offset, key, color in [(0, 'strict', GREEN), (26, 'patches', CYAN)]:
+            value = row[key]
+            card.rect((590, y+offset, 915, y+offset+17), '#20323a', radius=3)
+            if value:
+                card.rect((590, y+offset, 590+325*value/18, y+offset+17), color, radius=3)
+            card.text(936, y+offset-4, f'{value:2d}/18', 19, color)
+        minutes = row['task_minutes']
+        card.rect((1100, y+10, 1400, y+31), '#20323a', radius=3)
+        card.rect((1100, y+10, 1100+300*minutes/250, y+31), AMBER, radius=3)
+        card.text(1417, y+10, f'{minutes:.1f}', 21, AMBER)
+    card.footer(['Strict pass = normal completion and passing held-out tests.',
+                 'Task time sums individual attempts, including failures.'])
+    card.save('bonsai-coding-comparison.png')
+
+    card = Card('Bonsai DSH / all 18 attempts', '256K capacity / 20-minute agent budget per attempt',
+                'TRIALS', date='17 NOV 2026')
+    for x, label, color in [(54, 'Strict pass', GREEN), (270, 'Patch only', CYAN), (478, 'Patch failed', AMBER)]:
+        card.text(x, 194, label, 22, color, True)
+    card.text(463, 231, '0', 19, MUTED)
+    card.text(1132, 231, '20 min', 19, MUTED)
+    for i, row in enumerate(data['bonsai_256k']['cases']):
+        y = 263 + 34*i
+        task = row['task'].split('__')[1].replace('dev__', '')
+        card.text(55, y-3, f"{i+1:02d}  {task} / trial {row['trial']}", 19)
+        color = GREEN if row['strict'] else CYAN if row['patch'] else AMBER
+        card.rect((463, y, 1180, y+17), '#20323a', radius=3)
+        card.rect((463, y, 463+717*row['seconds']/1220, y+17), color, radius=3)
+        tick = 463+717*1200/1220
+        card.rect((tick, y, tick+1, y+17), WHITE, radius=0)
+        card.text(1198, y-3, f"{row['seconds']/60:5.1f} min  {row['finish']}", 19, color)
+    card.footer(['Five timeouts and four token-limit exits. Four of the timeouts left passing patches.',
+                 'Task time includes model startup and grading, so some bars exceed 20 minutes.'])
+    card.save('bonsai-dsh-attempts.png')
+
+    card = Card('Long-context throughput and correctness',
+                'RTX 5070 Ti / Q4 KV / Flash Attention / no speculation / synthetic prompts',
+                'CONTEXT', date='17 NOV 2026')
+    card.text(54, 195, 'Fresh prefill (tok/s)', 23, MUTED)
+    card.text(820, 195, 'Decode (tok/s)', 23, MUTED)
+    for i, row in enumerate(data['context_speed']):
+        y = 259 + 68*i
+        color = GREEN if row['model'] == 'bonsai-pq2' else CYAN
+        model = 'Bonsai' if color == GREEN else 'Ornith'
+        label = f"{model} {row['capacity']//1024}K / {row['input_tokens']:,} input"
+        for x, key, maximum in [(54, 'prefill_tps', 1400), (820, 'decode_tps', 110)]:
+            value = row[key]
+            card.bar(x, y, 560, value, maximum, color, label)
+            card.text(x+576, y, f'{value:,.1f}', 21, color, True)
+    card.text(54, 683, '260,000-token correctness / cold and cached', 24, WHITE, True)
+    card.text(600, 724, 'Needle 10%', 20, MUTED)
+    card.text(775, 724, 'Needle 50%', 20, MUTED)
+    card.text(950, 724, 'Needle 90%', 20, MUTED)
+    card.text(1125, 724, 'Dependency', 20, MUTED)
+    card.text(1300, 724, 'Tool turns', 20, MUTED)
+    observed = {(row['model'], row['task']): row for row in data['context_correctness']}
+    for i, model in enumerate(('bonsai-pq2', 'ornith-ud-iq3xxs')):
+        y = 766 + i*50
+        card.text(54, y, 'Bonsai PQ2' if i == 0 else 'Ornith UD-IQ3_XXS', 22)
+        for index, task in enumerate(('needle-10', 'needle-50', 'needle-90', 'dependency', 'tool-turns')):
+            row = observed.get((model, task))
+            if not row:
+                value, color = ('Interrupted' if task == 'needle-50' else 'No result'), MUTED
+            elif task == 'tool-turns':
+                turns = row['tool_turns']
+                value, color = f"{sum(turn['passed'] for turn in turns)}/{len(turns)} passed", GREEN
+            else:
+                value = '/'.join('Pass' if row[mode]['passed'] else 'Fail' for mode in ('cold', 'cached'))
+                color = GREEN if value == 'Pass/Pass' else AMBER
+            card.text(600+index*175, y, value, 19, color)
+    card.footer(['One sample per speed setting or correctness case. Tool turns use simulated responses.',
+                 'Bonsai dependency trace returned 103 (expected 100). Ornith stopped during the 50% needle.'])
+    card.save('bonsai-ornith-context.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -567,3 +653,5 @@ if __name__ == '__main__':
     dense_live_card()
     dense_supervision_card()
     qwen36_hardest_context_card()
+    if (ROOT / 'docs/results/bonsai-dsh-256k-20261117.json').is_file():
+        bonsai_cards()
