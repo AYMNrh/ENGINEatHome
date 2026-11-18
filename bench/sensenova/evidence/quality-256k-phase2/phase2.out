@@ -1,0 +1,5 @@
+Fixtures verified, first cold request starting.
+temporal cold False '{\n  "policy": "N24",\n  "release_utc": "2031-05-12T09:00Z",\n  "lane": "Sable"\n}' 231.475
+dependency cached False '{\n  "relay": "3.8",\n  "bridge": "2.4",\n  "codec": "Pollen"\n}' 1.757
+overrides cached False '{\n  "workers": 8,\n  "timeout_seconds": 20,\n  "endpoint": "onyx"\n}' 1.823
+synthesis cached False '```json\n{\n  "depot": "Alder",\n  "authorized_grade": "A",\n  "available_sets": 13,\n  "carrier": "Tern"\n}\n```' 1.756

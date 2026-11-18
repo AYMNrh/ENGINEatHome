@@ -583,5 +583,50 @@
     "path": "evidence/tuned-65536.out",
     "bytes": 1316,
     "sha256": "0b1e56ab936f85acdebcefd424651fa5d818e3d4915a656bf330c1d979eafd7b"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/engine.log.gz",
+    "bytes": 775249,
+    "sha256": "67ea7f9a5ea00b3ad5d3d109f310b7e3e59e527cb9b461bf67b2c5249f3d1218"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/fixtures.json",
+    "bytes": 11806,
+    "sha256": "68cd353005f4bd833dc96fb00cc4ae61fb9877347ca314e841e9fbded69eae23"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/phase2.out",
+    "bytes": 504,
+    "sha256": "cdb0275c2f699be5de35d5c42e1f5da1eb7d0454455d6701122375832bd8f231"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/phase2.py",
+    "bytes": 19497,
+    "sha256": "9d7aceca2dc861bfc9912d6a5323810c2db9874c88a40ab469acf2c0b116eef1"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/preflight.out",
+    "bytes": 322,
+    "sha256": "42f4d5263e9c1ac2e04f92173373670766aefd151f31540a98ba4a14a5a80739"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/report.md",
+    "bytes": 3672,
+    "sha256": "999ea06a6da47fb36b2dabcac70e42393857c4bd1c85b3819f3ccf5fd08f514a"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/results.json",
+    "bytes": 18493,
+    "sha256": "3ad6706fb38e0c17e8666d55c9d0ee77482c089f278dcf7d27c060ec8665b7b4"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/shared-prefix-tokens.json",
+    "bytes": 1893871,
+    "sha256": "2281e44e3460c83a6b439e83442e69fd7857dee0a18145135382460282c60a8c"
+  },
+  {
+    "path": "evidence/quality-256k-phase2/shared-prefix.txt",
+    "bytes": 860868,
+    "sha256": "aa082a558740b636b534f2fe11d9cb6a10515bf5cc26c87a2739b4f587fca0fa"
   }
 ]

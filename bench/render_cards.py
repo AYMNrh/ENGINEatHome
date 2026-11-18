@@ -679,6 +679,69 @@ def strata_iq3s_prefill_card():
     card.save('strata-iq3s-128k-prefill.png')
 
 
+def sensenova_phase2_cards():
+    evidence = ROOT / 'bench/sensenova/evidence/quality-256k-phase2/results.json'
+    result = json.loads(evidence.read_text(encoding='utf-8'))
+    summary, tests = result['summary'], result['tests']
+    subtitle = 'SenseNova-Loop-9B Q4_K_M / RTX 5070 Ti / 256K / Q8 KV / 1,024-token microbatch'
+    date = '18 NOV 2026'
+
+    quality = Card('256K multi-hop reasoning', subtitle, 'QUALITY', date)
+    quality.metric(0, 'STRICT JSON', f'{summary["correct"]}/{len(tests)}', 'Standalone JSON', AMBER)
+    quality.metric(1, 'CONTENT CORRECT', f'{summary["manual_content_review"]["correct"]}/{len(tests)}',
+                   'One JSON fence allowed', CYAN)
+    quality.metric(2, 'CONTEXT UTILIZATION', f'{tests[0]["context_utilization_percent"]:.2f}%',
+                   f'{result["context_capacity"]:,}-token allocation')
+    quality.metric(3, 'MAX ACTUAL INPUT', f'{max(test["input_tokens"] for test in tests):,}',
+                   'Four synthetic questions', CYAN)
+    quality.rect((52, 360, 1548, 886), outline=BORDER)
+    for x, title in [(76, 'REASONING CASE'), (330, 'STRICT'), (470, 'CONTENT'), (640, 'OBSERVED ERROR')]:
+        quality.text(x, 382, title, 22, MUTED)
+    errors = {
+        'temporal': 'Chose a policy signed after activation and missed the retention delay.',
+        'dependency': 'Selected the staging ABI chain for a production deployment.',
+        'overrides': 'Kept the regional endpoint despite a higher-precedence tenant override.',
+        'synthesis': 'Returned every field correctly inside a Markdown code fence.',
+    }
+    for i, test in enumerate(tests):
+        y = 439 + i*107
+        category = test['category']
+        quality.rect((67, y-11, 1533, y+64), fill=BG)
+        quality.text(76, y+8, category.title(), 25, WHITE, True)
+        for x, passed in [(330, test['correct']), (470, test['content_review']['correct'])]:
+            quality.text(x, y+8, 'PASS' if passed else 'FAIL', 24, GREEN if passed else AMBER, True)
+        quality.text(640, y+9, errors[category], 20, WHITE)
+    quality.footer(['Phase 1 retrieval scored 6/6. Phase 2 used one test per category and one shared synthetic archive.',
+                    'Greedy decoding / seed 42 / thinking disabled.'])
+    quality.save('sensenova-phase2-quality.png')
+
+    cold, cached = (summary['by_cache_mode'][mode] for mode in ('cold', 'cached'))
+    timing = Card('256K multi-hop timing', subtitle, 'TIMING', date)
+    timing.metric(0, 'COLD TTFT', f'{cold["median_ttft_s"]:.2f} s', '1 request')
+    timing.metric(1, 'CACHED TTFT', f'{cached["median_ttft_s"]:.3f} s', 'Median of 3 requests', CYAN)
+    timing.metric(2, 'CACHED FRESH INPUT', f'{cached["median_fresh_tokens"]:,} tokens', 'Median of 3 requests', CYAN)
+    peak = max(test['peak_device_vram_mib'] for test in tests)
+    timing.metric(3, 'PEAK DEVICE VRAM', f'{peak/1024:.2f} GiB', 'Whole GPU, sampled')
+    timing.rect((52, 360, 1548, 886), outline=BORDER)
+    columns = (76, 284, 433, 590, 724, 1134, 1337)
+    headers = ('CASE', 'ACTUAL INPUT', 'REUSED', 'TTFT / s', 'FRESH PREFILL / tok/s', 'DECODE / tok/s', 'VRAM / GiB')
+    for x, title in zip(columns, headers):
+        timing.text(x, 382, title, 19, MUTED)
+    for i, test in enumerate(tests):
+        y = 444 + i*100
+        color = GREEN if test['mode'] == 'cold' else CYAN
+        values = (test['category'].title(), f'{test["input_tokens"]:,}', f'{test["cached_tokens"]:,}',
+                  f'{test["ttft_s"]:.3f}', f'{test["prefill_tok_s"]:,.1f}',
+                  f'{test["decode_tok_s"]:.1f}', f'{test["peak_device_vram_mib"]/1024:.2f}')
+        for x, value in zip(columns, values):
+            timing.text(x, y, value, 23, color, True)
+        timing.bar(724, y+39, 350, test['prefill_tok_s'], 1200, color, '')
+    timing.text(724, 846, 'Bar scale 0 to 1,200 tok/s', 18, MUTED)
+    timing.footer(['Temporal ran cold. The other three requests reused the shared prefix.',
+                   'Prefill counts fresh tokens. Cold and cached timings come from different questions.'])
+    timing.save('sensenova-phase2-timing.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -696,3 +759,5 @@ if __name__ == '__main__':
     if (ROOT / 'docs/results/bonsai-dsh-256k-20261117.json').is_file():
         bonsai_cards()
     strata_iq3s_prefill_card()
+    if (ROOT / 'bench/sensenova/evidence/quality-256k-phase2/results.json').is_file():
+        sensenova_phase2_cards()

@@ -1,3 +1,4 @@
 evidence/** -text whitespace=cr-at-eol,-blank-at-eof
 evidence/**/*.patch whitespace=cr-at-eol,-blank-at-eof,-blank-at-eol
+evidence/quality-256k-phase2/shared-prefix.txt whitespace=cr-at-eol,-blank-at-eof,-blank-at-eol
 setup.sh text eol=lf

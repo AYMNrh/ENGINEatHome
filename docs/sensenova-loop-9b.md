@@ -62,7 +62,19 @@ The six prompts used **261,630–261,632 actual tokens**, or **99.80%** of capac
 | Cold | 1/1 | 244.59 | 1,069.9 | 25.8 |
 | Cached median | 5/5 | 1.84 | 577.7 | 26.2 |
 
-Cached requests each reused 260,604 tokens. Multi-hop reasoning and code understanding remain unmeasured. Run those screens before deciding on a full coding-agent benchmark. [Phase 1 report](../bench/sensenova/evidence/quality-256k-phase1/report.md) · [JSON results](../bench/sensenova/evidence/quality-256k-phase1/results.json) · [Fixtures](../bench/sensenova/evidence/quality-256k-phase1/fixtures.json)
+Cached requests each reused 260,604 tokens. [Phase 1 report](../bench/sensenova/evidence/quality-256k-phase1/report.md) · [JSON results](../bench/sensenova/evidence/quality-256k-phase1/results.json) · [Fixtures](../bench/sensenova/evidence/quality-256k-phase1/fixtures.json)
+
+## Phase 2 multi-hop reasoning
+
+Four deterministic prompts used 261,616 to 261,632 input tokens each. Strict standalone JSON scored **0/4**. Content scored **1/4** after allowing a single enclosing Markdown JSON fence. The other three answers mishandled policy timing, production dependencies, or override precedence.
+
+![256K multi-hop quality card](assets/sensenova-phase2-quality.png)
+
+![256K multi-hop timing card](assets/sensenova-phase2-timing.png)
+
+Each category used one question from a shared synthetic archive. The failures limit confidence in full-context coding-agent use. Repository code understanding is pending Phase 3 approval.
+
+[Phase 2 report](../bench/sensenova/evidence/quality-256k-phase2/report.md) · [JSON results](../bench/sensenova/evidence/quality-256k-phase2/results.json) · [Fixtures](../bench/sensenova/evidence/quality-256k-phase2/fixtures.json) · [Evidence manifest](../bench/sensenova/evidence-manifest.json)
 
 ## Evidence archive
 

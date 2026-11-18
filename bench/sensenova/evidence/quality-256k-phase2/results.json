@@ -1,0 +1,571 @@
+{
+  "phase": 2,
+  "category": "synthetic archive multi-hop reasoning",
+  "seed": 42,
+  "temperature": 0,
+  "context_capacity": 262144,
+  "sha256_cuda_library": "3e7c293312b07de6777c74596eecb616f850a4b917856373987655c8ab38d869",
+  "runtime_command": [
+    "/home/aymen/models/sensenova-runtime/build-cu133/bin/llama-server",
+    "-m",
+    "/home/aymen/models/sensenova-runtime/SenseNova-Loop-9B-Q4_K_M.gguf",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "18931",
+    "--device",
+    "CUDA0",
+    "--fit",
+    "off",
+    "-lv",
+    "5",
+    "-ngl",
+    "99",
+    "-np",
+    "1",
+    "-c",
+    "262144",
+    "-fa",
+    "on",
+    "-ctk",
+    "q8_0",
+    "-ctv",
+    "q8_0",
+    "-b",
+    "2048",
+    "-ub",
+    "1024",
+    "--no-warmup"
+  ],
+  "tests": [
+    {
+      "mode": "cold",
+      "input_tokens": 261622,
+      "fresh_tokens": 261622,
+      "cached_tokens": 0,
+      "context_utilization_percent": 99.80087280273438,
+      "output_tokens": 48,
+      "output_token_ids": [
+        90,
+        198,
+        220,
+        328,
+        33639,
+        763,
+        328,
+        45,
+        17,
+        19,
+        487,
+        198,
+        220,
+        328,
+        22281,
+        81350,
+        763,
+        328,
+        17,
+        15,
+        18,
+        16,
+        12,
+        15,
+        20,
+        12,
+        16,
+        17,
+        51,
+        15,
+        24,
+        25,
+        15,
+        15,
+        57,
+        487,
+        198,
+        220,
+        328,
+        36597,
+        763,
+        328,
+        50,
+        470,
+        1,
+        198,
+        92,
+        248046
+      ],
+      "output": "{\n  \"policy\": \"N24\",\n  \"release_utc\": \"2031-05-12T09:00Z\",\n  \"lane\": \"Sable\"\n}",
+      "stop_type": "eos",
+      "ttft_s": 231.47509676100003,
+      "wall_s": 233.104620769,
+      "prefill_tok_s": 1130.4801081031812,
+      "decode_tok_s": 28.996165102930213,
+      "native_timings": {
+        "cache_n": 0,
+        "prompt_n": 261622,
+        "prompt_ms": 231425.567,
+        "prompt_per_token_ms": 0.8845799168265666,
+        "prompt_per_second": 1130.4801081031812,
+        "predicted_n": 48,
+        "predicted_ms": 1620.904,
+        "predicted_per_token_ms": 34.48731914893617,
+        "predicted_per_second": 28.996165102930213
+      },
+      "peak_device_vram_mib": 15803,
+      "vram_samples": 738,
+      "category": "temporal",
+      "evidence": [
+        {
+          "title": "T01 deployment record",
+          "text": "Signed production record for Orion. Activation occurred on 2031-05-12 at 09:00 UTC. The previous dry run was 2031-05-10 at 09:00 UTC.",
+          "token_offset": 10465,
+          "depth_percent": 4.000045867702258
+        },
+        {
+          "title": "T02 signoff register",
+          "text": "Orion policy N17 was signed on 2031-05-01. N21 was signed on 2031-05-11. N24 was signed on 2031-05-13. A sales note from May 9 announced N24 as final, but it is not a signature.",
+          "token_offset": 73257,
+          "depth_percent": 28.001085535620092
+        },
+        {
+          "title": "T03 retention table",
+          "text": "For Orion, N17 requires 18 hours, N21 requires 30 hours, and N24 requires 48 hours. An obsolete copy labeled N21 says 24 hours. This signed table replaces it.",
+          "token_offset": 136049,
+          "depth_percent": 52.00212520353793
+        },
+        {
+          "title": "T04 operations bulletin",
+          "text": "Select the latest signed Orion policy as of the production activation. Apply its retention interval starting at activation. Routing after retention uses lane Mica for intervals below 24 hours or Sable for intervals of at least 24 hours. The rehearsal used lane Slate.",
+          "token_offset": 198840,
+          "depth_percent": 76.00278264060361
+        }
+      ],
+      "derivation": "Join production activation with the signatures, signed retention table, and release-routing rule.",
+      "expected": {
+        "policy": "N21",
+        "release_utc": "2031-05-13T15:00Z",
+        "lane": "Sable"
+      },
+      "question": "For Orion production, determine the applicable policy ID, release timestamp in UTC as YYYY-MM-DDTHH:MMZ, and lane. Return one JSON object only with keys policy, release_utc, lane.",
+      "input_id_sha256": "1d8b23485a2622211f0f72282d477a98c7801fcb0a876abb8764f84e3c863194",
+      "correct": false,
+      "observed": {
+        "policy": "N24",
+        "release_utc": "2031-05-12T09:00Z",
+        "lane": "Sable"
+      },
+      "errors": [
+        "policy: expected 'N21', observed 'N24'",
+        "release_utc: expected '2031-05-13T15:00Z', observed '2031-05-12T09:00Z'"
+      ],
+      "content_review": {
+        "correct": false,
+        "stripped_single_json_fence": false,
+        "observed": {
+          "policy": "N24",
+          "release_utc": "2031-05-12T09:00Z",
+          "lane": "Sable"
+        },
+        "diagnosis": "Selected N24, which was signed a day after activation, and copied activation time without adding the 30-hour retention interval. Lane Sable was correct."
+      }
+    },
+    {
+      "mode": "cached",
+      "input_tokens": 261616,
+      "fresh_tokens": 1022,
+      "cached_tokens": 260594,
+      "context_utilization_percent": 99.798583984375,
+      "output_tokens": 33,
+      "output_token_ids": [
+        90,
+        198,
+        220,
+        328,
+        87761,
+        763,
+        328,
+        18,
+        13,
+        23,
+        487,
+        198,
+        220,
+        328,
+        13315,
+        763,
+        328,
+        17,
+        13,
+        19,
+        487,
+        198,
+        220,
+        328,
+        33462,
+        763,
+        328,
+        47,
+        31224,
+        1,
+        198,
+        92,
+        248046
+      ],
+      "output": "{\n  \"relay\": \"3.8\",\n  \"bridge\": \"2.4\",\n  \"codec\": \"Pollen\"\n}",
+      "stop_type": "eos",
+      "ttft_s": 1.7565226930000222,
+      "wall_s": 2.863940232999994,
+      "prefill_tok_s": 599.5541476006101,
+      "decode_tok_s": 29.11316743073568,
+      "native_timings": {
+        "cache_n": 260594,
+        "prompt_n": 1022,
+        "prompt_ms": 1704.6,
+        "prompt_per_token_ms": 1.6679060665362033,
+        "prompt_per_second": 599.5541476006101,
+        "predicted_n": 33,
+        "predicted_ms": 1099.159,
+        "predicted_per_token_ms": 34.34871875,
+        "predicted_per_second": 29.11316743073568
+      },
+      "peak_device_vram_mib": 15724,
+      "vram_samples": 8,
+      "category": "dependency",
+      "evidence": [
+        {
+          "title": "D01 release manifest",
+          "text": "Atlas production builds must select the newest compatible Relay version in major 3. An archived Atlas 6 manifest permits Relay 2; a preview Atlas 8 manifest permits Relay 4.",
+          "token_offset": 26163,
+          "depth_percent": 10.000535135465721
+        },
+        {
+          "title": "D02 Relay catalog",
+          "text": "Relay 3.2 requires Bridge >=2.0 <3.0. Relay 3.5 requires Bridge >=2.2 <3.0. Relay 3.8 requires Bridge >=2.4 <3.0. A deprecated memo claims Relay 3.8 works with Bridge 2.3; the catalog governs.",
+          "token_offset": 88955,
+          "depth_percent": 34.00212525227815
+        },
+        {
+          "title": "D03 Bridge catalog",
+          "text": "Bridge 2.1 requires driver ABI 6, Bridge 2.3 requires ABI 7, Bridge 2.4 requires ABI 8, and Bridge 3.0 requires ABI 7. Bridge 2.3 ships with codec Lumen and Bridge 2.4 ships with codec Pollen. For each Relay candidate prefer the highest compatible Bridge version.",
+          "token_offset": 151747,
+          "depth_percent": 58.00371536909058
+        },
+        {
+          "title": "D04 host attestation",
+          "text": "The signed Atlas production host attestation is ABI 7. The staging host runs ABI 8; an old inventory lists ABI 6 for production.",
+          "token_offset": 214538,
+          "depth_percent": 82.00492324628463
+        }
+      ],
+      "derivation": "Combine allowed major, Relay constraints, Bridge catalog and production ABI.",
+      "expected": {
+        "relay": "3.5",
+        "bridge": "2.3",
+        "codec": "Lumen"
+      },
+      "question": "For Atlas production, resolve Relay version, Bridge version, and the selected Bridge codec. Encode versions as strings. Return one JSON object only with keys relay, bridge, codec.",
+      "input_id_sha256": "9c5d0df61a882719972b085f9d7566001707a31c2f505b25bbb2d7e45403d0c0",
+      "correct": false,
+      "observed": {
+        "relay": "3.8",
+        "bridge": "2.4",
+        "codec": "Pollen"
+      },
+      "errors": [
+        "relay: expected '3.5', observed '3.8'",
+        "bridge: expected '2.3', observed '2.4'",
+        "codec: expected 'Lumen', observed 'Pollen'"
+      ],
+      "content_review": {
+        "correct": false,
+        "stripped_single_json_fence": false,
+        "observed": {
+          "relay": "3.8",
+          "bridge": "2.4",
+          "codec": "Pollen"
+        },
+        "diagnosis": "Selected Relay 3.8 / Bridge 2.4 / Pollen. That chain fits staging ABI 8, while production is ABI 7, which selects Relay 3.5 / Bridge 2.3 / Lumen."
+      }
+    },
+    {
+      "mode": "cached",
+      "input_tokens": 261632,
+      "fresh_tokens": 1038,
+      "cached_tokens": 260594,
+      "context_utilization_percent": 99.8046875,
+      "output_tokens": 31,
+      "output_token_ids": [
+        90,
+        198,
+        220,
+        328,
+        53109,
+        763,
+        220,
+        23,
+        11,
+        198,
+        220,
+        328,
+        13745,
+        33671,
+        763,
+        220,
+        17,
+        15,
+        11,
+        198,
+        220,
+        328,
+        31467,
+        763,
+        328,
+        3432,
+        87,
+        1,
+        198,
+        92,
+        248046
+      ],
+      "output": "{\n  \"workers\": 8,\n  \"timeout_seconds\": 20,\n  \"endpoint\": \"onyx\"\n}",
+      "stop_type": "eos",
+      "ttft_s": 1.822938679999993,
+      "wall_s": 2.8607170679999854,
+      "prefill_tok_s": 586.3648149476705,
+      "decode_tok_s": 29.120813519046468,
+      "native_timings": {
+        "cache_n": 260594,
+        "prompt_n": 1038,
+        "prompt_ms": 1770.229,
+        "prompt_per_token_ms": 1.7054229287090559,
+        "prompt_per_second": 586.3648149476705,
+        "predicted_n": 31,
+        "predicted_ms": 1030.191,
+        "predicted_per_token_ms": 34.3397,
+        "predicted_per_second": 29.120813519046468
+      },
+      "peak_device_vram_mib": 15723,
+      "vram_samples": 9,
+      "category": "overrides",
+      "evidence": [
+        {
+          "title": "O01 live base specification",
+          "text": "Beryl production base values are workers=4, timeout_seconds=30, endpoint=jade. An obsolete baseline lists workers=12 and endpoint=topaz.",
+          "token_offset": 41861,
+          "depth_percent": 15.999954134050881
+        },
+        {
+          "title": "O02 deployment overlay",
+          "text": "The live region overlay for west is workers=8 and endpoint=onyx. The live region east overlay sets endpoint=pearl. Beryl tenant Kite is deployed in west.",
+          "token_offset": 104653,
+          "depth_percent": 40.00007644324853
+        },
+        {
+          "title": "O03 tenant ledger",
+          "text": "The current Kite override is endpoint=sable and timeout_seconds=45. Kite's discarded draft set workers=16. A different tenant, Finch, sets timeout_seconds=90.",
+          "token_offset": 167444,
+          "depth_percent": 63.999816536203525
+        },
+        {
+          "title": "O04 override contract and incident",
+          "text": "Apply base then region then active tenant then active emergency. Emergency is allowed to change timeout_seconds only. At 2031-06-10T15:30Z, incident E7 is active from 15:00 through 16:00 and proposes timeout_seconds=20, workers=2, endpoint=quartz. The earlier incident E6 expired at 14:00.",
+          "token_offset": 230236,
+          "depth_percent": 87.99993884540118
+        }
+      ],
+      "derivation": "Apply west region and Kite's live record in precedence order, then honor E7 only for its allowed key.",
+      "expected": {
+        "workers": 8,
+        "timeout_seconds": 20,
+        "endpoint": "sable"
+      },
+      "question": "For Beryl tenant Kite at 2031-06-10T15:30Z, give the effective workers, timeout_seconds, and endpoint. Return one JSON object only with keys workers, timeout_seconds, endpoint.",
+      "input_id_sha256": "71e34d945721622b24849654ac5590cf0d60d2078d64d8e6283c94c9a0e2ef9a",
+      "correct": false,
+      "observed": {
+        "workers": 8,
+        "timeout_seconds": 20,
+        "endpoint": "onyx"
+      },
+      "errors": [
+        "endpoint: expected 'sable', observed 'onyx'"
+      ],
+      "content_review": {
+        "correct": false,
+        "stripped_single_json_fence": false,
+        "observed": {
+          "workers": 8,
+          "timeout_seconds": 20,
+          "endpoint": "onyx"
+        },
+        "diagnosis": "Kept west's onyx endpoint instead of Kite's higher-precedence sable. The west worker count and emergency timeout were correct."
+      }
+    },
+    {
+      "mode": "cached",
+      "input_tokens": 261618,
+      "fresh_tokens": 1014,
+      "cached_tokens": 260604,
+      "context_utilization_percent": 99.79934692382812,
+      "output_tokens": 47,
+      "output_token_ids": [
+        71093,
+        2164,
+        198,
+        90,
+        198,
+        220,
+        328,
+        14460,
+        349,
+        763,
+        328,
+        32,
+        74241,
+        487,
+        198,
+        220,
+        328,
+        18510,
+        48813,
+        763,
+        328,
+        32,
+        487,
+        198,
+        220,
+        328,
+        10028,
+        20634,
+        763,
+        220,
+        16,
+        18,
+        11,
+        198,
+        220,
+        328,
+        63758,
+        763,
+        328,
+        51,
+        903,
+        1,
+        198,
+        92,
+        198,
+        71093,
+        248046
+      ],
+      "output": "```json\n{\n  \"depot\": \"Alder\",\n  \"authorized_grade\": \"A\",\n  \"available_sets\": 13,\n  \"carrier\": \"Tern\"\n}\n```",
+      "stop_type": "eos",
+      "ttft_s": 1.7555143810000118,
+      "wall_s": 3.3421817540000234,
+      "prefill_tok_s": 595.7255808324413,
+      "decode_tok_s": 29.12321398724656,
+      "native_timings": {
+        "cache_n": 260604,
+        "prompt_n": 1014,
+        "prompt_ms": 1702.126,
+        "prompt_per_token_ms": 1.6786252465483233,
+        "prompt_per_second": 595.7255808324413,
+        "predicted_n": 47,
+        "predicted_ms": 1579.496,
+        "predicted_per_token_ms": 34.33686956521739,
+        "predicted_per_second": 29.12321398724656
+      },
+      "peak_device_vram_mib": 15723,
+      "vram_samples": 10,
+      "category": "synthesis",
+      "evidence": [
+        {
+          "title": "S01 destination registry",
+          "text": "The current alias registry maps destination D-417 to depot Alder. Its superseded export maps D-417 to Birch. Depot Alder uses dispatch region North.",
+          "token_offset": 57559,
+          "depth_percent": 22.001161999556604
+        },
+        {
+          "title": "S02 inventory return",
+          "text": "Alder has 17 grade-A seal sets and 11 grade-B seal sets on hand. Alder has 4 grade-A sets already reserved. Birch has 29 grade-A sets and 2 reserved. A preliminary Alder inventory reported 20 grade-A sets before reconciliation.",
+          "token_offset": 120351,
+          "depth_percent": 46.00256863059881
+        },
+        {
+          "title": "S03 clearance certificates",
+          "text": "Site-level quality certificates allow grade A at Alder, and grade B at Birch. An expired Alder waiver allowed grade B. The in-force certificates supersede all waiver exports.",
+          "token_offset": 183142,
+          "depth_percent": 70.00359302494476
+        },
+        {
+          "title": "S04 dispatch agreement",
+          "text": "Use the inventory at the depot resolved from the current alias registry. Subtract reserved sets of the authorized grade. Region North uses carrier Tern below 15 available sets and carrier Siskin at 15 or more. Region South uses carrier Lark. A draft North agreement used a threshold of 12.",
+          "token_offset": 245934,
+          "depth_percent": 94.00499965598698
+        }
+      ],
+      "derivation": "Resolve location and region, select the valid grade, subtract reserved inventory, and apply the active carrier threshold.",
+      "expected": {
+        "depot": "Alder",
+        "authorized_grade": "A",
+        "available_sets": 13,
+        "carrier": "Tern"
+      },
+      "question": "For destination D-417, determine depot, authorized_grade, available_sets, and carrier. Return one JSON object only with keys depot, authorized_grade, available_sets, carrier.",
+      "input_id_sha256": "28f222730b3145e3b57e8bd9bde63b90d29d295e7d83f9b649bdf0d663e2e4f7",
+      "correct": false,
+      "observed": null,
+      "errors": [
+        "Invalid JSON: Expecting value: line 1 column 1 (char 0)"
+      ],
+      "content_review": {
+        "correct": true,
+        "stripped_single_json_fence": true,
+        "observed": {
+          "depot": "Alder",
+          "authorized_grade": "A",
+          "available_sets": 13,
+          "carrier": "Tern"
+        },
+        "diagnosis": "Returned all four expected fields, including available sets and carrier, inside a Markdown code fence. The requested standalone JSON format failed."
+      }
+    }
+  ],
+  "summary": {
+    "completed": 4,
+    "correct": 0,
+    "by_cache_mode": {
+      "cold": {
+        "requests": 1,
+        "correct": 0,
+        "median_ttft_s": 231.47509676100003,
+        "median_prefill_tok_s": 1130.4801081031812,
+        "median_decode_tok_s": 28.996165102930213,
+        "median_input_tokens": 261622,
+        "median_fresh_tokens": 261622,
+        "median_cached_tokens": 0
+      },
+      "cached": {
+        "requests": 3,
+        "correct": 0,
+        "median_ttft_s": 1.7565226930000222,
+        "median_prefill_tok_s": 595.7255808324413,
+        "median_decode_tok_s": 29.120813519046468,
+        "median_input_tokens": 261618,
+        "median_fresh_tokens": 1022,
+        "median_cached_tokens": 260594
+      }
+    },
+    "manual_content_review": {
+      "correct": 1,
+      "rule": "After the strict score, parse an optional single enclosing Markdown JSON fence. Same keys, types and values required."
+    },
+    "inference_requests": 4
+  },
+  "sampling": {
+    "temperature": 0,
+    "seed": 42,
+    "thinking": false,
+    "output_token_limit": 128
+  }
+}
