@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 import platform
 import random
 import re
@@ -19,14 +20,21 @@ from qah.model import inspect_gguf, sha256
 from qah.telemetry import Monitor, gpu_sample, host_inventory
 
 
+def source_files():
+    for folder in ('src', 'bench', 'configs'):
+        found = []
+        for directory, subdirs, names in os.walk(ROOT / folder):
+            subdirs[:] = [name for name in subdirs if name not in ('results', '__pycache__')]
+            found.extend(Path(directory) / name for name in names if Path(name).suffix in ('.py', '.json'))
+        yield from sorted(found)
+
+
 def provenance():
     result = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True)
     digest = hashlib.sha256()
-    for folder in ('src', 'bench', 'configs'):
-        for file in sorted((ROOT / folder).rglob('*')):
-            if file.is_file() and file.suffix in ('.py', '.json') and 'results' not in file.parts:
-                digest.update(file.relative_to(ROOT).as_posix().encode())
-                digest.update(file.read_bytes())
+    for file in source_files():
+        digest.update(file.relative_to(ROOT).as_posix().encode())
+        digest.update(file.read_bytes())
     return dict(commit_sha=result.stdout.strip() if result.returncode == 0 else None,
                 source_sha256=digest.hexdigest(),
                 git_status=subprocess.run(['git', 'status', '--porcelain=v1'], cwd=ROOT,
@@ -35,10 +43,8 @@ def provenance():
 
 def source_snapshot(path):
     files = {}
-    for folder in ('src', 'bench', 'configs'):
-        for file in sorted((ROOT / folder).rglob('*')):
-            if file.is_file() and file.suffix in ('.py', '.json') and 'results' not in file.parts:
-                files[file.relative_to(ROOT).as_posix()] = file.read_text(encoding='utf-8')
+    for file in source_files():
+        files[file.relative_to(ROOT).as_posix()] = file.read_text(encoding='utf-8')
     path.write_text(json.dumps(files, indent=2), encoding='utf-8')
 
 

@@ -6,6 +6,10 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
+[![Swift 1.5 Qwen3.8-27B IQ3_S scored 4/4 on the matched 64K coding set](docs/assets/swift-qwen-coding.png)](docs/swift-qwen-20261118.md)
+
+[Swift inference card](docs/assets/swift-qwen-inference.png) · [Benchmark report](docs/swift-qwen-20261118.md) · [Measurements JSON](docs/results/swift-qwen-20261118.json)
+
 [SenseNova-Loop-9B Q4_K_M](docs/sensenova-loop-9b.md) · 256K retrieval **6/6**, multi-hop reasoning **1/4 content** and **0/4 strict JSON** · [Quality card](docs/assets/sensenova-phase2-quality.png) · [Timing card](docs/assets/sensenova-phase2-timing.png)
 
 [![Qwen3.8-Flash-Next GSQ-RCO IQ3_S at 128K on Strata 0.1.60. 4K prefill chunks deliver 2.33 times the cold prefill throughput of 1K chunks.](docs/assets/strata-iq3s-128k-prefill.png)](docs/strata-iq3s-128k-prefill-20261117.md)

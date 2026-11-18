@@ -12,7 +12,7 @@ class ReferenceExecutor:
     def __init__(self, server, model, context, log, key_type='f16', value_type='f16',
                  gpu_layers=99, batch=512, threads=8, startup_timeout=180, request_timeout=1800,
                  ubatch=None, mtp_depth=0, prefix_cache=False, fit=False, backend_sampling=False,
-                 draft_ubatch=None, draft_model=None):
+                 draft_ubatch=None, draft_model=None, cache_ram=8192, checkpoints=32, env=None):
         if draft_model is not None and not mtp_depth:
             raise ValueError('external draft model requires a positive draft depth')
         self.log_path = Path(log)
@@ -21,6 +21,7 @@ class ReferenceExecutor:
         self.log_file = None
         self.startup_timeout = startup_timeout
         self.request_timeout = request_timeout
+        self.env = env
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
@@ -32,8 +33,8 @@ class ReferenceExecutor:
                      '--batch-size', str(batch), '--ubatch-size', str(batch if ubatch is None else ubatch),
                      '--threads', str(threads), '--fit', 'on' if fit else 'off',
                      '--spec-type', 'draft-mtp' if mtp_depth else 'none',
-                     '--no-context-shift', '--cache-ram', '8192' if prefix_cache else '0',
-                     '--ctx-checkpoints', '32' if prefix_cache else '0',
+                     '--no-context-shift', '--cache-ram', str(cache_ram) if prefix_cache else '0',
+                     '--ctx-checkpoints', str(checkpoints) if prefix_cache else '0',
                      '--no-webui', '--verbosity', '4']
         if mtp_depth:
             if draft_model is not None:
@@ -53,6 +54,7 @@ class ReferenceExecutor:
         self.log_file = self.log_path.open('wb')
         try:
             self.process = subprocess.Popen(self.argv, stdout=self.log_file, stderr=subprocess.STDOUT,
+                                            env=self.env,
                                             creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             start = time.perf_counter()
             while time.perf_counter() - start < self.startup_timeout:

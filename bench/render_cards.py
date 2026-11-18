@@ -742,6 +742,77 @@ def sensenova_phase2_cards():
     timing.save('sensenova-phase2-timing.png')
 
 
+def swift_qwen_cards():
+    data = load('swift-qwen-20261118.json')
+    swift, original = (data['agent'][key] for key in ('swift-iq3s', 'qwen38-iq3s'))
+    card = Card('Swift 1.5 Qwen3.8-27B / Coding',
+                'IQ3_S / RTX 5070 Ti / 64K Q4 KV / xhigh / unrestricted reasoning / MTP off',
+                'CODING', '18 NOV 2026')
+    card.metric(0, 'SWIFT STRICT', f'{swift["strict"]}/{swift["tasks"]}', 'Held-out patch + clean finish')
+    card.metric(1, 'ORIGINAL STRICT', f'{original["strict"]}/{original["tasks"]}', 'Matched OpenCode settings', CYAN)
+    card.metric(2, 'TASK TIME REDUCTION', f'{1-swift["seconds"]/original["seconds"]:.1%}', 'Across four attempts')
+    card.metric(3, 'GENERATED TOKEN REDUCTION', f'{1-swift["generated"]/original["generated"]:.1%}',
+                'Native output incl. reasoning', CYAN)
+    card.rect((52, 360, 1548, 892), outline=BORDER)
+    for x, label in [(76, 'TOTAL TASK TIME / MIN'), (800, 'HELD-OUT'), (1010, 'GENERATED'), (1285, 'TOOL CALLS')]:
+        card.text(x, 385, label, 23, MUTED)
+    for i, (label, row, color) in enumerate((('Swift 1.5', swift, GREEN), ('Original Qwen3.8', original, CYAN))):
+        y = 485 + 134*i
+        minutes = row['seconds']/60
+        card.bar(76, y, 520, minutes, 60, color, label)
+        for x, value in [(614, f'{minutes:.2f}'), (800, f'{row["patch"]}/{row["tasks"]}'),
+                         (1010, f'{row["generated"]:,}'), (1285, row['tools'])]:
+            card.text(x, y-5, value, 30, color, True)
+    card.text(76, 689, 'Time scale 0 to 60 min', 20, MUTED)
+    card.text(76, 752, 'Sphinx #10323', 24, WHITE, True)
+    sphinx = next(case for case in swift['results'] if case['task'] == 'sphinx-doc__sphinx-10323')
+    card.text(76, 802, f'Swift passed in {sphinx["seconds"]/60:.2f} min. Original Qwen timed out and failed grading.', 25)
+    card.footer(['Pytest #6202 x3 and Sphinx #10323 x1 per model. Same grader and 16K total output allowance.',
+                 'Strict requires a passing held-out patch and a clean agent finish.'])
+    card.save('swift-qwen-coding.png')
+
+    profiles = {(row['context'], row['kv'], row['mtp_depth'], row.get('batch', 512), row.get('microbatch', 128)): row
+                for row in data['speed'] if row['status'] == 'measured'}
+    selections = [
+        ('64K Q4 / MTP off', (65536, 'q4_0', 0, 512, 128)),
+        ('64K Q8 / MTP off', (65536, 'q8_0', 0, 512, 128)),
+        ('92K Q4 / MTP off', (92160, 'q4_0', 0, 512, 128)),
+        ('64K Q4 / MTP3', (65536, 'q4_0', 3, 128, 32)),
+        ('32K Q4 / MTP4', (32768, 'q4_0', 4, 128, 32)),
+    ]
+    rows = [(label, profiles[key]) for label, key in selections]
+    card = Card('Swift 1.5 Qwen3.8-27B / Inference',
+                'GSQ-RCO IQ3_S MTP checkpoint / RTX 5070 Ti / filled synthetic retrieval',
+                'SPEED', '18 NOV 2026')
+    card.metric(0, '64K COLD PREFILL', f'{rows[0][1]["requests"]["cold"]["timings"]["prompt_per_second"]:,.0f} tok/s',
+                'Q4 KV, MTP off')
+    card.metric(1, '64K CACHED TTFT', f'{rows[0][1]["requests"]["cached"]["ttft_seconds"]*1000:.0f} ms',
+                '64,508 input tokens reused', CYAN)
+    card.metric(2, 'MAX VERIFIED INPUT', f'{rows[2][1]["requests"]["cold"]["actual_input_tokens"]:,}',
+                '92,160 capacity, Q4 KV')
+    card.metric(3, 'PEAK 32K DECODE', f'{rows[-1][1]["requests"]["cold"]["timings"]["predicted_per_second"]:.1f} tok/s',
+                'MTP4, cold request', CYAN)
+    card.rect((52, 360, 1548, 892), outline=BORDER)
+    columns = (76, 380, 568, 755, 927, 1110)
+    for x, label in zip(columns, ('PROFILE', 'ACTUAL INPUT', 'PREFILL / tok/s', 'DECODE / tok/s',
+                                  'TTFT / s', 'PEAK VRAM / GiB')):
+        card.text(x, 385, label, 19, MUTED)
+    for i, (label, row) in enumerate(rows):
+        request = row['requests']['cold']
+        timings = request['timings']
+        y = 456 + 75*i
+        values = (label, f'{request["actual_input_tokens"]:,}', f'{timings["prompt_per_second"]:,.0f}',
+                  f'{timings["predicted_per_second"]:.1f}', f'{request["ttft_seconds"]:.2f}',
+                  f'{request["resources"]["device_vram_peak_sampled_bytes"]/2**30:.2f}')
+        for x, value in zip(columns, values):
+            card.text(x, y, value, 23, CYAN if row['mtp_depth'] else GREEN, x == columns[0])
+        card.bar(1330, y+2, 175, timings['predicted_per_second'], 100, CYAN if row['mtp_depth'] else GREEN, '')
+    card.text(76, 846, 'Cold rates shown. Decode bars use a 0 to 100 tok/s scale.', 19, MUTED)
+    card.footer(['MTP rows use a smaller batch and Q4 draft KV. All listed profiles passed exact retrieval.',
+                 '128K stopped before generation at the VRAM guard. VRAM is sampled device-wide.'])
+    card.save('swift-qwen-inference.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -761,3 +832,5 @@ if __name__ == '__main__':
     strata_iq3s_prefill_card()
     if (ROOT / 'bench/sensenova/evidence/quality-256k-phase2/results.json').is_file():
         sensenova_phase2_cards()
+    if (ROOT / 'docs/results/swift-qwen-20261118.json').is_file():
+        swift_qwen_cards()

@@ -1,0 +1,461 @@
+{
+  "fixture": {
+    "dataset": "princeton-nlp/SWE-bench_Verified",
+    "revision": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+    "parquet_sha256": "a45b1fe4e2f0c8390b2b2938ac83e92ed5979000856808f3679c07812e9e6dcd",
+    "tasks": [
+      {
+        "instance_id": "psf__requests-1142",
+        "repo": "psf/requests",
+        "base_commit": "22623bd8c265b78b161542663ee980738441c307",
+        "image": "qah64-psf-requests-1142",
+        "image_id": "sha256:be344d55ec79ba2d40946a65f037e6398243e0c676239560193099ff381ece43",
+        "regression": [
+          "test_requests.py::RequestsTestCase::test_no_content_length"
+        ],
+        "preservation": [
+          "test_requests.py::RequestsTestCase::test_basic_building",
+          "test_requests.py::RequestsTestCase::test_entry_points",
+          "test_requests.py::RequestsTestCase::test_invalid_url",
+          "test_requests.py::RequestsTestCase::test_params_are_added_before_fragment",
+          "test_requests.py::RequestsTestCase::test_path_is_not_double_encoded"
+        ]
+      },
+      {
+        "instance_id": "psf__requests-5414",
+        "repo": "psf/requests",
+        "base_commit": "39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e",
+        "image": "qah64-psf-requests-5414",
+        "image_id": "sha256:2c365f6e828b36a81d455f1b5b594ef86e9eb52cb57fcb32fc590925c01e957d",
+        "regression": [
+          "tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]"
+        ],
+        "preservation": [
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_contains",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_copy",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_delitem",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_docstring_example",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_equality",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_fixes_649",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_get",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_getitem",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_init[cid0]",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_init[cid1]",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_init[cid2]",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_iter",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_len",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_lower_items",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_preserve_key_case",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_preserve_last_key_case",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_setdefault",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_update",
+          "tests/test_requests.py::TestCaseInsensitiveDict::test_update_retains_unchanged",
+          "tests/test_requests.py::TestMorselToCookieExpires::test_expires_invalid_int[100-TypeError]"
+        ]
+      },
+      {
+        "instance_id": "pytest-dev__pytest-10081",
+        "repo": "pytest-dev/pytest",
+        "base_commit": "da9a2b584eb7a6c7e924b2621ed0ddaeca0a7bea",
+        "image": "qah64-pytest-dev-pytest-10081",
+        "image_id": "sha256:e0822fb792166c2f068f7508444fdc23e287eb2c9609c215bddf318c33228779",
+        "regression": [
+          "testing/test_unittest.py::test_pdb_teardown_skipped_for_classes[@unittest.skip]"
+        ],
+        "preservation": [
+          "testing/test_unittest.py::test_BdbQuit",
+          "testing/test_unittest.py::test_async_support",
+          "testing/test_unittest.py::test_class_method_containing_test_issue1558",
+          "testing/test_unittest.py::test_cleanup_functions",
+          "testing/test_unittest.py::test_djangolike_testcase",
+          "testing/test_unittest.py::test_do_class_cleanups_on_setupclass_failure",
+          "testing/test_unittest.py::test_do_class_cleanups_on_success",
+          "testing/test_unittest.py::test_do_class_cleanups_on_teardownclass_failure",
+          "testing/test_unittest.py::test_do_cleanups_on_setup_failure",
+          "testing/test_unittest.py::test_do_cleanups_on_success",
+          "testing/test_unittest.py::test_do_cleanups_on_teardown_failure",
+          "testing/test_unittest.py::test_error_message_with_parametrized_fixtures",
+          "testing/test_unittest.py::test_exit_outcome",
+          "testing/test_unittest.py::test_fixtures_setup_setUpClass_issue8394",
+          "testing/test_unittest.py::test_function_item_obj_is_instance",
+          "testing/test_unittest.py::test_isclasscheck_issue53",
+          "testing/test_unittest.py::test_issue333_result_clearing",
+          "testing/test_unittest.py::test_method_and_teardown_failing_reporting",
+          "testing/test_unittest.py::test_module_level_pytestmark",
+          "testing/test_unittest.py::test_new_instances"
+        ]
+      },
+      {
+        "instance_id": "pytest-dev__pytest-6202",
+        "repo": "pytest-dev/pytest",
+        "base_commit": "3a668ea6ff24b0c8f00498c3144c63bac561d925",
+        "image": "qah64-pytest-dev-pytest-6202",
+        "image_id": "sha256:d0929f4bc03ce0442108a6d7ce8c2f1387e1f7d2e2a188166db985438c4ef62f",
+        "regression": [
+          "testing/test_collection.py::Test_genitems::test_example_items1"
+        ],
+        "preservation": [
+          "testing/test_collection.py::TestCollectFS::test__in_venv[Activate.bat]",
+          "testing/test_collection.py::TestCollectFS::test__in_venv[Activate.ps1]",
+          "testing/test_collection.py::TestCollectFS::test__in_venv[Activate]",
+          "testing/test_collection.py::TestCollectFS::test__in_venv[activate.csh]",
+          "testing/test_collection.py::TestCollectFS::test__in_venv[activate.fish]",
+          "testing/test_collection.py::TestCollectFS::test__in_venv[activate]"
+        ]
+      },
+      {
+        "instance_id": "sphinx-doc__sphinx-10323",
+        "repo": "sphinx-doc/sphinx",
+        "base_commit": "31eba1a76dd485dc633cae48227b46879eda5df4",
+        "image": "qah64-sphinx-doc-sphinx-10323",
+        "image_id": "sha256:910c6e3fafffa2de716103505dde8f6901238df3817aa568bb443aa89abe8fef",
+        "regression": [
+          "tests/test_directive_code.py::test_LiteralIncludeReader_dedent_and_append_and_prepend"
+        ],
+        "preservation": [
+          "tests/test_directive_code.py::test_LiteralIncludeReader",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_dedent",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_diff",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_end_before",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_lineno_start",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_lines1",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_lines2",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_lines_and_lineno_match1",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_lines_and_lineno_match2",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_lines_and_lineno_match3",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_missing_start_and_end",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_prepend",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_pyobject1",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_pyobject2",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_pyobject3",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_pyobject_and_lines",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_start_after",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_start_after_and_lines",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_start_at",
+          "tests/test_directive_code.py::test_LiteralIncludeReader_start_at_and_lines"
+        ]
+      },
+      {
+        "instance_id": "sphinx-doc__sphinx-10449",
+        "repo": "sphinx-doc/sphinx",
+        "base_commit": "36367765fe780f962bba861bf368a765380bbc68",
+        "image": "qah64-sphinx-doc-sphinx-10449",
+        "image_id": "sha256:21e3ccf3c12550479bdff3519b337d5a0f4d0540d123b3cd304c42e98c7f73a9",
+        "regression": [
+          "tests/test_ext_autodoc_configs.py::test_autodoc_typehints_description_with_documented_init"
+        ],
+        "preservation": [
+          "tests/test_ext_autodoc_configs.py::test_autoclass_content_and_docstring_signature_both",
+          "tests/test_ext_autodoc_configs.py::test_autoclass_content_and_docstring_signature_class",
+          "tests/test_ext_autodoc_configs.py::test_autoclass_content_and_docstring_signature_init",
+          "tests/test_ext_autodoc_configs.py::test_autoclass_content_both",
+          "tests/test_ext_autodoc_configs.py::test_autoclass_content_class",
+          "tests/test_ext_autodoc_configs.py::test_autoclass_content_init",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_class_signature_mixed",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_class_signature_separated_init",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_class_signature_separated_new",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_default_options",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_default_options_with_values",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_docstring_signature",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_inherit_docstrings",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_type_aliases",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_typehints_both",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_typehints_description",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_typehints_description_and_type_aliases",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_typehints_description_for_invalid_node",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_typehints_description_no_undoc",
+          "tests/test_ext_autodoc_configs.py::test_autodoc_typehints_description_no_undoc_doc_rtype"
+        ]
+      }
+    ],
+    "manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e"
+  },
+  "speed_rendered_prompts": {
+    "default": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+    "top_xhigh": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+    "top_low": "<|im_start|>system\nReasoning effort is set to low. Keep your thinking brief and focused, moving directly to the conclusion without unnecessary elaboration.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+    "kwargs_xhigh": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+    "kwargs_low": "<|im_start|>system\nReasoning effort is set to low. Keep your thinking brief and focused, moving directly to the conclusion without unnecessary elaboration.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+    "thinking_off": "<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+  },
+  "agent": {
+    "swift-iq3s": {
+      "rendered_prompts": {
+        "default": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "top_xhigh": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "top_low": "<|im_start|>system\nReasoning effort is set to low. Keep your thinking brief and focused, moving directly to the conclusion without unnecessary elaboration.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "kwargs_xhigh": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "kwargs_low": "<|im_start|>system\nReasoning effort is set to low. Keep your thinking brief and focused, moving directly to the conclusion without unnecessary elaboration.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "thinking_off": "<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+      },
+      "chat_smoke": {
+        "request": {
+          "temperature": 1.0,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0.0,
+          "presence_penalty": 0.0,
+          "repeat_penalty": 1.0,
+          "seed": 42,
+          "messages": [
+            {
+              "role": "user",
+              "content": "What is 17 * 19?"
+            }
+          ],
+          "model": "swift-iq3s",
+          "max_tokens": 16384,
+          "chat_template_kwargs": {
+            "enable_thinking": true,
+            "reasoning_effort": "xhigh"
+          }
+        },
+        "response": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "323",
+                "reasoning_content": "We need answer simple multiplication. We did. Need final answer. 17*19 = 323. Keep concise."
+              }
+            }
+          ],
+          "created": 1795010528,
+          "model": "swift-iq3s",
+          "system_fingerprint": "b12110-cd959bae9",
+          "object": "chat.completion",
+          "usage": {
+            "completion_tokens": 35,
+            "prompt_tokens": 62,
+            "total_tokens": 97,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "id": "chatcmpl-Gqrd2jOIpPpFEAlqqJv1twI3759kXSzN",
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 62,
+            "prompt_ms": 323.772,
+            "prompt_per_token_ms": 5.2221290322580645,
+            "prompt_per_second": 191.4927788690807,
+            "predicted_n": 35,
+            "predicted_ms": 669.426,
+            "predicted_per_token_ms": 19.689,
+            "predicted_per_second": 50.78978109604347
+          }
+        }
+      },
+      "tasks": [
+        {
+          "instance_id": "pytest-dev__pytest-6202",
+          "trial": 0,
+          "grade": {
+            "passed": true,
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "returncode": 0
+          },
+          "passed": true,
+          "agent_finished": true,
+          "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+          "agent_patch": "diff --git a/src/_pytest/python.py b/src/_pytest/python.py\nindex b8b365a..5f2af31 100644\n--- a/src/_pytest/python.py\n+++ b/src/_pytest/python.py\n@@ -286,7 +286,7 @@ class PyobjMixin(PyobjContext):\n             parts.append(name)\n         parts.reverse()\n         s = \".\".join(parts)\n-        return s.replace(\".[\", \"[\")\n+        return s\n \n     def reportinfo(self):\n         # XXX caching?\n"
+        },
+        {
+          "instance_id": "sphinx-doc__sphinx-10323",
+          "trial": 0,
+          "grade": {
+            "passed": true,
+            "tests": 21,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "returncode": 0
+          },
+          "passed": true,
+          "agent_finished": true,
+          "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+          "agent_patch": "diff --git a/sphinx/directives/code.py b/sphinx/directives/code.py\nindex dc44ed3..9437fe9 100644\n--- a/sphinx/directives/code.py\n+++ b/sphinx/directives/code.py\n@@ -224,9 +224,9 @@ class LiteralIncludeReader:\n                        self.start_filter,\n                        self.end_filter,\n                        self.lines_filter,\n+                       self.dedent_filter,\n                        self.prepend_filter,\n-                       self.append_filter,\n-                       self.dedent_filter]\n+                       self.append_filter]\n             lines = self.read_file(self.filename, location=location)\n             for func in filters:\n                 lines = func(lines, location=location)\n"
+        },
+        {
+          "instance_id": "pytest-dev__pytest-6202",
+          "trial": 1,
+          "grade": {
+            "passed": true,
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "returncode": 0
+          },
+          "passed": true,
+          "agent_finished": true,
+          "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+          "agent_patch": "diff --git a/src/_pytest/python.py b/src/_pytest/python.py\nindex b8b365a..5f2af31 100644\n--- a/src/_pytest/python.py\n+++ b/src/_pytest/python.py\n@@ -286,7 +286,7 @@ class PyobjMixin(PyobjContext):\n             parts.append(name)\n         parts.reverse()\n         s = \".\".join(parts)\n-        return s.replace(\".[\", \"[\")\n+        return s\n \n     def reportinfo(self):\n         # XXX caching?\n"
+        },
+        {
+          "instance_id": "pytest-dev__pytest-6202",
+          "trial": 2,
+          "grade": {
+            "passed": true,
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "returncode": 0
+          },
+          "passed": true,
+          "agent_finished": true,
+          "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+          "agent_patch": "diff --git a/src/_pytest/python.py b/src/_pytest/python.py\nindex b8b365a..5f2af31 100644\n--- a/src/_pytest/python.py\n+++ b/src/_pytest/python.py\n@@ -286,7 +286,7 @@ class PyobjMixin(PyobjContext):\n             parts.append(name)\n         parts.reverse()\n         s = \".\".join(parts)\n-        return s.replace(\".[\", \"[\")\n+        return s\n \n     def reportinfo(self):\n         # XXX caching?\n"
+        }
+      ],
+      "runtime_stop": {
+        "stopped": true
+      }
+    },
+    "qwen38-iq3s": {
+      "rendered_prompts": {
+        "default": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "top_xhigh": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "top_low": "<|im_start|>system\nReasoning effort is set to low. Keep your thinking brief and focused, moving directly to the conclusion without unnecessary elaboration.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "kwargs_xhigh": "<|im_start|>system\nReasoning effort is set to xhigh. Please think carefully through the task, validate key assumptions, consider plausible alternatives, and prioritize correctness, consistency, and clarity in the final answer.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "kwargs_low": "<|im_start|>system\nReasoning effort is set to low. Keep your thinking brief and focused, moving directly to the conclusion without unnecessary elaboration.<|im_end|>\n<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n",
+        "thinking_off": "<|im_start|>user\nCompute 17 * 19. Explain briefly and give the result.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+      },
+      "chat_smoke": {
+        "request": {
+          "temperature": 1.0,
+          "top_p": 0.95,
+          "top_k": 20,
+          "min_p": 0.0,
+          "presence_penalty": 0.0,
+          "repeat_penalty": 1.0,
+          "seed": 42,
+          "messages": [
+            {
+              "role": "user",
+              "content": "What is 17 * 19?"
+            }
+          ],
+          "model": "qwen38-iq3s",
+          "max_tokens": 16384,
+          "chat_template_kwargs": {
+            "enable_thinking": true,
+            "reasoning_effort": "xhigh"
+          }
+        },
+        "response": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "323",
+                "reasoning_content": "We need answer simple arithmetic. Done. Need final. Compute 17*19 = 17*(20-1)=340-17=323. Provide concise."
+              }
+            }
+          ],
+          "created": 1795012657,
+          "model": "qwen38-iq3s",
+          "system_fingerprint": "b12110-cd959bae9",
+          "object": "chat.completion",
+          "usage": {
+            "completion_tokens": 49,
+            "prompt_tokens": 62,
+            "total_tokens": 111,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            }
+          },
+          "id": "chatcmpl-mT11QCp9fhGGfa17HFeUdfjidVzbqIo1",
+          "timings": {
+            "cache_n": 0,
+            "prompt_n": 62,
+            "prompt_ms": 1094.151,
+            "prompt_per_token_ms": 17.64759677419355,
+            "prompt_per_second": 56.664939299968644,
+            "predicted_n": 49,
+            "predicted_ms": 939.096,
+            "predicted_per_token_ms": 19.5645,
+            "predicted_per_second": 51.11298525390375
+          }
+        }
+      },
+      "tasks": [
+        {
+          "instance_id": "pytest-dev__pytest-6202",
+          "trial": 0,
+          "grade": {
+            "passed": true,
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "returncode": 0
+          },
+          "passed": true,
+          "agent_finished": true,
+          "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+          "agent_patch": "diff --git a/changelog/6202.bugfix.rst b/changelog/6202.bugfix.rst\nnew file mode 100644\nindex 0000000..90975d4\n--- /dev/null\n+++ b/changelog/6202.bugfix.rst\n@@ -0,0 +1 @@\n+Fixed the report headline mangling test names with parameter IDs containing ``.`` (e.g. ``test_boo[..[]`` was displayed as ``test_boo[.[]``), which also broke tooling (such as VSCode) that parses the reported test IDs.\ndiff --git a/src/_pytest/python.py b/src/_pytest/python.py\nindex b8b365a..734a92f 100644\n--- a/src/_pytest/python.py\n+++ b/src/_pytest/python.py\n@@ -285,8 +285,7 @@ class PyobjMixin(PyobjContext):\n                     break\n             parts.append(name)\n         parts.reverse()\n-        s = \".\".join(parts)\n-        return s.replace(\".[\", \"[\")\n+        return \".\".join(parts)\n \n     def reportinfo(self):\n         # XXX caching?\n"
+        },
+        {
+          "instance_id": "sphinx-doc__sphinx-10323",
+          "trial": 0,
+          "grade": {
+            "passed": false,
+            "tests": 21,
+            "failures": 1,
+            "errors": 0,
+            "skipped": 0,
+            "returncode": 1
+          },
+          "passed": false,
+          "agent_finished": false,
+          "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+          "agent_patch": ""
+        },
+        {
+          "instance_id": "pytest-dev__pytest-6202",
+          "trial": 1,
+          "grade": {
+            "passed": true,
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "returncode": 0
+          },
+          "passed": true,
+          "agent_finished": true,
+          "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+          "agent_patch": "diff --git a/src/_pytest/python.py b/src/_pytest/python.py\nindex b8b365a..5f2af31 100644\n--- a/src/_pytest/python.py\n+++ b/src/_pytest/python.py\n@@ -286,7 +286,7 @@ class PyobjMixin(PyobjContext):\n             parts.append(name)\n         parts.reverse()\n         s = \".\".join(parts)\n-        return s.replace(\".[\", \"[\")\n+        return s\n \n     def reportinfo(self):\n         # XXX caching?\n"
+        },
+        {
+          "instance_id": "pytest-dev__pytest-6202",
+          "trial": 2,
+          "grade": {
+            "passed": true,
+            "tests": 7,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "returncode": 0
+          },
+          "passed": true,
+          "agent_finished": true,
+          "task_manifest_sha256": "aa82c13290df714cd3726bb625fefb3ccbdd61cc7b3494adef92ca5a616edb8e",
+          "agent_patch": "diff --git a/changelog/6202.bugfix.rst b/changelog/6202.bugfix.rst\nnew file mode 100644\nindex 0000000..0f289ad\n--- /dev/null\n+++ b/changelog/6202.bugfix.rst\n@@ -0,0 +1 @@\n+Fixed a bug where parametrize ids containing ``.[`` (for example ``test_foo[..[]``) had the dot before the bracket stripped from the test name shown in report headers and locations.\ndiff --git a/src/_pytest/python.py b/src/_pytest/python.py\nindex b8b365a..5f2af31 100644\n--- a/src/_pytest/python.py\n+++ b/src/_pytest/python.py\n@@ -286,7 +286,7 @@ class PyobjMixin(PyobjContext):\n             parts.append(name)\n         parts.reverse()\n         s = \".\".join(parts)\n-        return s.replace(\".[\", \"[\")\n+        return s\n \n     def reportinfo(self):\n         # XXX caching?\n"
+        }
+      ],
+      "runtime_stop": {
+        "stopped": true
+      }
+    }
+  }
+}
