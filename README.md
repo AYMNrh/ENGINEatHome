@@ -2,7 +2,17 @@
 
 **RTX 5070 Ti 16GB + 64GB RAM · RTX 2080 Ti 22GB + 32GB RAM · Local coding-agent benchmarks**
 
-Building a specialized local inference engine. Current measurements use Strata and llama.cpp; the independent transformer graph and CUDA kernels are not implemented yet.
+Local inference benchmarking and private serving with Strata and llama.cpp. The independent transformer graph and CUDA kernels remain future work.
+
+**Current winner for our deployment: stock Swift 1.5 Qwen3.8-27B GSQ-RCO IQ3_S MTP.** Selected on RTX 2080 Ti 22GB with 256K context, Q4 KV, MTP3, Flash Attention, xhigh thinking and a 175 W limit. This is our serving recommendation; historical scores and failures remain unchanged.
+
+[![Swift 1.5 selected production winner: filled-context prefill and sustained decode](docs/assets/swift-selected-winner.png)](docs/swift-selected-20261119.md)
+
+[![Final stock versus routing comparison: only 0.88 percent decode improvement, stock retained](docs/assets/swift-stock-routing-verdict.png)](docs/swift-final-routing-2080ti-20261119.md)
+
+[![Swift private production API: lifecycle protection, crash recovery, metadata-only analytics and Home Assistant](docs/assets/swift-production-serving.png)](docs/production-serving.md)
+
+[Latest recommendation and evidence](docs/swift-selected-20261119.md) · [Production setup and clients](docs/production-serving.md) · [Latest measurements JSON](docs/results/swift-serving-20261119.json) · [Serving source](serving/)
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
@@ -76,7 +86,7 @@ Building a specialized local inference engine. Current measurements use Strata a
 
 [Full report](docs/strata-iq3-efficiency-20261110.md) · [Measurements JSON](docs/results/strata-iq3-efficiency-20261110.json)
 
-**Snapshot: 14 November 2026.** Qwen3.6-35B-A3B IQ3_XXS is the provisional hardest-task winner: it delivered the first strict pass on Sphinx #10449 after 0/9 strict passes in saved history, at **161.4 tok/s decode** with 128K capacity. Its separate 92K run reached **72,937 actual prompt tokens** and produced a passing patch, but hit the 100-call completion ceiling. Guided Strata Coder remains the broader consistency leader at 18/18 strict passes on the selected six-issue matrix. Model packages, task samples and runtimes differ.
+**Current selection: 19 November 2026.** Stock Swift 1.5 is our production winner. Its four-attempt coding set scored **4/4** on RTX 5070 Ti and **3/4** on RTX 2080 Ti. Guided Strata Coder retains the broader **18/18** six-issue result; Swift has not completed an equivalent 18-attempt matrix. The earlier Qwen3.6 Sphinx #10449 result remains a distinct hardest-task observation. Hardware, runtimes and task coverage differ; this recommendation does not rewrite those measurements.
 
 ### Earlier experiments
 

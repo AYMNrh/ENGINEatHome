@@ -1,0 +1,266 @@
+{
+  "date": "2026-11-19",
+  "recommended_model": "Swift 1.5 Qwen3.8-27B GSQ-RCO IQ3_S MTP",
+  "recommendation_scope": "User-selected production configuration, not a universal benchmark win",
+  "gpu": "RTX 2080 Ti 22GB",
+  "power_limit_watts": 175,
+  "checkpoint_sha256": "9aecf1cd41b2cb2f32a74e0d889e33855ebef43b26f43b43feb5720239e677e5",
+  "runtime_revision": "98d67c8d536dc584897c4adb2510509796517222",
+  "serving": {
+    "context": 262144,
+    "kv": "Q4_0 target and draft",
+    "mtp": 3,
+    "flash_attention": true,
+    "thinking": "xhigh, no separate reasoning budget",
+    "idle_minutes": 60,
+    "loaded_sample_vram_gib": 18.970703125,
+    "loaded_sample_free_gib": 2.5126953125,
+    "functional_checks": {
+      "authentication_and_scopes": true,
+      "first_request_autoload_and_generation": true,
+      "reported_prefix_cache_reuse": true,
+      "reasoning_stream_usage_and_active_unload_guard": true,
+      "client_disconnect_is_incomplete": true,
+      "tool_call_and_continuation": true,
+      "lease_create_renew_release_and_unload_guard": true,
+      "restart_and_generation": true,
+      "settings_and_analytics_filters": true,
+      "unload_keeps_gateway_available": true
+    },
+    "recovery_checks": {
+      "authentication_and_scopes": true,
+      "first_request_autoload_and_generation": true,
+      "owned_backend_crash_autoload_recovery": true,
+      "gateway_systemd_crash_recovery_and_ledger_persistence": true
+    },
+    "regression_tests": 3,
+    "ha_entities_registered": 25,
+    "ha_polling_verified": true,
+    "ha_buttons_manually_tested": false,
+    "actual_reboot_tested": false,
+    "performance_benchmarks_in_production_phase": 0
+  },
+  "filled_context_mtp3": [
+    {
+      "context": 131072,
+      "depth": 3,
+      "status": "measured",
+      "error": null,
+      "input": 129024,
+      "hash": "385f0b23b1583ce3784b513ef850686b1865838365caa940e5937e2a720cee20",
+      "prefill": 296.66166165842793,
+      "decode": 27.735735617847645,
+      "sustained": 24.643571251822525,
+      "cold_ttft": 434.94470010900113,
+      "cold_wall": 444.32991630200195,
+      "cached_ttft": 0.26327099799891585,
+      "cached_fresh": 4,
+      "cached_reused": 129020,
+      "cached_fresh_prefill": 16.790496578936324,
+      "drafted": 457,
+      "accepted": 358,
+      "cold_correct": true,
+      "cached_correct": true,
+      "needle_passes": 6,
+      "needle_checks": 6,
+      "output_limited": false,
+      "peak": 16932405248,
+      "min_free": 6135218176,
+      "stopped": true,
+      "sustained_speedup": 2.0869622438786646
+    },
+    {
+      "context": 196608,
+      "depth": 3,
+      "status": "measured",
+      "error": null,
+      "input": 194560,
+      "hash": "420cb2cdd5465c2301391b6b9adf678e36de6e279578620e1aeb3c21f6cf0cc6",
+      "prefill": 235.74821721560104,
+      "decode": 20.8319168586716,
+      "sustained": 17.353500795408404,
+      "cold_ttft": 825.3233752889973,
+      "cold_wall": 837.5307678559984,
+      "cached_ttft": 0.30768992500088643,
+      "cached_fresh": 4,
+      "cached_reused": 194556,
+      "cached_fresh_prefill": 14.674375605317994,
+      "drafted": 534,
+      "accepted": 332,
+      "cold_correct": true,
+      "cached_correct": true,
+      "needle_passes": 6,
+      "needle_checks": 6,
+      "output_limited": false,
+      "peak": 18777899008,
+      "min_free": 4289724416,
+      "stopped": true,
+      "sustained_speedup": 1.8153564422647326
+    },
+    {
+      "context": 262144,
+      "depth": 3,
+      "status": "measured",
+      "error": null,
+      "input": 260096,
+      "hash": "1857ec970f3727c0bdc574213a5c9375e672b336689de85f01d094a18ef935f6",
+      "prefill": 195.70509350127693,
+      "decode": 18.87950158115826,
+      "sustained": 19.305578711545678,
+      "cold_ttft": 1329.0683768140043,
+      "cold_wall": 1344.978837742001,
+      "cached_ttft": 0.35109580499556614,
+      "cached_fresh": 4,
+      "cached_reused": 260092,
+      "cached_fresh_prefill": 13.174492864365302,
+      "drafted": 408,
+      "accepted": 374,
+      "cold_correct": true,
+      "cached_correct": true,
+      "needle_passes": 6,
+      "needle_checks": 6,
+      "output_limited": false,
+      "peak": 20623392768,
+      "min_free": 2444230656,
+      "stopped": true,
+      "sustained_speedup": 2.3904181161434948
+    }
+  ],
+  "routing_screen": {
+    "actual_input_tokens": 4096,
+    "context_capacity": 131072,
+    "generated_tokens": 256,
+    "profiles": [
+      {
+        "profile": "stock",
+        "decode_tps": 35.20091439551747,
+        "cached_ttft_seconds": 0.181506843000534,
+        "request_seconds": 7.426165562996175,
+        "vram_peak_gib": 15.771484375,
+        "repeats": [
+          {
+            "stage": "screen",
+            "profile": "stock",
+            "repeat": 1,
+            "input_tokens": 4096,
+            "prefill_tps": null,
+            "decode_tps": 35.14768921172692,
+            "output_tokens": 256,
+            "ttft_seconds": 0.1806446239934303,
+            "wall_seconds": 7.4363782339933095,
+            "vram_peak_gib": 15.771484375
+          },
+          {
+            "stage": "screen",
+            "profile": "stock",
+            "repeat": 2,
+            "input_tokens": 4096,
+            "prefill_tps": null,
+            "decode_tps": 35.20091439551747,
+            "output_tokens": 256,
+            "ttft_seconds": 0.181506843000534,
+            "wall_seconds": 7.426165562996175,
+            "vram_peak_gib": 15.771484375
+          },
+          {
+            "stage": "screen",
+            "profile": "stock",
+            "repeat": 3,
+            "input_tokens": 4096,
+            "prefill_tps": null,
+            "decode_tps": 35.223631382349346,
+            "output_tokens": 256,
+            "ttft_seconds": 0.1847327379946364,
+            "wall_seconds": 7.424818130995845,
+            "vram_peak_gib": 15.771484375
+          }
+        ]
+      },
+      {
+        "profile": "patched",
+        "decode_tps": 35.511877957234226,
+        "cached_ttft_seconds": 0.17748919301084243,
+        "request_seconds": 7.359380216003046,
+        "vram_peak_gib": 15.7734375,
+        "repeats": [
+          {
+            "stage": "screen",
+            "profile": "patched",
+            "repeat": 1,
+            "input_tokens": 4096,
+            "prefill_tps": null,
+            "decode_tps": 35.511877957234226,
+            "output_tokens": 256,
+            "ttft_seconds": 0.17748919301084243,
+            "wall_seconds": 7.358891356998356,
+            "vram_peak_gib": 15.7734375
+          },
+          {
+            "stage": "screen",
+            "profile": "patched",
+            "repeat": 2,
+            "input_tokens": 4096,
+            "prefill_tps": null,
+            "decode_tps": 35.50565270876802,
+            "output_tokens": 256,
+            "ttft_seconds": 0.17691953999747057,
+            "wall_seconds": 7.359380216003046,
+            "vram_peak_gib": 15.7734375
+          },
+          {
+            "stage": "screen",
+            "profile": "patched",
+            "repeat": 3,
+            "input_tokens": 4096,
+            "prefill_tps": null,
+            "decode_tps": 35.51546378112113,
+            "output_tokens": 256,
+            "ttft_seconds": 0.1823517000011634,
+            "wall_seconds": 7.363035317001049,
+            "vram_peak_gib": 15.7734375
+          }
+        ]
+      }
+    ],
+    "median_decode_gain_percent": 0.8833962613094881,
+    "paired_gain_percent": [
+      1.036166967658847,
+      0.8657113557520413,
+      0.8285130956657172
+    ],
+    "promotion_threshold_percent": 5,
+    "decision": "stop_no_meaningful_screen_speedup",
+    "stock_fixture_passed": true,
+    "stock_fixture_cases": 5,
+    "stock_fixture_input_tokens": 165,
+    "stock_fixture_output_tokens": 6698,
+    "stock_reproducible": true,
+    "further_optimization_implemented": false
+  },
+  "coding": {
+    "swift_5070ti": {
+      "strict": 4,
+      "patch": 4,
+      "attempts": 4,
+      "minutes": 34.8
+    },
+    "swift_2080ti": {
+      "strict": 3,
+      "patch": 3,
+      "attempts": 4,
+      "minutes": 57.83
+    },
+    "strata_coder": {
+      "strict": 18,
+      "patch": 18,
+      "attempts": 18,
+      "scope": "broader six-issue matrix, different profile"
+    }
+  },
+  "sources": [
+    "swift-2080ti-overview-20261119.json",
+    "swift-filled-mtp-homelab-20261118.json",
+    "local final-stock-routing comparison.json",
+    "local sanitized serving validation-live.json and validation-recovery.json"
+  ]
+}

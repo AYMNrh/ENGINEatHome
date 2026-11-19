@@ -15,6 +15,7 @@ build/
 signing.properties
 local.properties
 .codex-remote-attachments/
+.codex-attachments/
 .local-publication-backup/
 .publication/
 .venv/

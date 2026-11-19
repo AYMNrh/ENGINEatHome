@@ -1,0 +1,38 @@
+[Unit]
+Description=ENGINEatHome private stock Swift API gateway
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+StartLimitIntervalSec=300
+StartLimitBurst=20
+
+[Service]
+Type=simple
+User=marvin
+Group=marvin
+WorkingDirectory=/home/marvin/llm/serving
+Environment=HOME=/home/marvin
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStartPre=+/usr/bin/nvidia-smi -i GPU-b126442a-6848-979a-7bc0-9bfbba279621 -pl 175
+ExecStart=/home/marvin/llm/serving-venv/bin/python /home/marvin/llm/serving/gateway.py --config /home/marvin/llm/serving/config.json
+StateDirectory=engineathome
+StateDirectoryMode=0700
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=14500
+LimitMEMLOCK=infinity
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
