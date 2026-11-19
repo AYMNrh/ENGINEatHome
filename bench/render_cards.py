@@ -813,6 +813,103 @@ def swift_qwen_cards():
     card.save('swift-qwen-inference.png')
 
 
+def swift_2080ti_cards():
+    data = load('swift-2080ti-overview-20261119.json')
+    profiles = data['filled']['profiles']
+    subtitle = 'Swift 1.5 Qwen3.8-27B GSQ-RCO IQ3_S / full CUDA / Q4 target + draft KV / xhigh'
+    card = Card('RTX 2080 Ti 22GB / Filled MTP', subtitle, 'MTP', '19 NOV 2026')
+    maximum = max(row['input'] for row in profiles)
+    checks = sum(row['needle_passes'] for row in profiles)
+    total = sum(row['needle_checks'] for row in profiles)
+    fastest = max(row['sustained'] for row in profiles)
+    card.metric(0, 'MAX ACTUAL INPUT', f'{maximum:,}', '262,144 total capacity', CYAN)
+    card.metric(1, 'SUSTAINED DECODE', f'{fastest:.2f} tok/s', '128K / MTP3')
+    card.metric(2, 'RETRIEVAL FIELDS', f'{checks}/{total}', 'Cold + cached / 3 records')
+    card.metric(3, '256K / MTP3', '19.31 tok/s', '19.21 GiB peak GPU', CYAN)
+    card.rect((52, 354, 1548, 902), outline=BORDER)
+    columns = (76, 238, 335, 540, 738, 948, 1157)
+    for x, label in zip(columns, ('CAPACITY', 'MTP', 'ACTUAL INPUT', 'PREFILL tok/s', 'DECODE tok/s', 'VRAM GiB', 'RETRIEVAL')):
+        card.text(x, 376, label, 20, MUTED)
+    for i, row in enumerate(profiles):
+        y = 424 + i*49
+        color = GREEN if row['depth'] == 3 else CYAN if row['depth'] == 5 else WHITE
+        values = (f'{row["context"]//1024}K', 'off' if not row['depth'] else row['depth'],
+                  f'{row["input"]:,}', f'{row["prefill"]:.1f}', f'{row["sustained"]:.2f}',
+                  f'{row["peak"]/2**30:.2f}', '3/3 + 3/3' if row['cold_correct'] and row['cached_correct'] else 'FAIL')
+        for x, value in zip(columns, values):
+            card.text(x, y, value, 22, color, row['depth'] == 3)
+        card.bar(1332, y+2, 175, row['sustained'], 30, color, '')
+    card.text(76, 875, 'Decode bars 0 to 30 tok/s / fixed 512-token generation', 18, MUTED)
+    card.footer(['One cold request + replay per profile. Same input IDs across depths. Sampled device-wide VRAM.',
+                 'MTP3 is the balanced choice. MTP5 at 256K was 1.1% faster and used 300 MiB more.',
+                 'Retrieval screening uses synthetic archive text. MTP coding quality remains unmeasured.'])
+    card.save('swift-2080ti-filled-mtp.png')
+
+    headroom = data['headroom']['summary']
+    cold, cached = headroom['cold'], headroom['cached']
+    card = Card('RTX 2080 Ti 22GB / Output Headroom', subtitle, 'OUTPUT', '19 NOV 2026')
+    card.metric(0, 'TOTAL CAPACITY', f'{headroom["capacity"]:,}', '131,072 actual input', CYAN)
+    card.metric(1, 'OUTPUT ALLOWANCE', f'{headroom["total_output_allowance"]:,}', 'Reasoning + final content')
+    card.metric(2, 'NATURAL OUTPUT', f'{cold["output_tokens"]:,}', 'EOS respected / thinking ON')
+    card.metric(3, 'DECODE', f'{cold["timings"]["predicted_per_second"]:.2f} tok/s',
+                'Q4 KV / MTP3', CYAN)
+    card.rect((52, 354, 1548, 590), outline=BORDER)
+    for x, label in zip((76, 375, 685, 985, 1265), ('REQUEST', 'PREFILL tok/s', 'TTFT', 'GENERATED', 'WALL TIME')):
+        card.text(x, 377, label, 22, MUTED)
+    for i, (label, request, color) in enumerate((('Cold', cold, GREEN), ('Cached', cached, CYAN))):
+        y = 439 + i*68
+        values = (label, f'{request["timings"]["prompt_per_second"]:.2f}',
+                  f'{request["ttft_seconds"]:.3f} s', f'{request["output_tokens"]:,}',
+                  f'{request["wall_seconds"]/60:.2f} min')
+        for x, value in zip((76, 375, 685, 985, 1265), values):
+            card.text(x, y, value, 27, color, True)
+    card.rect((52, 615, 776, 895), outline=BORDER)
+    card.text(76, 638, 'FIXED KV RESERVATION', 24, WHITE, True)
+    card.text(76, 690, '4,608 MiB main + 288 MiB draft', 27, CYAN, True)
+    card.text(76, 744, 'VRAM after long generation / 19.21 GiB', 23)
+    card.text(76, 792, 'Startup -> after generation / +244 MiB', 22, MUTED)
+    card.text(76, 835, 'KV allocated at context initialization', 21, MUTED)
+    card.rect((800, 615, 1548, 895), outline=BORDER)
+    card.text(824, 638, 'REASONING ACROSS TOOLS', 24, WHITE, True)
+    card.text(824, 690, '2 tool calls / 3 thinking turns', 27, GREEN, True)
+    card.text(824, 744, 'Prior traces retained / 1 of 1, then 2 of 2', 22)
+    card.text(824, 792, 'Final archive + tool-result recall / PASS', 22, GREEN)
+    card.text(824, 835, 'Large chat max_tokens accepted / 130,559', 21, MUTED)
+    card.footer(['30,154 output tokens include reasoning. Cold and cached outputs had identical token IDs.',
+                 'One controlled tool conversation. New-user-query and compaction retention remain untested.',
+                 'Cached prefill is four fresh tokens. Original 128K Q8 server was restored on port 8080.'])
+    card.save('swift-2080ti-headroom.png')
+
+    homelab, reference = data['coding'], data['reference_5070ti']
+    card = Card('RTX 2080 Ti 22GB / Coding Comparison',
+                'Swift 1.5 Qwen3.8-27B IQ3_S / OpenCode 1.18.16 / 64K Q4 KV / xhigh / MTP off',
+                'CODING', '19 NOV 2026')
+    card.metric(0, '2080 Ti STRICT', f'{homelab["strict"]}/{homelab["graded"]}', '3 held-out patch passes', CYAN)
+    card.metric(1, '5070 Ti STRICT', f'{reference["strict"]}/{reference["tasks"]}', '4 held-out patch passes')
+    card.metric(2, '2080 Ti TASK TIME', f'{homelab["task_seconds"]/60:.2f} min', f'{homelab["tools"]} tool calls', CYAN)
+    card.metric(3, '5070 Ti TASK TIME', f'{reference["seconds"]/60:.2f} min', f'{reference["tools"]} tool calls')
+    card.rect((52, 354, 1548, 635), outline=BORDER)
+    for i, (label, seconds, color) in enumerate((('RTX 2080 Ti 22GB', homelab['task_seconds'], CYAN),
+                                               ('RTX 5070 Ti 16GB', reference['seconds'], GREEN))):
+        y = 445+i*100
+        card.bar(76, y, 1130, seconds/60, 60, color, label)
+        card.text(1250, y-7, f'{seconds/60:.2f} min', 32, color, True)
+    card.text(76, 601, 'Scale 0 to 60 minutes / sum of four attempts', 19, MUTED)
+    card.rect((52, 659, 1548, 895), outline=BORDER)
+    for x, label in ((76, 'ISSUE'), (770, '2080 Ti'), (1160, '5070 Ti')):
+        card.text(x, 682, label, 22, MUTED)
+    card.text(76, 738, 'Pytest #6202 / three fresh attempts', 25)
+    card.text(770, 738, '3/3 strict', 25, GREEN)
+    card.text(1160, 738, '3/3 strict', 25, GREEN)
+    card.text(76, 805, 'Sphinx #10323 / one attempt', 25)
+    card.text(770, 805, '20m timeout', 25, AMBER)
+    card.text(1160, 805, '18.27m pass', 25, GREEN)
+    card.footer(['Same frozen images, grader, guidance, 20-minute agent limit and 16K total output allowance.',
+                 'Sphinx cleanup failed on Linux. Its retained patch failed offline grading.',
+                 'Remaining attempts used corrected process cleanup. Runtime builds and host CPUs differ.'])
+    card.save('swift-2080ti-coding.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -834,3 +931,5 @@ if __name__ == '__main__':
         sensenova_phase2_cards()
     if (ROOT / 'docs/results/swift-qwen-20261118.json').is_file():
         swift_qwen_cards()
+    if (ROOT / 'docs/results/swift-2080ti-overview-20261119.json').is_file():
+        swift_2080ti_cards()

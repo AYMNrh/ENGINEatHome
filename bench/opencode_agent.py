@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import signal
 import sqlite3
 import subprocess
 import threading
@@ -16,7 +17,9 @@ from qah.telemetry import Monitor
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = 'qwen3.8-flash-next-iq3_s'
-CLI = Path(os.environ['APPDATA']) / 'npm/node_modules/opencode-ai/bin/opencode.exe'
+CLI = (Path(os.environ['QAH_OPENCODE']) if 'QAH_OPENCODE' in os.environ else
+       Path(os.environ['APPDATA']) / 'npm/node_modules/opencode-ai/bin/opencode.exe' if os.name == 'nt'
+       else Path('opencode'))
 PROFILES = [(1024, 'thinking1k'), (4096, 'thinking4k'), (0, 'thinking-auto')]
 
 
@@ -80,7 +83,8 @@ export default tool({
     if (!container || !/^(qah64-[a-z0-9]+|[a-f0-9]{64})$/.test(container)) throw new Error("Invalid task container");
     try {
       const seconds = args.timeout_seconds ?? 120;
-      const r = await run("docker.exe", ["exec", "-w", "/workspace", container, "timeout", "--signal=TERM", "--kill-after=5s", `${seconds}s`, "bash", "-lc", args.command], {timeout: (seconds+10)*1000, maxBuffer: 4*1024*1024});
+      const docker = process.platform === "win32" ? "docker.exe" : "docker";
+      const r = await run(docker, ["exec", "-w", "/workspace", container, "timeout", "--signal=TERM", "--kill-after=5s", `${seconds}s`, "bash", "-lc", args.command], {timeout: (seconds+10)*1000, maxBuffer: 4*1024*1024});
       return JSON.stringify({exit_code:0, stdout:r.stdout, stderr:r.stderr});
     } catch(e) {
       return JSON.stringify({exit_code:e.code || 1, stdout:e.stdout || "", stderr:e.stderr || String(e), timed_out:!!e.killed || e.code===124 || e.code===137});
@@ -95,7 +99,7 @@ def run(directory, url, native_pid, engine_log, full_matrix=False, efficiency=Fa
         context=65536, trials=None, delegation=False, stability_smoke=False, reference=False,
         reference_profile=None, worker_policy=None, backend_label=None, output_tokens=8192,
         task_ids=None, track_patch_steps=False, supervisor_provider='codex', reasoning_effort='high',
-        unrestricted_reasoning=False, sampling=None):
+        unrestricted_reasoning=False, sampling=None, start_trial=0):
     from qah.model import sha256
     from run import provenance, source_snapshot
     directory = Path(directory)
@@ -106,8 +110,10 @@ def run(directory, url, native_pid, engine_log, full_matrix=False, efficiency=Fa
         raise ValueError('Six frozen preflight-eligible tasks are required')
     tasks = manifest_data['tasks']
     for task in tasks:
-        if task['oracle_path'].startswith('/mnt/c/'):
+        if os.name == 'nt' and task['oracle_path'].startswith('/mnt/c/'):
             task['oracle_path'] = 'C:/' + task['oracle_path'][7:]
+        elif not Path(task['oracle_path']).is_file():
+            task['oracle_path'] = str(manifest.parent / task['instance_id'] / 'oracle.json')
     hard_task = next(t for t in tasks if t['instance_id'] == 'sphinx-doc__sphinx-10323')
     selected_tasks = tasks
     if task_ids is not None:
@@ -194,7 +200,7 @@ def run(directory, url, native_pid, engine_log, full_matrix=False, efficiency=Fa
             collect_log('thinking1k-stability')
             status('finished', status='completed', promotion_passed=False)
             return
-        for trial in range(trials if trials is not None else (3 if full_matrix or efficiency else 2)):
+        for trial in range(start_trial, trials if trials is not None else (3 if full_matrix or efficiency else 2)):
             for budget, name, task in jobs:
                 if unrestricted_reasoning:
                     budget = None
@@ -280,7 +286,8 @@ def run(directory, url, native_pid, engine_log, full_matrix=False, efficiency=Fa
                             process = subprocess.Popen(
                                 argv, cwd=workspace, env=env,
                                 stdout=subprocess.PIPE if track_patch_steps else stdout,
-                                stderr=stderr, text=track_patch_steps, encoding='utf-8' if track_patch_steps else None,
+                                stderr=stderr, start_new_session=os.name != 'nt',
+                                text=track_patch_steps, encoding='utf-8' if track_patch_steps else None,
                                 errors='replace' if track_patch_steps else None, bufsize=1 if track_patch_steps else -1)
                             reader = None
                             if track_patch_steps:
@@ -319,8 +326,15 @@ def run(directory, url, native_pid, engine_log, full_matrix=False, efficiency=Fa
                                 process.wait(timeout=1200)
                             except subprocess.TimeoutExpired:
                                 timeout = True
-                                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
-                                               capture_output=True, timeout=30)
+                                if os.name == 'nt':
+                                    subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                                                   capture_output=True, timeout=30)
+                                else:
+                                    try:
+                                        os.killpg(process.pid, signal.SIGKILL)
+                                    except ProcessLookupError:
+                                        pass
+                                process.wait(timeout=30)
                             if reader:
                                 reader.join(timeout=30)
                                 if reader.is_alive():

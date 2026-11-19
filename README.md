@@ -1,10 +1,16 @@
 # ENGINEatHome
 
-**RTX 5070 Ti 16GB · 64GB DDR5 · Current focus: 64K–128K coding agents**
+**RTX 5070 Ti 16GB + 64GB RAM · RTX 2080 Ti 22GB + 32GB RAM · Local coding-agent benchmarks**
 
 Building a specialized local inference engine. Current measurements use Strata and llama.cpp; the independent transformer graph and CUDA kernels are not implemented yet.
 
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
+
+[![RTX 2080 Ti 22GB Swift 1.5 filled 128K, 192K and 256K MTP benchmarks](docs/assets/swift-2080ti-filled-mtp.png)](docs/swift-2080ti-20261119.md)
+
+[![RTX 2080 Ti 22GB 256K capacity, 128K input and natural long generation](docs/assets/swift-2080ti-headroom.png)](docs/swift-headroom-homelab-20261118.md)
+
+[RTX 2080 Ti report and all measurements](docs/swift-2080ti-20261119.md) · [Coding comparison card](docs/assets/swift-2080ti-coding.png) · [Raw evidence](bench/swift/evidence-manifest.json)
 
 [![Swift 1.5 Qwen3.8-27B IQ3_S scored 4/4 on the matched 64K coding set](docs/assets/swift-qwen-coding.png)](docs/swift-qwen-20261118.md)
 

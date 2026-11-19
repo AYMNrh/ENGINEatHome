@@ -119,9 +119,9 @@ def render_tokens(executor, mode, count):
     return prefix + filler[:middle] + needle + filler[middle:] + suffix
 
 
-def complete(executor, tokens, limit, cached):
+def complete(executor, tokens, limit, cached, force_length=False):
     payload = dict(SAMPLING, prompt=tokens, n_predict=limit, cache_prompt=cached,
-                   stream=True, return_tokens=True, id_slot=0)
+                   stream=True, return_tokens=True, id_slot=0, ignore_eos=force_length)
     req = urllib.request.Request(executor.url + '/completion', json.dumps(payload).encode(),
                                  {'Content-Type': 'application/json'})
     start, ttft, final = time.perf_counter(), None, None

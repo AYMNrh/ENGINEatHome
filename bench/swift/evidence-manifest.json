@@ -1,0 +1,17 @@
+[
+  {
+    "path": "evidence/2080ti-context-coding-20261118.tar.gz",
+    "bytes": 817947,
+    "sha256": "ec6fad0242b8f9baf8b9d1d005d595296d73dd4bd232406bdca4258af1f40d32"
+  },
+  {
+    "path": "evidence/2080ti-filled-mtp-20261118.tar.gz",
+    "bytes": 703972,
+    "sha256": "5690fb6fe55c5c8d99a623a74c25c8c0e49dc99f86fa69c1abe69dbd90248062"
+  },
+  {
+    "path": "evidence/2080ti-headroom-20261118.tar.gz",
+    "bytes": 410999,
+    "sha256": "c8dd0f46a808045773bf3c5ef5b2f06c85789b2e84a5c6b8fe41ea9f9755abe0"
+  }
+]
