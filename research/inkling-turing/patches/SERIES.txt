@@ -1,0 +1,17 @@
+6e225ed inkling-turing: GQA-batched q8_0 decode attention mode 1 on by default (bit-exact)
+769efa6 inkling-turing: exact full-rate int32->float for Turing MMQ epilogues
+7b00f80 inkling-turing: bit-exact IQ3_XXS/IQ2_S MMQ loaders (arithmetic signs, smem grids), MoE J=1.5x policy
+8e7e770 cuda: grouped-query q8_0 decode attention with per-head masks (opt-in GGML_CUDA_INK_T_FAGQA)
+2aba094 cuda: fold the per-expert scale gather (REPEAT + GET_ROWS) into the MoE weighted reduction
+fff878e inkling2/cuda: pair same-input Q8_0 projections into one mmvq launch; stage aliased inputs of fused runs
+653b3a3 inkling2: batch the loop controllers of a visit horizontally (CTRL_H)
+afeadd0 mmvq: make single-token MoE-kernel routing opt-in (GGML_CUDA_INK_T_MOE1=3); default decode is bit-exact
+e080dc0 mmvq: route single-token i-quant MUL_MAT_ID through the warp-per-row MoE kernel
+52ad837 cuda: reuse the q8_1 copy of a mat-vec input within one graph evaluation
+b8fd879 inkling2: fuse the decode relative-bias table (RELBIAS_T) and the expert-weight normalisation (ROUTE_TAIL)
+0f1e011 inkling2: fuse the decode Q/K/V post-projection run into one kernel (QKV_POST)
+6aad7e0 debug: GGML_CUDA_DUMP_GRAPH node dump
+25fb730 mmvq-iq v4 (2 rows in flight): neutral end to end; make the path opt-in (GGML_CUDA_MMVQ_IQ_NEW=1)
+f75efce mmvq-iq v3 (signed grid LUT, persistent): -37% instructions, still latency bound
+0cd7f41 mmvq-iq v2 (experiment: no gain, instruction/LDS bound)
+223dba3 mmvq: warp-per-row IQ3_XXS decode kernel (smem grid + activations)

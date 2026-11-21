@@ -1,0 +1,166 @@
+From 7b00f80fe5f37aca3a61c9734c09b6ac79ede4df Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 23:50:40 +0100
+Subject: [PATCH 15/17] inkling-turing: bit-exact IQ3_XXS/IQ2_S MMQ loaders
+ (arithmetic signs, smem grids), MoE J=1.5x policy
+
+- sign application (g ^ 0xFF*t) + t replaces emulated __vcmpne4/__vsub4 (IQ grids have no zero bytes, exact)
+- IQ3_XXS (1 KB) and IQ2_S (8 KB) grids in shared memory (GGML_CUDA_INK_T_IQ_LUT, default 3)
+- MoE tile width sized for 1.5x the average expert load (J=48 at -ub 512); GGML_CUDA_INK_T_MMQJ overrides
+pp512 0K 1210 -> 1299 (+7.4%), 8K 1054 -> 1117 (+6.0%); greedy long-context decode identical (delta 0.0)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ggml/src/ggml-cuda/mmq-load-tiles.cuh | 67 +++++++++++++++++++++------
+ ggml/src/ggml-cuda/mmq.cu             | 15 +++++-
+ ggml/src/ggml-cuda/mmq.cuh            |  5 ++
+ 3 files changed, 72 insertions(+), 15 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmq-load-tiles.cuh b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+index 9a5a6a4..31943ee 100644
+--- a/ggml/src/ggml-cuda/mmq-load-tiles.cuh
++++ b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+@@ -1265,6 +1265,46 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+     }
+ }
+ 
++// ---- inkling-turing: IQ loader helpers -------------------------------------------------------
++#ifndef GGML_CUDA_INK_T_IQ_LUT
++#define GGML_CUDA_INK_T_IQ_LUT 3 // bit 1: IQ3_XXS grid in shared memory, bit 2: IQ2_S grid in shared memory
++#endif
++
++// Conditionally negate the 4 int8 lanes of g whose bit is set in nib4 (0..15), bit-exact with
++// __vsub4(g ^ __vcmpne4(sel, 0), __vcmpne4(sel, 0)): t = per-byte 0/1, (g ^ 0xFF*t) + t.
++// The IQ grids contain no zero bytes, so ~g + 1 never carries into the next byte and one 32-bit add is exact.
++static __device__ __forceinline__ int ink_t_apply_signs4(const uint32_t g, const uint32_t nib4) {
++    const uint32_t t = (nib4 * 0x00204081u) & 0x01010101u;
++    return (int) ((g ^ (t * 0xFFu)) + t);
++}
++
++static constexpr __host__ __device__ int ggml_cuda_ink_t_lut_bytes(const ggml_type type) {
++    return (type == GGML_TYPE_IQ3_XXS && (GGML_CUDA_INK_T_IQ_LUT & 1)) ? 256*4 :
++           (type == GGML_TYPE_IQ2_S   && (GGML_CUDA_INK_T_IQ_LUT & 2)) ? 1024*8 : 0;
++}
++
++template <ggml_type type> static __device__ __forceinline__ uint32_t * ink_t_grid_smem() {
++    if constexpr (type == GGML_TYPE_IQ3_XXS) {
++        __shared__ uint32_t ink_t_tab_iq3xxs[256];
++        return ink_t_tab_iq3xxs;
++    } else {
++        __shared__ uint32_t ink_t_tab_iq2s[2048];
++        return ink_t_tab_iq2s;
++    }
++}
++
++// Called once per tile before the K loop (followed by __syncthreads()).
++template <ggml_type type> static __device__ __forceinline__ void ink_t_grid_fill(const int tid, const int nthreads) {
++    if constexpr (ggml_cuda_ink_t_lut_bytes(type) > 0) {
++        uint32_t * tab = ink_t_grid_smem<type>();
++        const uint32_t * src = type == GGML_TYPE_IQ3_XXS ? (const uint32_t *) iq3xxs_grid : (const uint32_t *) iq2s_grid;
++        for (int i = tid; i < ggml_cuda_ink_t_lut_bytes(type)/4; i += nthreads) {
++            tab[i] = src[i];
++        }
++    }
++}
++// -----------------------------------------------------------------------------------------------
++
+ template <ggml_type type, int J, bool fallback> static __device__ __forceinline__ void ggml_cuda_mmq_load_tiles_iq2_s(
+         const char * __restrict__ x, const char * __restrict__ x_gate, int * __restrict__ x_tile, const int kbx0, const int i_max, const int stride) {
+     GGML_UNUSED(x_gate);
+@@ -1306,13 +1346,12 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+ 
+ #pragma unroll
+         for (int l = 0; l < QR2_S; ++l) {
+-            const int * grid_pos = (const int *)(iq2s_grid + (qs[l] | ((qh << (8-2*l)) & 0x300)));
++            const uint2 * grid_tab = (GGML_CUDA_INK_T_IQ_LUT & 2) ? (const uint2 *) ink_t_grid_smem<GGML_TYPE_IQ2_S>() : (const uint2 *) iq2s_grid;
++            const uint2 grid_pos = grid_tab[qs[l] | ((qh << (8-2*l)) & 0x300)];
++            const uint32_t sgn = signs_packed_8[l];
+ 
+-            const int signs0 = __vcmpne4(((signs_packed_8[l] & 0x03) << 7) | ((signs_packed_8[l] & 0x0C) << 21), 0x00000000);
+-            const int signs1 = __vcmpne4(((signs_packed_8[l] & 0x30) << 3) | ((signs_packed_8[l] & 0xC0) << 17), 0x00000000);
+-
+-            const int grid_l = __vsub4(grid_pos[0] ^ signs0, signs0);
+-            const int grid_h = __vsub4(grid_pos[1] ^ signs1, signs1);
++            const int grid_l = ink_t_apply_signs4(grid_pos.x, sgn & 0x0F);
++            const int grid_h = ink_t_apply_signs4(grid_pos.y, sgn >> 4);
+ 
+ #if defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
+             x_qs[i*sram_stride + 8*kqsx + (2*l + 0)] = grid_l;
+@@ -1373,14 +1412,14 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+ 
+ #pragma unroll
+         for (int l = 0; l < QR3_XXS; ++l) {
+-            const int2 grid_pos = make_int2(iq3xxs_grid[q3[2*l+0]], iq3xxs_grid[q3[2*l+1]]);
+-            const uint32_t signs = unpack_ksigns(aux32 >> (7*l));
+-
+-            const int signs0 = __vcmpne4(signs & 0x08040201, 0);
+-            const int grid_l = __vsub4(grid_pos.x ^ signs0, signs0);
+-
+-            const int signs1 = __vcmpne4(signs & 0x80402010, 0);
+-            const int grid_h = __vsub4(grid_pos.y ^ signs1, signs1);
++            const uint32_t * grid_tab = (GGML_CUDA_INK_T_IQ_LUT & 1) ? ink_t_grid_smem<GGML_TYPE_IQ3_XXS>() : iq3xxs_grid;
++            const uint2 grid_pos = make_uint2(grid_tab[q3[2*l+0]], grid_tab[q3[2*l+1]]);
++            // 7 sign bits + parity bit, identical to unpack_ksigns (the xor fixes bit 7 to the parity of bits 0..6)
++            const uint32_t v8  = (aux32 >> (7*l)) & 0xFF;
++            const uint32_t sgn = v8 ^ ((__popc(v8) & 1) << 7);
++
++            const int grid_l = ink_t_apply_signs4(grid_pos.x, sgn & 0x0F);
++            const int grid_h = ink_t_apply_signs4(grid_pos.y, sgn >> 4);
+ 
+ #if defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
+             x_qs[i*sram_stride + 8*kqsx + (2*l + 0)] = grid_l;
+diff --git a/ggml/src/ggml-cuda/mmq.cu b/ggml/src/ggml-cuda/mmq.cu
+index c9bcbc2..c95917e 100644
+--- a/ggml/src/ggml-cuda/mmq.cu
++++ b/ggml/src/ggml-cuda/mmq.cu
+@@ -144,7 +144,7 @@ static int ggml_cuda_mmq_get_J_best(
+             continue;
+         }
+ 
+-        if (mmq_get_nbytes_shared(config, cc) > smpbo) {
++        if (mmq_get_nbytes_shared(config, cc) + ggml_cuda_ink_t_lut_bytes(type) > smpbo) {
+             continue;
+         }
+ 
+@@ -254,9 +254,22 @@ void ggml_cuda_mul_mat_q(
+ 
+             // Each expert only sees ne12*n_expert_used/ne02 tokens on average.
+             ncols_opt = (ne12*n_expert_used + ne02 - 1) / ne02;
++            // inkling-turing: routing is uneven, so size the tile for 1.5x the average expert load; a second
++            // mostly-empty column tile re-dequantizes the whole expert slice, which costs more than idle MMA columns.
++            // (measured on the 2080 Ti at -ub 512: J=48 vs J=32 +2..3% prefill, bit-exact)
++            ncols_opt = (3*ncols_opt + 1) / 2;
+         }
+ 
+         J_best = ggml_cuda_mmq_get_J_best(src0->type, ncols_opt, fallback, cc, smpbo, prec_src1, &nthreads_best);
++        // inkling-turing: experimental override of the MoE tile width (GGML_CUDA_INK_T_MMQJ=<J>), default off
++        static const int ink_t_mmqj = getenv("GGML_CUDA_INK_T_MMQJ") ? atoi(getenv("GGML_CUDA_INK_T_MMQJ")) : 0;
++        if (ids && ink_t_mmqj > 0) {
++            const ggml_cuda_mmq_config cfg = ggml_cuda_mmq_get_config(src0->type, ink_t_mmqj, fallback, cc, prec_src1);
++            if (cfg.type != GGML_TYPE_COUNT && mmq_get_nbytes_shared(cfg, cc) + ggml_cuda_ink_t_lut_bytes(src0->type) <= smpbo) {
++                J_best = ink_t_mmqj;
++                nthreads_best = cfg.nthreads;
++            }
++        }
+     }
+     GGML_ASSERT(J_best > 0);
+ 
+diff --git a/ggml/src/ggml-cuda/mmq.cuh b/ggml/src/ggml-cuda/mmq.cuh
+index be2f114..74b2178 100644
+--- a/ggml/src/ggml-cuda/mmq.cuh
++++ b/ggml/src/ggml-cuda/mmq.cuh
+@@ -973,6 +973,11 @@ static __device__ __forceinline__ void mul_mat_q_process_tile(
+ 
+     constexpr int sz = sizeof(block_q8_1_mmq) / sizeof(int);
+ 
++    if constexpr (ggml_cuda_ink_t_lut_bytes(type) > 0) {
++        ink_t_grid_fill<type>(threadIdx.y*warp_size + threadIdx.x, nwarps*warp_size);
++        __syncthreads();
++    }
++
+     for (int kb0 = kb0_start; kb0 < kb0_stop; kb0 += blocks_per_iter) {
+         load_tiles(x, x_gate, tile_x, offset_x + kb0, tile_x_i_max, stride_row_x);
+         {
+-- 
+2.53.0
+

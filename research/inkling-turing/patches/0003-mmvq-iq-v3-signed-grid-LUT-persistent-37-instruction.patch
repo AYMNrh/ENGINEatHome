@@ -1,0 +1,244 @@
+From f75efce50468c9f9bab4b0910fafff544b8d51f1 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 20:21:42 +0100
+Subject: [PATCH 03/17] mmvq-iq v3 (signed grid LUT, persistent): -37%
+ instructions, still latency bound
+
+---
+ ggml/src/ggml-cuda/mmvq-iq.cuh | 136 +++++++++++++++------------------
+ ggml/src/ggml-cuda/mmvq.cu     |  11 +--
+ 2 files changed, 69 insertions(+), 78 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmvq-iq.cuh b/ggml/src/ggml-cuda/mmvq-iq.cuh
+index 87ab86b..29f9747 100644
+--- a/ggml/src/ggml-cuda/mmvq-iq.cuh
++++ b/ggml/src/ggml-cuda/mmvq-iq.cuh
+@@ -1,16 +1,20 @@
+ #pragma once
+ 
+-// Turing-oriented decode (batch 1) mat-vec for the i-quant expert/dense weights of Inkling 2 Mini.
++// Turing-oriented decode (batch 1) mat-vec for the i-quant expert weights of Inkling 2 Mini (RTX 2080 Ti, sm_75).
+ //
+-// Profile of the stock kernel on an RTX 2080 Ti (sm_75), IQ3_XXS gate/up bank, one launch: 27% of peak DRAM,
+-// top stalls lg_throttle (40%, the global grid table + 16-bit weight loads) and barrier (22%, the per-row
+-// cross-warp reduction). A K=2304 row is 9 blocks but the stock block consumes 8 blocks per iteration, so the
+-// second iteration keeps 16 of 128 threads busy.
++// Why (Nsight Compute on the stock kernel, IQ3_XXS gate/up bank, one launch of 8 experts): 27% of peak DRAM, ~15M warp
++// instructions for 42M weights (11 lane-instructions per weight), top stalls lg_throttle (global grid-table loads) and
++// barrier (per-row cross-warp reduction). The kernel is bound by instruction issue, not by memory. Two earlier attempts
++// (see progress.md: v1 smem grid, v2 smem sign masks) did not help because they kept the same instruction count and added
++// a per-block prologue.
+ //
+-// This kernel: one warp per output row (no cross-warp reduction, no __syncthreads after the loop), the grid table
+-// and the q8_1 activations staged in shared memory once per block, all lane iterations unrolled so the weight loads
+-// of every iteration are in flight together. The arithmetic of each 32-weight sub-block is the stock vec_dot, so
+-// results differ only in the float summation order.
++// v3:
++//  * a 16 KB shared table indexed by (grid byte, 4-bit sign nibble) returns 4 already-signed int8 weights in ONE load,
++//    so sign application costs nothing in the inner loop (the stock path spends ~4 emulated SIMD-byte ops on it),
++//  * persistent blocks: each block builds the table and stages the (shared) q8_1 activation once, then loops over many
++//    output rows, so the prologue is amortised,
++//  * one warp per row: no cross-warp reduction, no __syncthreads after the prologue.
++// The scale/accumulate arithmetic is the stock vec_dot, results differ only in float summation order.
+ 
+ #include "common.cuh"
+ #include "vecdotq.cuh"
+@@ -22,19 +26,13 @@ static __device__ __forceinline__ uint32_t mmvq_iq_ld16x2(const void * p, const
+     return (uint32_t) q[0] | ((uint32_t) q[1] << 16);
+ }
+ 
+-// One 32-weight sub-block of IQ3_XXS against one q8_1 block, same result as vec_dot_iq3_xxs_q8_1 but with far fewer
+-// instructions (the stock sign handling, __vcmpne4 + __vsub4, is emulated on Turing):
+-//   * the 7-bit sign field (the 8th sign is its parity) indexes a 128-entry shared table that returns the byte masks
+-//     of both 4-weight halves (0xFF where the sign is negative),
+-//   * -x == ~x + 1 per byte, so  sum(y * +-x) = dp4a(x ^ m, y) + dp4a(m & 0x01010101, y)  runs on the native dp4a.
++// one 32-weight sub-block of IQ3_XXS against one q8_1 block
+ static __device__ __forceinline__ float mmvq_iq3_xxs_subblock(
+-        const block_iq3_xxs * __restrict__ bq3, const int ib32, const int * __restrict__ y_q, const float y_d,
+-        const uint32_t * __restrict__ grid_s, const uint2 * __restrict__ sgn_s) {
++        const block_iq3_xxs * __restrict__ bq3, const int ib32, const int4 ya, const int4 yb, const float y_d,
++        const uint32_t * __restrict__ lut_s, const uint8_t * __restrict__ sb_s) {
+     const uint32_t q_lo  = mmvq_iq_ld16x2(bq3->qs, 8*ib32 + 0);
+     const uint32_t q_hi  = mmvq_iq_ld16x2(bq3->qs, 8*ib32 + 4);
+     const uint32_t aux32 = mmvq_iq_ld16x2(bq3->qs, QK_K/4 + 4*ib32);
+-    const int4 ya = *(const int4 *) (y_q + 0);
+-    const int4 yb = *(const int4 *) (y_q + 4);
+     const int y[8] = {ya.x, ya.y, ya.z, ya.w, yb.x, yb.y, yb.z, yb.w};
+ 
+     int sumi = 0;
+@@ -42,13 +40,11 @@ static __device__ __forceinline__ float mmvq_iq3_xxs_subblock(
+     for (int l = 0; l < 4; ++l) {
+         const uint32_t qq = l < 2 ? q_lo : q_hi;
+         const int sh = ((2*l) & 3) * 8;
+-        const uint32_t g0 = grid_s[(qq >> sh) & 0xFF];
+-        const uint32_t g1 = grid_s[(qq >> (sh + 8)) & 0xFF];
+-        const uint2 m = sgn_s[(aux32 >> (7*l)) & 127];
+-        sumi = ggml_cuda_dp4a(g0 ^ m.x, y[2*l + 0], sumi);
+-        sumi = ggml_cuda_dp4a(m.x & 0x01010101, y[2*l + 0], sumi);
+-        sumi = ggml_cuda_dp4a(g1 ^ m.y, y[2*l + 1], sumi);
+-        sumi = ggml_cuda_dp4a(m.y & 0x01010101, y[2*l + 1], sumi);
++        const uint32_t s = sb_s[(aux32 >> (7*l)) & 127];                       // 7 stored sign bits + parity bit
++        const uint32_t i0 = (((qq >> sh) & 0xFF) << 4) | (s & 15);
++        const uint32_t i1 = (((qq >> (sh + 8)) & 0xFF) << 4) | (s >> 4);
++        sumi = ggml_cuda_dp4a((int) lut_s[i0], y[2*l + 0], sumi);
++        sumi = ggml_cuda_dp4a((int) lut_s[i1], y[2*l + 1], sumi);
+     }
+     const int ls = aux32 >> 28;
+     sumi = (ls*sumi + sumi/2)/2;
+@@ -56,31 +52,23 @@ static __device__ __forceinline__ float mmvq_iq3_xxs_subblock(
+ }
+ 
+ template <ggml_type type>
+-static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 4) mul_mat_vec_q_iq_warp(
++static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 3) mul_mat_vec_q_iq_warp(
+         const void * __restrict__ vx_ptr, const void * __restrict__ vy_ptr, const int32_t * __restrict__ ids, float * __restrict__ dst,
+-        const int ncols_x, const int nrows_x, const uint3 nchannels_y, const uint32_t stride_row_x,
+-        const uint32_t stride_channel_x, const uint32_t stride_channel_y, const uint32_t stride_channel_dst,
+-        const uint3 channel_ratio, const uint3 sample_ratio,
+-        const uint32_t stride_sample_x, const uint32_t stride_sample_y, const uint32_t stride_sample_dst) {
++        const int ncols_x, const int nrows_x, const int nchannels_dst, const uint32_t stride_row_x,
++        const uint32_t stride_channel_x, const uint32_t stride_channel_dst, const uint3 channel_ratio) {
+     static_assert(type == GGML_TYPE_IQ3_XXS, "extend the sub-block helper to add types");
+     extern __shared__ __align__(16) int mmvq_iq_smem[];   // [nsub*8 activation ints][nsub scales]
+-    __shared__ uint32_t grid_s[256];
+-    __shared__ uint2    sgn_s[128];
++    __shared__ __align__(16) uint32_t lut_s[4096];         // [grid byte][sign nibble] -> 4 signed int8
++    __shared__ uint8_t sb_s[128];                          // 7-bit sign field -> 8 sign bits (8th = parity)
+ 
+     const int tid  = threadIdx.y*32 + threadIdx.x;
+     const int lane = threadIdx.x;
+-    const int row  = blockIdx.x*MMVQ_IQ_WARPS + threadIdx.y;
++    const int nsub = ncols_x / 32;                         // 32-weight sub-blocks per row == q8_1 blocks
+ 
+     ggml_cuda_pdl_sync();
+-    const uint32_t channel_dst = blockIdx.y;
+-    const uint32_t channel_x   = ids ? ids[channel_dst] : fastdiv(channel_dst, channel_ratio);
+-    const uint32_t channel_y   = ids ? fastmodulo(channel_dst, nchannels_y) : channel_dst;
+-    const uint32_t sample_dst  = blockIdx.z;
+-    const uint32_t sample_x    = fastdiv(sample_dst, sample_ratio);
+-    const uint32_t sample_y    = sample_dst;
+ 
+-    const int nsub = ncols_x / 32;                         // 32-weight sub-blocks per row == q8_1 blocks
+-    const block_q8_1 * yg = (const block_q8_1 *) vy_ptr + sample_y*stride_sample_y + channel_y*stride_channel_y;
++    // prologue, once per block: activation (shared by all channels/rows) and the signed grid table
++    const block_q8_1 * yg = (const block_q8_1 *) vy_ptr;
+     int   * ys_q = mmvq_iq_smem;
+     float * ys_d = (float *) (mmvq_iq_smem + nsub*8);
+     for (int i = tid; i < nsub*8; i += MMVQ_IQ_WARPS*32) {
+@@ -89,35 +77,36 @@ static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 4) mul_mat_vec_q_iq_w
+     for (int i = tid; i < nsub; i += MMVQ_IQ_WARPS*32) {
+         ys_d[i] = __low2float(yg[i].ds);
+     }
+-    for (int i = tid; i < 256; i += MMVQ_IQ_WARPS*32) {
+-        grid_s[i] = iq3xxs_grid[i];
++    for (int i = tid; i < 4096; i += MMVQ_IQ_WARPS*32) {
++        const uint32_t g   = iq3xxs_grid[i >> 4];
++        const uint32_t nib = i & 15;
++        const uint32_t t   = (nib * 0x00204081u) & 0x01010101u;     // bit i of the nibble -> byte i
++        const uint32_t m   = t * 0xFFu;                             // 0xFF where the sign is negative
++        lut_s[i] = __vsub4(g ^ m, m);                               // (x ^ m) - m: conditional negate per byte
+     }
+     for (int v = tid; v < 128; v += MMVQ_IQ_WARPS*32) {
+-        const uint32_t sb = v | (((uint32_t) __popc(v) & 1) << 7);   // the 8th sign is the parity of the 7 stored bits
+-        uint32_t lo = 0, hi = 0;
+-#pragma unroll
+-        for (int i = 0; i < 4; ++i) {
+-            lo |= ((sb >> i)       & 1u ? 0xFFu : 0u) << (8*i);
+-            hi |= ((sb >> (4 + i)) & 1u ? 0xFFu : 0u) << (8*i);
+-        }
+-        sgn_s[v] = make_uint2(lo, hi);
++        sb_s[v] = (uint8_t) (v | (((uint32_t) __popc(v) & 1) << 7));
+     }
+     __syncthreads();
+ 
+-    if (row >= nrows_x) {
+-        return;
+-    }
++    const int total = nrows_x * nchannels_dst;
++    for (int r = blockIdx.x*MMVQ_IQ_WARPS + threadIdx.y; r < total; r += gridDim.x*MMVQ_IQ_WARPS) {
++        const int ch  = r / nrows_x;
++        const int row = r - ch*nrows_x;
++        const uint32_t channel_x = ids ? ids[ch] : fastdiv(ch, channel_ratio);
++        const block_iq3_xxs * bx = (const block_iq3_xxs *) vx_ptr + (channel_x*stride_channel_x + (uint32_t) row*stride_row_x);
+ 
+-    const block_iq3_xxs * bx = (const block_iq3_xxs *) vx_ptr + (sample_x*stride_sample_x + channel_x*stride_channel_x + (uint32_t) row*stride_row_x);
+-
+-    float acc = 0.0f;
++        float acc = 0.0f;
+ #pragma unroll 3
+-    for (int s = lane; s < nsub; s += 32) {
+-        acc += mmvq_iq3_xxs_subblock(bx + (s >> 3), s & 7, ys_q + 8*s, ys_d[s], grid_s, sgn_s);
+-    }
+-    acc = warp_reduce_sum<32>(acc);
+-    if (lane == 0) {
+-        dst[sample_dst*stride_sample_dst + channel_dst*stride_channel_dst + row] = acc;
++        for (int s = lane; s < nsub; s += 32) {
++            const int4 ya = *(const int4 *) (ys_q + 8*s + 0);
++            const int4 yb = *(const int4 *) (ys_q + 8*s + 4);
++            acc += mmvq_iq3_xxs_subblock(bx + (s >> 3), s & 7, ya, yb, ys_d[s], lut_s, sb_s);
++        }
++        acc = warp_reduce_sum<32>(acc);
++        if (lane == 0) {
++            dst[ch*stride_channel_dst + row] = acc;
++        }
+     }
+ }
+ 
+@@ -129,19 +118,20 @@ static bool ggml_cuda_mmvq_iq_new_enabled() {
+ template <ggml_type type>
+ static void mul_mat_vec_q_iq_warp_launch(
+         const void * vx, const void * vy, const int32_t * ids, float * dst,
+-        const int ncols_x, const int nrows_x, const uint3 nchannels_y, const uint32_t stride_row_x,
+-        const uint32_t stride_channel_x, const uint32_t stride_channel_y, const uint32_t stride_channel_dst,
+-        const uint3 channel_ratio, const uint3 sample_ratio,
+-        const uint32_t stride_sample_x, const uint32_t stride_sample_y, const uint32_t stride_sample_dst,
+-        const int nchannels_dst, const int nsamples_dst, cudaStream_t stream) {
+-    const dim3 block_nums((nrows_x + MMVQ_IQ_WARPS - 1)/MMVQ_IQ_WARPS, nchannels_dst, nsamples_dst);
++        const int ncols_x, const int nrows_x, const uint32_t stride_row_x,
++        const uint32_t stride_channel_x, const uint32_t stride_channel_dst, const uint3 channel_ratio,
++        const int nchannels_dst, cudaStream_t stream) {
++    const int device = ggml_cuda_get_device();
++    const int nsm    = ggml_cuda_info().devices[device].nsm;
++    const int total  = nrows_x * nchannels_dst;
++    const int nblocks = std::min((total + MMVQ_IQ_WARPS - 1)/MMVQ_IQ_WARPS, 3*nsm);
++    const dim3 block_nums(nblocks, 1, 1);
+     const dim3 block_dims(32, MMVQ_IQ_WARPS, 1);
+     const int  nbytes_shared = (ncols_x/32) * (8*4 + 4);
+-    if (nbytes_shared > 48*1024) {
++    if (nbytes_shared > 8*1024) {
+         GGML_ABORT("mmvq-iq: K too large for the shared activation stage");
+     }
+     const ggml_cuda_kernel_launch_params lp = ggml_cuda_kernel_launch_params(block_nums, block_dims, nbytes_shared, stream);
+-    ggml_cuda_kernel_launch(mul_mat_vec_q_iq_warp<type>, lp, vx, vy, ids, dst, ncols_x, nrows_x, nchannels_y, stride_row_x,
+-        stride_channel_x, stride_channel_y, stride_channel_dst, channel_ratio, sample_ratio,
+-        stride_sample_x, stride_sample_y, stride_sample_dst);
++    ggml_cuda_kernel_launch(mul_mat_vec_q_iq_warp<type>, lp, vx, vy, ids, dst, ncols_x, nrows_x, nchannels_dst, stride_row_x,
++        stride_channel_x, stride_channel_dst, channel_ratio);
+ }
+diff --git a/ggml/src/ggml-cuda/mmvq.cu b/ggml/src/ggml-cuda/mmvq.cu
+index 9bf72f3..32cd18f 100644
+--- a/ggml/src/ggml-cuda/mmvq.cu
++++ b/ggml/src/ggml-cuda/mmvq.cu
+@@ -1199,13 +1199,14 @@ static void mul_mat_vec_q_switch_ncols_dst(
+     const uint3 sample_ratio_fd  = init_fastdiv_values(nsamples_dst  / nsamples_x);
+ 
+     if constexpr (type == GGML_TYPE_IQ3_XXS) {
+-        // Turing-oriented warp-per-row decode kernel (mmvq-iq.cuh); GGML_CUDA_MMVQ_IQ_OLD=1 restores the stock kernel
++        // Turing-oriented persistent warp-per-row decode kernel (mmvq-iq.cuh); GGML_CUDA_MMVQ_IQ_OLD=1 restores the stock kernel.
++        // Handles one shared activation vector (nchannels_y == 1, one sample), the MUL_MAT_ID expert case.
+         const bool has_fusion_iq = fusion.gate != nullptr || fusion.x_bias != nullptr || fusion.gate_bias != nullptr ||
+                                    fusion.x_scale != nullptr || fusion.gate_scale != nullptr || fusion.shared_up != nullptr;
+-        if (ncols_dst == 1 && !has_fusion_iq && ncols_x % 256 == 0 && ggml_cuda_mmvq_iq_new_enabled()) {
+-            mul_mat_vec_q_iq_warp_launch<type>(vx, vy, ids, dst, ncols_x, nrows_x, nchannels_y_fd, stride_row_x,
+-                stride_channel_x, stride_channel_y, stride_channel_dst, channel_ratio_fd, sample_ratio_fd,
+-                stride_sample_x, stride_sample_y, stride_sample_dst, nchannels_dst, nsamples_dst, stream);
++        if (ncols_dst == 1 && !has_fusion_iq && ids != nullptr && nchannels_y == 1 && nsamples_dst == 1 && nsamples_x == 1 &&
++                ncols_x % 256 == 0 && ggml_cuda_mmvq_iq_new_enabled()) {
++            mul_mat_vec_q_iq_warp_launch<type>(vx, vy, ids, dst, ncols_x, nrows_x, stride_row_x,
++                stride_channel_x, stride_channel_dst, channel_ratio_fd, nchannels_dst, stream);
+             return;
+         }
+     }
+-- 
+2.53.0
+
