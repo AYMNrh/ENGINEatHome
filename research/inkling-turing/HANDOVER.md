@@ -3,7 +3,7 @@
 Status 2026-11-22 00:10: research **stopped** at the user's request (usage limit). All validated work is committed. The GPU is idle and Swift production is restored.
 
 ## 1. Current best configuration
-- **Host / GPU:** homelab `user@<host>` (Tailscale). RTX 2080 Ti 22 GB, sm_75, 175 W limit.
+- **Host / GPU:** homelab `marvin@<ip>` (Tailscale). RTX 2080 Ti 22 GB, sm_75, 175 W limit.
 - **Code:** `~/llm/experiments/inkling-kernels/llama.cpp`, branch `turing-iq3-opt`, HEAD `6e225ed`. Base is `realugbun/llama.cpp@inkling2-speed` 7669d89, the local clone `refs/speed-fork`.
 - **Binaries:** `~/llm/experiments/inkling-kernels/bin-best/` holds the HEAD build. `bin-base/` is the pure fork and `bin-cp3/` is checkpoint 3 plus GQA opt-in.
 - **Model:** `model/Inkling-2-Mini-UD-IQ3_XXS.mainline.gguf`. This is the mainline-format GGUF; the old Unsloth `inkling2` GGUF does not load in this fork.
@@ -160,3 +160,9 @@ Validated runtime unchanged: HEAD e0be55a. Ledger V02-10, V02-RES. Optimization 
 - Lesson: prefill and decode graphs must have the same topology. A node used only for n_tokens > 1 made the scheduler re-plan the buffer at every switch and a captured CUDA graph crashed (illegal access, layout dependent, stale tensor address not identified). `stress.py` (alternating prefill/decode, ub 32..512, prefix reuse, multi-turn, prompt > SWA window) is the gate; 9 runs clean with 0 reallocations.
 - 7d3e5b1 (branch relpos-gpu): the node takes cell positions and token positions; the CPU-built int32 [n_kv, n_tokens] matrix and its upload are gone (32K prefill at ub 256: 1288 ms fill + 170 ms copy + 2.3 GB -> 2 ms + 0.9 ms + 13 MB; memory -4 bytes x ub x n_kv; prefill +0.1..+1.1%; bounded 128K 581.8 -> 587.0 tok/s, 15.8 GB peak). Bit-exact vs e4a7ea6 and e0be55a. Not merged; fallbacks e0be55a and e4a7ea6, LLAMA_INK_RELBIAS_NODE=0 keeps the chain. Patch 0020.
 - Still open: the per-head F16 mask (55 bytes/element; 256K at ub 512 does not fit; mask kernel 2.5% of GPU time at 8K). Proposal: compute the bias in the tile loader of our fattn-mma-f16 (inkling-fast2 idea, adapted to rings and Q8 KV); needs approval. The 256K host-overhead estimate stays unvalidated.
+
+## v0.5 (2026-11-22): relative bias inside flash attention: NO-GO as built (details in RELFA_FEASIBILITY.md)
+- Baseline stays 7d3e5b1 (relpos-gpu); fallbacks e4a7ea6, e0be55a. Remaining compute buffer: 51.1 bytes per ub x n_kv element (48 = per-head F16 mask), target about 3 (not 7).
+- Fusion point is the mask-tile load of fattn-mma-f16 (D=128, ncols1 32/16/8, ncols2=1): registers 204 -> 212, no spills, exact arithmetic reproduced; unit tests (new INKLING2_FA_REL, f16 and q8_0) bit-exact, FA 4433/4433.
+- Two model-integration variants (descriptor node + pinned outputs; real sources 6..9) failed the stress harness: crashes, differing logprobs, scheduler re-plans (reserve graph 11,740 nodes vs real prefill 11,862); also with CUDA graphs disabled. Rejected patches kept. Rule reinforced: real sources only, same node count for prefill and decode graphs, no hidden tensor dependencies.
+- Next: policy ub 256 at 256K; GPU mask node from positions (same pattern as 7d3e5b1); understand the node-count difference with a CPU-only allocator test before touching FA again.
