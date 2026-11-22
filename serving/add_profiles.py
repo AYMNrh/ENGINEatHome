@@ -75,17 +75,20 @@ def install_model():
 def merge(config_path, dry_run=False):
     config_path = Path(config_path)
     config = json.loads(config_path.read_text())
-    swift_only = registry.normalize({k: v for k, v in config.items() if k not in ('profiles', 'default_profile')})
-    profiles = dict(swift_only['profiles'])
+    existing = dict(config.get('profiles') or {})
+    if 'swift' in existing:
+        profiles = {'swift': existing['swift']}   # an existing Swift profile (possibly tuned by hand) is never rebuilt
+    else:
+        profiles = dict(registry.normalize({k: v for k, v in config.items() if k not in ('profiles', 'default_profile')})['profiles'])
     manifest = install_runtime() if not dry_run else {}
     model_stat = install_model() if not dry_run else dict(bytes=0, mtime_ns=0)
     inkling = registry.inkling_profiles(RUNTIME / 'llama-server', MODEL, model_stat, MODEL_SHA256, config['backend_port'], MEASURED)
     profiles.update(inkling)
     swift = profiles['swift']
-    swift['vram_loaded_mib'] = 19425
-    swift['qualification'] = 'Production configuration validated 2026-11-19 (262,144 context, Q4_0 KV, MTP3, 175 W).'
+    swift.setdefault('vram_loaded_mib', 19425)
+    swift.setdefault('qualification', 'Production configuration validated 2026-11-19 (262,144 context, Q4_0 KV, MTP3, 175 W).')
     config['profiles'] = profiles
-    config['default_profile'] = 'swift'
+    config.setdefault('default_profile', 'swift')
     registry.normalize(config)   # validates before anything is written
     if dry_run:
         print(json.dumps({k: dict(model_id=p['model_id'], context=p['context'], kv=p['kv'], microbatch=p['microbatch']) for k, p in profiles.items()}, indent=1))

@@ -62,9 +62,11 @@ async def inference(request):
     stream=body.get('stream',False)
     if not isinstance(stream,bool):return error(400,'stream_must_be_boolean')
     requested=body.get('model')
+    if requested is not None and not isinstance(requested,str):return error(400,'invalid_model','model must be a string')
     # A request names exactly one model. Unknown ids are rejected; known but inactive ids are rejected, never served by another model.
     key=manager.applied if requested is None else manager.key_for_model(requested)
-    await asyncio.to_thread(store.start,id,request['identity']['client'],requested or config['profiles'][manager.applied]['model_id'],stream)
+    # Client-supplied names are untrusted input: bounded before they reach the ledger.
+    await asyncio.to_thread(store.start,id,request['identity']['client'],(requested or config['profiles'][manager.applied]['model_id'])[:128],stream)
     try:
         if key is None:
             http_status=400;failure='unknown_model';return error(http_status,failure)
@@ -173,25 +175,37 @@ async def action(request):
     return await status(request)
 
 
+async def read_object(request,required=True):
+    try:body=await request.json()
+    except ValueError:
+        if required:raise
+        return {}
+    if not isinstance(body,dict):raise ValueError('object required')
+    return body
+
+
 async def settings(request):
-    manager=request.app['manager'];body=await request.json()
+    manager=request.app['manager'];body=await read_object(request)
     if set(body)-{'auto_unload','idle_seconds','default_profile','reasoning_effort','profile'}:raise ValueError('unknown setting')
-    if 'auto_unload' in body:
-        if not isinstance(body['auto_unload'],bool):raise ValueError('boolean required')
-        manager.auto_unload=body['auto_unload'];await asyncio.to_thread(manager.store.set_setting,'auto_unload',manager.auto_unload)
+    # Validate everything first so a rejected request changes nothing.
+    if 'auto_unload' in body and not isinstance(body['auto_unload'],bool):raise ValueError('boolean required')
     if 'idle_seconds' in body:
         value=body['idle_seconds']
         if not isinstance(value,int) or isinstance(value,bool) or not 60<=value<=86400:raise ValueError('idle range')
-        manager.idle_seconds=value;await asyncio.to_thread(manager.store.set_setting,'idle_seconds',value)
-    if 'default_profile' in body:
-        if body['default_profile'] not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
-        await asyncio.to_thread(manager.set_default,body['default_profile'])
+    if 'default_profile' in body and body['default_profile'] not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
+    level=None
     if 'reasoning_effort' in body:
         key=body.get('profile') or manager.applied
         if key not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
-        try:await asyncio.to_thread(manager.set_reasoning_default,key,body['reasoning_effort'])
+        try:level=manager.normalize_reasoning(key,body['reasoning_effort'])
         except registry.ReasoningError as exc:
             return error(400,exc.code,f"{manager.profiles[key]['display_name']} supports reasoning_effort: "+', '.join(exc.supported),supported=exc.supported)
+    if 'auto_unload' in body:
+        manager.auto_unload=body['auto_unload'];await asyncio.to_thread(manager.store.set_setting,'auto_unload',manager.auto_unload)
+    if 'idle_seconds' in body:
+        manager.idle_seconds=body['idle_seconds'];await asyncio.to_thread(manager.store.set_setting,'idle_seconds',body['idle_seconds'])
+    if 'default_profile' in body:await asyncio.to_thread(manager.set_default,body['default_profile'])
+    if level is not None:await asyncio.to_thread(manager.set_reasoning_default,key,level)
     return await status(request)
 
 
@@ -208,7 +222,7 @@ async def profile_get(request):
 
 async def profile_select(request):
     """Choosing a target never touches the running model; it only records the choice."""
-    manager=request.app['manager'];body=await request.json()
+    manager=request.app['manager'];body=await read_object(request)
     key=body.get('profile')
     if key not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
     await asyncio.to_thread(manager.select,key)
@@ -217,8 +231,7 @@ async def profile_select(request):
 
 async def profile_apply(request):
     manager=request.app['manager']
-    try:body=await request.json()
-    except ValueError:body={}
+    body=await read_object(request,required=False)
     key=body.get('profile') or manager.selected
     if key not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
     try:result=await manager.apply(key)

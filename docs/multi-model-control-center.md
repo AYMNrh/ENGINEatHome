@@ -27,10 +27,10 @@ Vocabulary: **selected** (a UI choice, persisted, never touches the runtime), **
 
 Apply sequence (`POST /admin/profile/apply`, all under the existing lifecycle lock, run detached from the HTTP request so a disconnect cannot leave a half-finished switch):
 1. Refuse (HTTP 409, nothing touched) if requests are active, a session lease is held, a load is running or the native slot is busy.
-2. Static preflight of the target (model file, executable) before anything is unloaded.
+2. Static preflight of the target (model file, executable) and its failed-load cooldown (`503 load_cooldown`) before anything is unloaded, so a doomed switch never costs the running model.
 3. Stop the owned process, wait until the GPU really has the room the target needs.
 4. Load with the per-profile guards, then send a **real tiny inference request** to the new runtime. Success is reported only after that answer.
-5. On any failure: clean up, then restore the previous profile, then the configured default (Swift); the outcome (`last_switch`: ok, error, restored) is exposed and shown in the dashboard.
+5. On any failure: clean up, wait for the GPU to release memory, then restore the previous profile, then the configured default (Swift); the outcome (`last_switch`: ok, error, restored) is exposed and shown in the dashboard. A cancelled switch (shutdown) stops what it owns and starts nothing new.
 
 Measured on the homelab (warm page cache; cold-disk loads were not measured): Swift 3.4-3.9 s, Balanced 4.2-4.3 s, Maximum 4.3 s, apply from the dashboard 4.8 s end to end (phases `unloading, loading, verifying_inference` observed in `/admin/status`). One `llama-server` process and 19,614-20,558 MiB VRAM after every switch.
 
@@ -45,7 +45,7 @@ Measured on the homelab (warm page cache; cold-disk loads were not measured): Sw
 | `POST /admin/profile/select {profile}` | record the target; **never switches** |
 | `POST /admin/profile/apply [{profile}]` | apply the selected (or named) profile as above |
 | `POST /admin/load`, `/unload`, `/restart` | unchanged; Load starts the applied profile |
-| `PATCH /admin/settings` | existing keys plus `default_profile` and `reasoning_effort` (+ optional `profile`) |
+| `PATCH /admin/settings` | existing keys plus `default_profile` and `reasoning_effort` (+ optional `profile`); validated as a whole, so a rejected request changes nothing |
 | `GET /admin/status` | existing `model.*` keys kept; adds `profile`, `profiles`, `reasoning`, `model.active_model_id` |
 
 Gateway status distinguishes gateway health, selected/active/applied profile, runtime state (`unloaded, loading, ready, switching, unloading, failed`), requests, leases, errors, capacity and the model configuration.
@@ -56,7 +56,7 @@ A request names exactly one model. Unknown ID: 400 `unknown_model`. A known ID t
 
 ### Usage attribution
 
-The ledger gained `profile` and `effort` columns (nullable, additive). Historical rows were attributed to `swift` on first start (282 of 282). Every served request is tagged with the model/profile that served it and the effort forwarded; rejected requests keep the model they asked for and no profile. Still metadata only.
+The ledger gained `profile` and `effort` columns (nullable, additive). Historical rows were attributed to `swift` once, when the columns were added (282 of 282); rows of rejected requests are never credited to a model, and only models that actually served requests appear in the model filter. Every served request is tagged with the model/profile that served it and the effort forwarded; rejected requests keep the model they asked for and no profile. Still metadata only.
 
 ## Thinking effort
 

@@ -67,7 +67,7 @@ class Base(unittest.IsolatedAsyncioTestCase):
                     await asyncio.sleep(.02);self.starts.append((key,probe))
                     self.state='switching' if self.switch else 'loading'
                     if key in self.fail:
-                        await self._terminate();self.state='failed';self.last_error='fixture_load_failure';self.active_key=None
+                        await self._terminate();self.state='failed';self.last_error='fixture_load_failure';self.active_key=None;self.next_retry[key]=time.monotonic()+15   # as the real _start does
                         raise Unavailable('fixture_load_failure')
                     self.loads+=1;self.state='ready';self.active_key=key;self.process=SimpleNamespace(returncode=None,pid=123)
                     self.loaded_at=time.monotonic();self.load_seconds=.01;self.activity=time.monotonic()
@@ -126,6 +126,25 @@ class ProfileRegistryTests(unittest.TestCase):
         no_reasoning=json.loads(json.dumps(good));del no_reasoning['swift']['reasoning']
         with self.assertRaises(registry.ProfileError):registry.normalize(dict(profiles=no_reasoning,default_profile='swift'))
         with self.assertRaises(registry.ProfileError):registry.normalize(dict(profiles={'Bad Key':good['swift']},default_profile='Bad Key'))
+
+    def test_add_profiles_keeps_a_tuned_swift_profile_and_refreshes_inkling(self):
+        import add_profiles
+        tuned = make_profiles(1)
+        tuned['swift']['load_timeout'] = 777
+        tuned['swift']['minimum_load_free_bytes'] = 123
+        base = dict(profiles=tuned, default_profile='swift', backend_port=18081)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'config.json'
+            path.write_text(json.dumps(base))
+            merged = add_profiles.merge(path, dry_run=True)
+        self.assertEqual((merged['profiles']['swift']['load_timeout'], merged['profiles']['swift']['minimum_load_free_bytes']), (777, 123))
+        self.assertEqual(sorted(merged['profiles']), ['inkling-balanced', 'inkling-maximum', 'swift'])
+        argv = merged['profiles']['inkling-maximum']['argv']
+        self.assertEqual((argv[argv.index('-c') + 1], argv[argv.index('-ub') + 1], argv[argv.index('-ctk') + 1]), ('262144', '256', 'q8_0'))
+        self.assertNotIn('512', [argv[argv.index('-ub') + 1]])   # ub 512 does not allocate at 262,144
+        balanced = merged['profiles']['inkling-balanced']['argv']
+        self.assertEqual((balanced[balanced.index('-c') + 1], balanced[balanced.index('-ub') + 1]), ('204800', '512'))
+        self.assertEqual(merged['default_profile'], 'swift')
 
     def test_public_description_has_no_paths_or_checksums(self):
         public=registry.public_profile('inkling-maximum',registry.normalize(dict(profiles=make_profiles(1),default_profile='swift'))['profiles']['inkling-maximum'])
@@ -257,7 +276,10 @@ class ProfileSwitchingTests(Base):
         self.assertEqual(self.manager.loads,0)
 
     async def test_active_requests_block_a_switch_and_nothing_is_interrupted(self):
-        task=asyncio.create_task(self.hold());await asyncio.sleep(.2)
+        task=asyncio.create_task(self.hold())
+        for _ in range(60):
+            if self.manager.active:break
+            await asyncio.sleep(.05)
         self.assertEqual(self.manager.active,1)
         status,body=await self.post('/admin/profile/apply',profile='inkling-balanced')
         self.assertEqual((status,body['error']['code']),(409,'inference_requests_active'))
@@ -298,13 +320,25 @@ class ProfileSwitchingTests(Base):
         status,_,_=await self.chat();self.assertEqual(status,200)
         st=await self.status();self.assertFalse(st['profile']['last_switch']['ok']);self.assertEqual(st['profile']['last_switch']['restored'],'swift')
 
+    async def test_switch_to_a_cooling_down_profile_does_not_unload_the_running_model(self):
+        await self.chat()
+        self.manager.fail.add('inkling-maximum')
+        status,body=await self.post('/admin/profile/apply',profile='inkling-maximum')
+        self.assertEqual((status,body['error']['restored']),(503,'swift'))
+        stops,loads=self.manager.terminated,self.manager.loads
+        self.manager.fail.discard('inkling-maximum')
+        status,body=await self.post('/admin/profile/apply',profile='inkling-maximum')   # inside the failed-load cooldown
+        self.assertEqual((status,body['error']['code']),(503,'load_cooldown'))
+        self.assertEqual((self.manager.terminated,self.manager.loads,self.manager.state,self.manager.active_key),(stops,loads,'ready','swift'))
+        status,_,_=await self.chat();self.assertEqual(status,200)
+
     async def test_failed_switch_prioritizes_swift_when_the_previous_profile_also_fails(self):
         await self.post('/admin/profile/apply',profile='inkling-balanced')
         self.manager.fail.update({'inkling-maximum','inkling-balanced'})
         status,body=await self.post('/admin/profile/apply',profile='inkling-maximum')
         self.assertEqual((status,body['error']['restored']),(503,'swift'))
         self.assertEqual((self.manager.active_key,self.manager.applied),('swift','swift'))
-        self.manager.fail.add('swift');await self.post('/admin/profile/apply',profile='inkling-balanced')
+        self.manager.next_retry.clear();self.manager.fail.add('swift')   # cooldowns expired; now even Swift cannot start
         status,body=await self.post('/admin/profile/apply',profile='inkling-maximum')   # nothing can be restored: reported, state failed
         self.assertEqual(status,503);self.assertEqual(body['error']['restored'],None)
         self.assertEqual((self.manager.state,self.manager.active_key),('failed',None))
@@ -322,12 +356,52 @@ class ProfileSwitchingTests(Base):
         self.assertEqual([(r['model'],r['profile']) for r in data['rows']],[('fixture-balanced','inkling-balanced')])
         self.assertEqual(sorted(data['models']),['fixture-balanced','fixture-maximum','fixture-swift'])
 
-    async def test_legacy_rows_are_attributed_to_swift_on_startup(self):
+    async def test_legacy_rows_are_attributed_to_swift_once_and_rejected_rows_never_are(self):
+        import sqlite3
         from store import Store
-        path=Path(self.tmp.name)/'legacy.db';old=Store(path);old.start('a','python','fixture-swift',False)
-        with old.connect() as db:db.execute('UPDATE requests SET profile=NULL')
-        migrated=Store(path,registry.model_index(self.app['config']))
-        with migrated.connect() as db:self.assertEqual(db.execute('SELECT profile FROM requests').fetchone()[0],'swift')
+        path = Path(self.tmp.name) / 'legacy.db'
+        db = sqlite3.connect(path)   # the schema as it was before profiles existed
+        db.executescript('''CREATE TABLE requests(id TEXT PRIMARY KEY,client TEXT NOT NULL,model TEXT NOT NULL,started REAL NOT NULL,finished REAL,
+            status TEXT NOT NULL,http_status INTEGER,error TEXT,stream INTEGER,input_tokens INTEGER,output_tokens INTEGER,total_tokens INTEGER,cached_tokens INTEGER,
+            fresh_input_tokens INTEGER,reasoning_tokens INTEGER,prefill_tps REAL,decode_tps REAL,ttft_s REAL,upstream_ttft_s REAL,latency_s REAL,upstream_s REAL,
+            usage_reported INTEGER DEFAULT 0);
+            INSERT INTO requests(id,client,model,started,status) VALUES('old','python','fixture-swift',1,'complete');''')
+        db.commit();db.close()
+        index = registry.model_index(self.app['config'])
+        migrated = Store(path, index)
+        with migrated.connect() as db:self.assertEqual(db.execute('SELECT profile FROM requests').fetchone()[0], 'swift')
+        migrated.start('rejected', 'python', 'fixture-maximum', False)   # a request refused because that model was not served
+        Store(path, index)   # restart: the rejected row must not be credited to Inkling Maximum
+        with migrated.connect() as db:self.assertIsNone(db.execute("SELECT profile FROM requests WHERE id='rejected'").fetchone()[0])
+        self.assertEqual(migrated.models(), ['fixture-swift'])   # only models that actually served requests
+
+    async def test_client_supplied_model_names_are_validated_and_bounded(self):
+        for bad in (['x'], 7, {'a': 1}):
+            status, _, data = await self.raw_chat(dict(model=bad, messages=[dict(role='user', content='hi')]))
+            self.assertEqual((status, data['error']['code']), (400, 'invalid_model'))
+        status, _, data = await self.chat('n' * 5000);self.assertEqual((status, data['error']['code']), (400, 'unknown_model'))
+        with self.app['store'].connect() as db:
+            self.assertEqual([len(r[0]) for r in db.execute("SELECT model FROM requests WHERE status='failed'")], [128])
+        async with self.client.get(self.url + '/analytics/summary?timezone=UTC', headers=self.admin) as response:self.assertEqual((await response.json())['models'], [])
+
+    async def raw_chat(self, body):
+        async with self.client.post(self.url + '/v1/chat/completions', headers=self.infer, json=body) as response:
+            return response.status, dict(response.headers), await response.json(content_type=None)
+
+    async def test_settings_are_atomic_and_non_object_bodies_are_rejected(self):
+        before = await self.status()
+        status, body = await self.patch(auto_unload=False, default_profile='nope');self.assertEqual(status, 400)
+        status, body = await self.patch(auto_unload=False, reasoning_effort='ultra');self.assertEqual(status, 400)
+        status, body = await self.patch(idle_seconds=100, reasoning_effort='ultra');self.assertEqual(status, 400)
+        after = await self.status()
+        self.assertEqual((after['auto_unload'], after['idle_seconds']), (before['auto_unload'], before['idle_seconds']))   # nothing was applied
+        status, body = await self.patch(auto_unload=False, idle_seconds=120, reasoning_effort='low');self.assertEqual(status, 200)
+        self.assertEqual((body['auto_unload'], body['idle_seconds'], body['reasoning']['configured_default']), (False, 120, 'low'))
+        for path in ('/admin/profile/select', '/admin/profile/apply'):
+            for payload in ([1, 2], 'text', 3):
+                async with self.client.post(self.url + path, headers=self.admin, json=payload) as response:self.assertEqual(response.status, 400, (path, payload))
+        async with self.client.patch(self.url + '/admin/settings', headers=self.admin, json=['x']) as response:self.assertEqual(response.status, 400)
+        self.assertEqual(self.manager.loads, 0)
 
     async def test_status_is_consistent_through_selection_switching_and_unload(self):
         st=await self.status()
@@ -401,6 +475,8 @@ class ReasoningTests(Base):
         await self.post('/admin/profile/apply',profile='swift')
         status,body=await self.patch(reasoning_effort='minimal');self.assertEqual((status,body['error']['code']),(400,'unsupported_reasoning_effort'))
         status,body=await self.patch(reasoning_effort='high',profile='nope');self.assertEqual(status,400)
+        await self.post('/admin/profile/apply',profile='inkling-balanced')
+        status, body = await self.patch(reasoning_effort='max');self.assertEqual((status, body['reasoning']['configured_default']), (200, 'xhigh'))   # alias stored canonically
 
     async def test_reasoning_and_tool_call_content_are_passed_through_untouched(self):
         tools=[dict(type='function',function=dict(name='f',parameters={}))]
