@@ -23,7 +23,8 @@ def bucket(timestamp,unit,timezone):
 
 
 class Store:
-    def __init__(self,path):
+    def __init__(self,path,legacy_profiles=None):
+        """legacy_profiles: {model_id: profile_key}; rows written before profiles existed are attributed through it."""
         self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True)
         with self.connect() as db:
             db.execute('PRAGMA journal_mode=WAL')
@@ -37,6 +38,11 @@ class Store:
                 CREATE INDEX IF NOT EXISTS request_client_time ON requests(client,model,started);
                 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS leases(id TEXT PRIMARY KEY,client TEXT NOT NULL,expires REAL NOT NULL);''')
+            columns={row[1] for row in db.execute('PRAGMA table_info(requests)')}
+            for column in ('profile','effort'):
+                if column not in columns:db.execute(f'ALTER TABLE requests ADD COLUMN {column} TEXT')
+            for model,profile in (legacy_profiles or {}).items():
+                db.execute('UPDATE requests SET profile=? WHERE profile IS NULL AND model=?',(profile,model))
             db.execute("UPDATE requests SET status='interrupted',error='gateway_restart',finished=? WHERE status='running'",(time.time(),))
 
     @contextmanager
@@ -50,6 +56,10 @@ class Store:
     def start(self,id,client,model,stream):
         with self.connect() as db:db.execute('INSERT INTO requests(id,client,model,started,status,stream) VALUES(?,?,?,?,?,?)',
                                              (id,client,model,time.time(),'running',int(stream)))
+
+    def tag(self,id,model,profile,effort):
+        """Attribute a request to the model that actually served it; effort is what was forwarded to the template."""
+        with self.connect() as db:db.execute('UPDATE requests SET model=?,profile=?,effort=? WHERE id=?',(model,profile,effort,id))
 
     def finish(self,id,status,http_status,error,values):
         names=','.join(name+'=?' for name in FIELDS)
@@ -74,17 +84,17 @@ class Store:
     def release(self,id):
         with self.connect() as db:db.execute('DELETE FROM leases WHERE id=?',(id,))
 
-    def query(self,start,end,unit,timezone,client=None,model=None,detail=False):
+    def query(self,start,end,unit,timezone,client=None,model=None,detail=False,profile=None):
         if unit not in ('hour','day','week','month'):raise ValueError('invalid bucket')
         ZoneInfo(timezone)
         where='started>=? AND started<?';args=[start,end]
-        for name,value in (('client',client),('model',model)):
+        for name,value in (('client',client),('model',model),('profile',profile)):
             if value:where+=' AND '+name+'=?';args.append(value)
         with self.connect() as db:
             if detail:
                 rows=db.execute('SELECT * FROM requests WHERE '+where+' ORDER BY started DESC LIMIT 500',args)
             else:
-                rows=db.execute('''SELECT period(started,?,?) AS period,client,model,COUNT(*) AS requests,
+                rows=db.execute('''SELECT period(started,?,?) AS period,client,model,profile,COUNT(*) AS requests,
                   SUM(status='complete') AS completed,SUM(status!='complete') AS incomplete_or_failed,
                   SUM(usage_reported) AS usage_reported_requests,
                   SUM(input_tokens) AS input_tokens,SUM(output_tokens) AS output_tokens,SUM(total_tokens) AS total_tokens,
@@ -93,7 +103,7 @@ class Store:
                   COUNT(output_tokens) AS output_known_requests,COUNT(fresh_input_tokens) AS fresh_known_requests,
                   AVG(CASE WHEN status='complete' THEN latency_s END) AS mean_latency_s,
                   AVG(CASE WHEN status='complete' THEN ttft_s END) AS mean_ttft_s
-                  FROM requests WHERE '''+where+' GROUP BY period,client,model ORDER BY period,client,model',
+                  FROM requests WHERE '''+where+' GROUP BY period,client,model,profile ORDER BY period,client,model,profile',
                   [unit,timezone,*args])
             return [dict(row) for row in rows]
 
@@ -105,6 +115,9 @@ class Store:
             result[unit]={key:sum(row.get(key) or 0 for row in rows) for key in
                           ('requests','completed','incomplete_or_failed','usage_reported_requests','input_known_requests','output_known_requests','cache_known_requests','fresh_known_requests','input_tokens','output_tokens','cached_tokens','fresh_input_tokens','total_tokens')}
         return result
+
+    def models(self):
+        with self.connect() as db:return [row[0] for row in db.execute('SELECT DISTINCT model FROM requests ORDER BY model')]
 
     def clients(self):
         with self.connect() as db:return [row[0] for row in db.execute('SELECT DISTINCT client FROM requests ORDER BY client')]
