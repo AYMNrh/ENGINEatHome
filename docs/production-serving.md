@@ -14,6 +14,8 @@ Deployed 2026-11-19. This replaces the retired benchmark scheduler with an on-de
 | Isolated Python | `/home/marvin/llm/serving-venv` — Python 3.14, aiohttp 3.14.5 |
 | Usage database | `/var/lib/engineathome/usage.sqlite3` |
 
+**Multi-model update (2026-11-22).** The same gateway and URL now serve three selectable profiles, one at a time: Swift Production (default, unchanged configuration), Inkling Balanced (`inkling-2-mini-balanced`, 204,800 context) and Inkling Maximum (`inkling-2-mini-maximum`, 262,144 configured context). Choosing a profile never switches the model; **Apply** does, only when no request or lease is active, and verifies a real inference before reporting success. A request must name the model that is being served (otherwise 409 `model_not_active`). Thinking effort is selectable per model without a reload. Everything below that says "model ID `swift-1.5-qwen3.8-27b`" describes the Swift profile. Details, validated launch settings and rollback: [multi-model-control-center.md](multi-model-control-center.md); dashboard: [serving-dashboard.md](serving-dashboard.md).
+
 Tailscale must be connected. Prefer the numeric IP on clients without MagicDNS; a hostname lookup failure is distinct from an authentication error. Port 8080 binds only Tailscale IPv4 and localhost; the native server binds only `127.0.0.1:18081`. Port 8081 belongs to the existing OpenThread Border Router and must remain untouched. The backend was moved after a reboot exposed this collision; the public API address and inference settings are unchanged. No router forwarding or public listener was added. HTTP is carried inside Tailscale's encrypted tunnel; this is not a public HTTPS service. Existing HA network exposure was not broadened.
 
 ## Runtime preserved
