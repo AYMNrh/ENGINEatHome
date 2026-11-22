@@ -1,0 +1,59 @@
+[
+ {
+  "spec": "262144:256:q8_0",
+  "loaded": false,
+  "used_mib": null,
+  "buffers": [
+   "E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 12768.51 MiB on device 0: cudaMalloc failed: out of memory",
+   "E ggml_gallocr_reserve_n_impl: failed to allocate CUDA0 buffer of size 13388757248",
+   "E graph_reserve: failed to allocate compute buffers",
+   "E llama_init_from_model: failed to initialize the context: failed to allocate compute pp buffers"
+  ]
+ },
+ {
+  "spec": "262144:128:q8_0",
+  "loaded": true,
+  "used_mib": 21910,
+  "buffers": []
+ },
+ {
+  "spec": "262144:64:q8_0",
+  "loaded": true,
+  "used_mib": 18718,
+  "buffers": []
+ },
+ {
+  "spec": "262144:256:q4_0",
+  "loaded": false,
+  "used_mib": null,
+  "buffers": [
+   "E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 12768.51 MiB on device 0: cudaMalloc failed: out of memory",
+   "E ggml_gallocr_reserve_n_impl: failed to allocate CUDA0 buffer of size 13388757248",
+   "E graph_reserve: failed to allocate compute buffers",
+   "E llama_init_from_model: failed to initialize the context: failed to allocate compute pp buffers"
+  ]
+ },
+ {
+  "spec": "262144:128:q4_0",
+  "loaded": true,
+  "used_mib": 19812,
+  "buffers": []
+ },
+ {
+  "spec": "131072:512:q8_0",
+  "loaded": false,
+  "used_mib": null,
+  "buffers": [
+   "E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 12865.70 MiB on device 0: cudaMalloc failed: out of memory",
+   "E ggml_gallocr_reserve_n_impl: failed to allocate CUDA0 buffer of size 13490659584",
+   "E graph_reserve: failed to allocate compute buffers",
+   "E llama_init_from_model: failed to initialize the context: failed to allocate compute pp buffers"
+  ]
+ },
+ {
+  "spec": "65536:512:q8_0",
+  "loaded": true,
+  "used_mib": 18810,
+  "buffers": []
+ }
+]

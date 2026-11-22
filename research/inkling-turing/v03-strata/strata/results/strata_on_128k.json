@@ -1,0 +1,11 @@
+{
+ "engine": "strata",
+ "draft": "dspark",
+ "model": "Inkling-2-Mini-SQ-15.strata",
+ "load_s": null,
+ "ready": "exited rc=3",
+ "runs": [],
+ "vram_base_mib": 1,
+ "vram_peak_mib": 13848,
+ "stderr_tail": "[InkCUDA] Loaded ~/llm/experiments/strata-ab/pack/Inkling-2-Mini-SQ-15.strata (SQ-15): trunk=2.07 GB (5.54s), experts=3072 VRAM / 0 host (26.08s, hyb=0, promo=0, pf_buf=0MB), sm120_tc=0, screen=1\nstrata-inkling CUDA error 2 (out of memory) at /data/split-pkg/rc219-r2/src/engine/src/inkling2/cuda/ink_cuda.cuh:54\n"
+}

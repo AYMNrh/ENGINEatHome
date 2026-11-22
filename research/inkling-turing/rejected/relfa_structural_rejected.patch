@@ -1,0 +1,204 @@
+From d064434cff0012f1b89280361ef53093c3123c2f Mon Sep 17 00:00:00 2001
+From: inkling-turing <inkling-turing@local>
+Date: Sun, 22 Nov 2026 17:53:44 +0100
+Subject: [PATCH] WIP (rejected): FA-sourced relbias with structural src[6..9]
+ and a topology descriptor; unit tests bit-exact, model stress unstable
+
+---
+ ggml/include/ggml-inkling2.h        |  5 ++++-
+ ggml/src/ggml-cpu/ops.cpp           |  9 ++++-----
+ ggml/src/ggml-cuda/fattn-common.cuh | 21 ++++++++++-----------
+ ggml/src/ggml-cuda/fattn.cu         |  4 ++--
+ ggml/src/ggml.c                     | 16 ++++++++++------
+ src/llama-graph.cpp                 | 17 +++++++----------
+ src/llama-graph.h                   |  2 +-
+ tests/test-backend-ops.cpp          |  3 +--
+ 8 files changed, 39 insertions(+), 38 deletions(-)
+
+diff --git a/ggml/include/ggml-inkling2.h b/ggml/include/ggml-inkling2.h
+index 73033fc..9a08257 100644
+--- a/ggml/include/ggml-inkling2.h
++++ b/ggml/include/ggml-inkling2.h
+@@ -52,7 +52,10 @@ extern "C" {
+ 
+     GGML_API bool ggml_is_inkling2_relbias_desc(const struct ggml_tensor * t);
+ 
+-    GGML_API void ggml_flash_attn_ext_set_relbias(struct ggml_tensor * fa, struct ggml_tensor * desc);
++    // flash attention computes the bias itself: tab, sinks, cell and tok become sources 6..9 of the node (real dependencies for the allocator
++    // and the scheduler); the descriptor node above is then only kept in the graph so that prefill and decode have the same op sequence
++    GGML_API void ggml_flash_attn_ext_set_relbias(struct ggml_tensor * fa, struct ggml_tensor * tab, struct ggml_tensor * sinks,
++            struct ggml_tensor * cell, struct ggml_tensor * tok);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/ggml/src/ggml-cpu/ops.cpp b/ggml/src/ggml-cpu/ops.cpp
+index a2be98d..8656f49 100644
+--- a/ggml/src/ggml-cpu/ops.cpp
++++ b/ggml/src/ggml-cpu/ops.cpp
+@@ -8981,14 +8981,13 @@ static void ggml_compute_forward_flash_attn_ext_f16_one_chunk(
+             float mraw = mp ? GGML_CPU_FP16_TO_FP32(mp[ic]) : 0.0f;
+             if (mp && dst->src[6]) {
+                 // relative-position bias: the F16 value of (table[d] - sink) + mask, d from the cell and token positions
+-                const ggml_tensor * rel = dst->src[6];
+-                const ggml_tensor * tab = rel->src[0];
++                const ggml_tensor * tab = dst->src[6];
+                 const int64_t extent = tab->ne[0] - 1;
+-                const int32_t cp = ((const int32_t *) rel->src[2]->data)[ic];
+-                const int64_t dist = (int64_t) ((const int32_t *) rel->src[3]->data)[iq1] - cp;
++                const int32_t cp = ((const int32_t *) dst->src[8]->data)[ic];
++                const int64_t dist = (int64_t) ((const int32_t *) dst->src[9]->data)[iq1] - cp;
+                 const int64_t d = cp >= 0 && dist >= 0 && dist < extent ? dist : extent;
+                 const float tv = *(const float *) ((const char *) tab->data + d*tab->nb[0] + iq2*tab->nb[1] + iq1*tab->nb[2]);
+-                const float sv = *(const float *) ((const char *) rel->src[1]->data + iq2*rel->src[1]->nb[1] + iq1*rel->src[1]->nb[2]);
++                const float sv = *(const float *) ((const char *) dst->src[7]->data + iq2*dst->src[7]->nb[1] + iq1*dst->src[7]->nb[2]);
+                 const float b = tv - sv;
+                 mraw = GGML_CPU_FP16_TO_FP32(GGML_CPU_FP32_TO_FP16(b + mraw));
+             }
+diff --git a/ggml/src/ggml-cuda/fattn-common.cuh b/ggml/src/ggml-cuda/fattn-common.cuh
+index 6264c2b..88a78f3 100644
+--- a/ggml/src/ggml-cuda/fattn-common.cuh
++++ b/ggml/src/ggml-cuda/fattn-common.cuh
+@@ -1075,18 +1075,17 @@ void launch_fattn(
+ 
+     // the relative-position bias computed in the kernel (descriptor node hung on the flash attention node)
+     fattn_rel_params rel = {};
+-    if (dst->src[6] && ggml_is_inkling2_relbias_desc(dst->src[6])) {
+-        const ggml_tensor * rd = dst->src[6];
++    if (dst->src[6]) {
+         GGML_ASSERT(!kv_rows && !use_sparse && ncols2 == 1 && mask && mask->ne[2] == 1);
+-        rel.tab     = (const float   *) rd->src[0]->data;
+-        rel.sink    = (const float   *) rd->src[1]->data;
+-        rel.cell    = (const int32_t *) rd->src[2]->data;
+-        rel.tok     = (const int32_t *) rd->src[3]->data;
+-        rel.tab_s1  = rd->src[0]->nb[1]/sizeof(float);
+-        rel.tab_s2  = rd->src[0]->nb[2]/sizeof(float);
+-        rel.sink_s1 = rd->src[1]->nb[1]/sizeof(float);
+-        rel.sink_s2 = rd->src[1]->nb[2]/sizeof(float);
+-        rel.n_rows  = (int) rd->src[0]->ne[0];
++        rel.tab     = (const float   *) dst->src[6]->data;
++        rel.sink    = (const float   *) dst->src[7]->data;
++        rel.cell    = (const int32_t *) dst->src[8]->data;
++        rel.tok     = (const int32_t *) dst->src[9]->data;
++        rel.tab_s1  = dst->src[6]->nb[1]/sizeof(float);
++        rel.tab_s2  = dst->src[6]->nb[2]/sizeof(float);
++        rel.sink_s1 = dst->src[7]->nb[1]/sizeof(float);
++        rel.sink_s2 = dst->src[7]->nb[2]/sizeof(float);
++        rel.n_rows  = (int) dst->src[6]->ne[0];
+     }
+ 
+     ggml_tensor * KQV = dst;
+diff --git a/ggml/src/ggml-cuda/fattn.cu b/ggml/src/ggml-cuda/fattn.cu
+index 7aba248..55b7667 100644
+--- a/ggml/src/ggml-cuda/fattn.cu
++++ b/ggml/src/ggml-cuda/fattn.cu
+@@ -851,13 +851,13 @@ bool ggml_cuda_fattn_rel_ok(int device, const ggml_tensor * dst) {
+     const ggml_tensor * Q = dst->src[0];
+     const ggml_tensor * K = dst->src[1];
+     const int cc = ggml_cuda_info().devices[device].cc;
+-    return enabled && dst->src[6] && ggml_is_inkling2_relbias_desc(dst->src[6]) && cc == GGML_CUDA_CC_TURING && Q->ne[0] == 128 && dst->src[2]->ne[0] == 128 &&
++    return enabled && dst->src[6] && cc == GGML_CUDA_CC_TURING && Q->ne[0] == 128 && dst->src[2]->ne[0] == 128 &&
+         K->ne[2] > 0 && (Q->ne[2] / K->ne[2]) % 2 == 1 && Q->ne[1] > 1 && !dst->src[5] && dst->src[3] && dst->src[3]->ne[2] == 1 &&
+         ggml_cuda_get_best_fattn_kernel(device, dst) == BEST_FATTN_KERNEL_MMA_F16;
+ }
+ 
+ bool ggml_cuda_flash_attn_ext_supported(int device, const ggml_tensor * dst) {
+-    if (dst->src[6] && ggml_is_inkling2_relbias_desc(dst->src[6])) {
++    if (dst->src[6]) {
+         return ggml_cuda_fattn_rel_ok(device, dst);
+     }
+     return ggml_cuda_get_best_fattn_kernel(device, dst) != BEST_FATTN_KERNEL_NONE;
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index fdb8a5e..5bdcb1d 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -6334,13 +6334,17 @@ bool ggml_is_inkling2_relbias_desc(const struct ggml_tensor * t) {
+     return p.userdata == (void *) &ggml_inkling2_relbias_desc_tag;
+ }
+ 
+-void ggml_flash_attn_ext_set_relbias(struct ggml_tensor * fa, struct ggml_tensor * desc) {
++void ggml_flash_attn_ext_set_relbias(struct ggml_tensor * fa, struct ggml_tensor * tab, struct ggml_tensor * sinks,
++        struct ggml_tensor * cell, struct ggml_tensor * tok) {
+     GGML_ASSERT(fa->op == GGML_OP_FLASH_ATTN_EXT);
+-    GGML_ASSERT(ggml_is_inkling2_relbias_desc(desc));
+-    GGML_ASSERT(fa->src[3] == desc->src[4]); // the shared mask
+-    GGML_ASSERT(fa->src[5] == NULL);         // no kv_rows
+-    GGML_ASSERT(fa->src[0]->ne[2] == desc->src[0]->ne[1] && fa->src[0]->ne[1] == desc->src[0]->ne[2]);
+-    fa->src[6] = desc;
++    GGML_ASSERT(fa->src[3] && fa->src[3]->ne[2] == 1 && fa->src[3]->ne[0] == cell->ne[0]); // the shared mask
++    GGML_ASSERT(fa->src[5] == NULL);                                                      // no kv_rows
++    GGML_ASSERT(fa->src[0]->ne[2] == tab->ne[1] && fa->src[0]->ne[1] == tab->ne[2]);
++    GGML_ASSERT(tab->type == GGML_TYPE_F32 && sinks->type == GGML_TYPE_F32 && cell->type == GGML_TYPE_I32 && tok->type == GGML_TYPE_I32);
++    fa->src[6] = tab;
++    fa->src[7] = sinks;
++    fa->src[8] = cell;
++    fa->src[9] = tok;
+ }
+ 
+ struct ggml_tensor * ggml_custom_inplace(
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index c5c231e..71d6794 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -3261,8 +3261,8 @@ ggml_tensor * llm_graph_context::build_attn_mha(
+         res->add_fused_node({kv_rows ? LLM_FUSED_OP_FLASH_ATTN_KV_ROWS : LLM_FUSED_OP_FLASH_ATTN, cur, il});
+ 
+         ggml_flash_attn_ext_add_sinks(cur, sinks);
+-        if (rel_fa_desc) {
+-            ggml_flash_attn_ext_set_relbias(cur, rel_fa_desc);
++        if (rel_fa_srcs[0]) {
++            ggml_flash_attn_ext_set_relbias(cur, rel_fa_srcs[0], rel_fa_srcs[1], rel_fa_srcs[2], rel_fa_srcs[3]);
+         }
+         GGML_ASSERT(n_kv_max >= 0 && n_kv_max <= INT32_MAX);
+         ggml_flash_attn_ext_set_n_kv_max(cur, static_cast<int32_t>(n_kv_max));
+@@ -4590,17 +4590,14 @@ ggml_tensor * llm_graph_context::build_attn_relbias(
+     // global layer, several tokens, flash attention: a descriptor node (no mask is built) and flash attention adds the bias itself; the node
+     // keeps the op sequence of the decode graph, where the real node is built
+     if (cparams.flash_attn && !is_swa && q_cur->ne[2] > 1 && llama_ink_relbias_fa_enabled()) {
+-        // flash attention reads the table and the sink logits through the descriptor, which the allocator cannot see: keep them allocated
+-        // (graph outputs are never freed or reused); the cell and token positions are graph inputs, kept anyway
+-        ggml_set_output(rel_tab);
+-        ggml_set_output(rel_s->view_src ? rel_s->view_src : rel_s);
+-        ggml_set_output(rel_cell); // graph inputs are freed after their last consumer in the graph, which is the descriptor, not flash attention
+-        ggml_set_output(rel_tok);
++        // the descriptor has no output and nothing consumes it: expanded so that the op sequence (and the node count) of the prefill graph
++        // equals that of the decode graph, where the real mask node is built
+         ggml_tensor * desc = ggml_inkling2_relbias_desc(ctx0, rel_tab, rel_s, rel_cell, rel_tok, attn_mask.raw);
+         cb(desc, "kq_mask_rel_desc", il);
+-        rel_fa_desc = desc;
++        ggml_build_forward_expand(gf, desc);
++        rel_fa_srcs[0] = rel_tab; rel_fa_srcs[1] = rel_s; rel_fa_srcs[2] = rel_cell; rel_fa_srcs[3] = rel_tok;
+         ggml_tensor * out = build_attn_iswa_impl(*this, inp_attn, wo, wo_b, wo_s, q_cur, k_cur, v_cur, nullptr, attn_mask.raw, nullptr, sinks, nullptr, kq_scale, il);
+-        rel_fa_desc = nullptr;
++        rel_fa_srcs[0] = rel_fa_srcs[1] = rel_fa_srcs[2] = rel_fa_srcs[3] = nullptr;
+         return out;
+     }
+ 
+diff --git a/src/llama-graph.h b/src/llama-graph.h
+index be45852..c4bec21 100644
+--- a/src/llama-graph.h
++++ b/src/llama-graph.h
+@@ -1097,7 +1097,7 @@ struct llm_graph_amax_src1 {
+ 
+ struct llm_graph_context {
+     // set by build_attn_relbias while it builds a flash attention node whose bias flash attention computes itself
+-    mutable ggml_tensor * rel_fa_desc = nullptr;
++    mutable ggml_tensor * rel_fa_srcs[4] = {}; // tab, sinks, cell, tok
+ 
+     const llama_model & model;
+ 
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index aad9e15..c2bdf1c 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -4105,10 +4105,9 @@ struct test_inkling2 : public test_case {
+                 ggml_tensor * dense = ggml_inkling2_relbias_pos(ctx, table, sinks, cell, tokp, mask, GGML_TYPE_F16);
+                 ggml_tensor * fa_d = ggml_flash_attn_ext(ctx, qp, kk, vv, dense, 1.0f/sqrtf(128.0f), 0.0f, 0.0f);
+                 ggml_prec_set_acc(fa_d, GGML_PREC_F32);
+-                ggml_tensor * desc = ggml_inkling2_relbias_desc(ctx, table, sinks, cell, tokp, mask);
+                 ggml_tensor * fa_r = ggml_flash_attn_ext(ctx, qp, kk, vv, mask, 1.0f/sqrtf(128.0f), 0.0f, 0.0f);
+                 ggml_prec_set_acc(fa_r, GGML_PREC_F32);
+-                ggml_flash_attn_ext_set_relbias(fa_r, desc);
++                ggml_flash_attn_ext_set_relbias(fa_r, table, sinks, cell, tokp);
+                 ggml_tensor * diff = ggml_sub(ctx, fa_r, fa_d);
+                 out = ggml_add(ctx, fa_r, ggml_scale(ctx, diff, 1e4f));
+             } break;

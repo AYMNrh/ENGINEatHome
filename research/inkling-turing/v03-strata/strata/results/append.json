@@ -1,0 +1,22 @@
+[
+ {
+  "tag": "cold8k",
+  "prompt_len": 8192,
+  "ttft_s": 8.898,
+  "admit": "DONE 1 8192 8894.8 0.0 admit",
+  "resume": [],
+  "final": "BDONE 0 64 length 935.7 read=8894.8 drafts=73:45",
+  "n": 64
+ },
+ {
+  "tag": "append_turn_reuse",
+  "prompt_len": 8295,
+  "ttft_s": 0.208,
+  "admit": "DONE 1 8295 205.2 0.0 admit",
+  "resume": [
+   "RESUME 8255"
+  ],
+  "final": "BDONE 0 64 length 1587.0 read=205.2 drafts=152:30",
+  "n": 64
+ }
+]
