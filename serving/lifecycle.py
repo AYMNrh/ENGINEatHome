@@ -334,6 +334,7 @@ class Lifecycle:
     async def status(self):
         key = self.active_key or self.applied
         p = self.profiles[key]
+        chosen = await asyncio.to_thread(self.reasoning_default, self.applied)
         return dict(
             model=dict(state=self.state, model_id=p['model_id'], active_model_id=self.profiles[self.active_key]['model_id'] if self.active_key else None,
                        api_base_url=self.config['api_base_url'], context_capacity=p.get('context'), active_requests=self.active,
@@ -344,8 +345,8 @@ class Lifecycle:
                          switching=self.switch, last_switch=self.last_switch),
             profiles=list(self.public.values()),
             reasoning=dict(profile=self.applied, **{k: v for k, v in self.public[self.applied]['reasoning'].items()},
-                           configured_default=self.reasoning_default(self.applied) or self.public[self.applied]['reasoning']['default'],
-                           default_source='dashboard' if self.reasoning_default(self.applied) else 'profile'),
+                           configured_default=chosen or self.public[self.applied]['reasoning']['default'],
+                           default_source='dashboard' if chosen else 'profile'),
             gateway=dict(uptime_seconds=time.monotonic() - self.started, accepting=self.accepting),
             gpu=self.gpu, gpu_sample_at=self.gpu_at, auto_unload=self.auto_unload, idle_seconds=self.idle_seconds,
             timezone=self.config.get('timezone', 'Europe/Paris'))

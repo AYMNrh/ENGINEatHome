@@ -77,7 +77,7 @@ async def inference(request):
         spec=profile['reasoning']
         # Precedence is unchanged from the original gateway: template kwargs, then the top-level OpenAI field, then the default.
         chosen=kwargs.get(spec['parameter'],body.get(spec['parameter']))
-        try:resolved=registry.resolve_effort(spec,chosen,manager.reasoning_default(key))
+        try:resolved=registry.resolve_effort(spec,chosen,await asyncio.to_thread(manager.reasoning_default,key))
         except registry.ReasoningError as exc:
             http_status=400;failure=exc.code
             return error(400,exc.code,f"{profile['display_name']} supports reasoning_effort: "+', '.join(exc.supported),supported=exc.supported)
