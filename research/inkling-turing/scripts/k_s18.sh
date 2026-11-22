@@ -8,4 +8,4 @@ for T in 40 18 22; do
   sudo -n ncu -i $R/prof/src_iqB_$T.ncu-rep --page details > $R/prof/src_iqB_$T.details.txt 2>/dev/null
   echo "t$T: $(wc -l < $R/prof/src_iqB_$T.sass.csv) sass lines; $(grep -m1 "Duration" $R/prof/src_iqB_$T.details.txt)"
 done
-sudo -n chown marvin $R/prof/src_iqB_* 
+sudo -n chown "$USER" $R/prof/src_iqB_* 
