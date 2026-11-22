@@ -14,7 +14,7 @@ Deployed 2026-11-19. This replaces the retired benchmark scheduler with an on-de
 | Isolated Python | `/home/marvin/llm/serving-venv` — Python 3.14, aiohttp 3.14.5 |
 | Usage database | `/var/lib/engineathome/usage.sqlite3` |
 
-Tailscale must be connected. Prefer the numeric IP on clients without MagicDNS; a hostname lookup failure is distinct from an authentication error. Port 8080 binds only Tailscale IPv4 and localhost; the native server binds only `127.0.0.1:8081`. No router forwarding or public listener was added. HTTP is carried inside Tailscale's encrypted tunnel; this is not a public HTTPS service. Existing HA network exposure was not broadened.
+Tailscale must be connected. Prefer the numeric IP on clients without MagicDNS; a hostname lookup failure is distinct from an authentication error. Port 8080 binds only Tailscale IPv4 and localhost; the native server binds only `127.0.0.1:18081`. Port 8081 belongs to the existing OpenThread Border Router and must remain untouched. The backend was moved after a reboot exposed this collision; the public API address and inference settings are unchanged. No router forwarding or public listener was added. HTTP is carried inside Tailscale's encrypted tunnel; this is not a public HTTPS service. Existing HA network exposure was not broadened.
 
 ## Runtime preserved
 
@@ -139,15 +139,27 @@ sudo systemctl start engineathome-api.service
 sudo systemctl disable --now engineathome-api.service  # stop boot activation
 ```
 
+From a Mac, follow per-request metadata and speeds without restarting inference:
+
+```bash
+ssh -t marvin@homelab 'python3 ~/llm/serving/watch_usage.py'
+```
+
+This read-only viewer tails SQLite, showing native prefill/decode tok/s, streamed TTFT, latency, input/fresh/cached/output/total tokens and failures. In-flight/queued counts update while waiting; rates arrive with final request usage, not as instantaneous mid-generation GPU counters. Unknown values remain `—`. Use `--once --tail 10` for a snapshot. Ctrl+C stops only the viewer. Continue using `journalctl` for lifecycle/errors and `nvidia-smi` for live GPU activity.
+
 `/healthz` is unauthenticated gateway liveness only; authenticated `/admin/status` reports model health and telemetry. The gateway remains healthy while the model is unloaded. systemd is enabled at boot and restarts the gateway on unexpected failure; after gateway restart the model is on demand. A native child crash is detected, recorded as failed, and the next inference request reloads it. Tailscale binding retries if the interface is late during boot.
 
 ## Home Assistant and analytics
 
 Installed package: `/srv/containers/homeassistant/config/engineathome/package.yaml`; dashboard: `engineathome/dashboard.yaml`; its own private `engineathome/secrets.yaml` contains the HA bearer credential. Existing global secrets were untouched. Configuration backups and protected validation output are in `engineathome/backup-20261119T192127Z/`.
 
-The sidebar **ENGINEatHome** dashboard has Load, Unload, Restart, Auto-unload, GPU/lifecycle/inference sensors, daily token counters, history and an analytics link. Native REST polling is every 15 seconds for status and 60 seconds for usage; GPU samples are five seconds old at most during normal operation, with a sample timestamp exposed. Refresh/load actions are asynchronous from a user's perspective; busy protection is enforced by the API. API URL and model ID are displayed as selectable code fields without secrets.
+The sidebar **ENGINEatHome** dashboard was redesigned on 2026-11-22 into **Overview**, **Requests** and **Settings** views (`/engine-at-home/overview`): status header, confirmed Load/Restart/Unload controls, KPI tiles, separate token, throughput and GPU charts, a filterable request explorer and a settings/diagnostics page. See [serving-dashboard.md](serving-dashboard.md) for the design, screenshots, limits and the backend dependency for model profiles. It uses built-in Home Assistant cards and one theme file only; native REST polling is every 15 seconds for status, 30 seconds for recent requests and 60 seconds for usage. API URL and model ID are shown as selectable code fields without secrets.
 
-The analytics page accepts the **analytics** key for read-only history or **admin** for history plus controls. The key stays in tab memory only. Filter by time range, hour/day/week/month, client, model and token view (all/input/output/cached). Copy buttons fall back to selecting text on browsers that restrict clipboard access over HTTP.
+The **Requests** view filters by time range (Today, 24 hours, 7 or 30 days, or a custom range up to 367 days), client, model, status and chart bucket (hour/day/week/month), with a total/input/output/cached/fresh token chart. Helper changes trigger a refresh; invalid ranges mark data unavailable. Filters are standard HA helpers shared by every viewer of the dashboard.
+
+The two history sensors fetch the existing authenticated analytics API server-side using the HA secret. Their metadata attributes are excluded from HA Recorder to avoid repeatedly duplicating the SQLite request ledger. Existing daily counters and GPU history continue using native HA history. Clients are discovered from recorded usage. New helpers, sensors and automation use only built-in HA integrations; no iframe, custom frontend resource or HACS install is required.
+
+The separate analytics page remains optional for direct gateway access. It accepts the **analytics** key for read-only history or **admin** for history plus controls; HA does not require visiting it. The key stays in tab memory only. Copy buttons fall back to selecting text on browsers that restrict clipboard access over HTTP.
 
 Authenticated endpoints:
 
@@ -171,6 +183,7 @@ Completed validation:
 - Live short requests passed autoload, cached-prefix counters, streamed reasoning/usage, active unload rejection, client disconnect classification, forced tool call plus continuation, lease renewal/release, restart, settings and filtered analytics.
 - Deliberately killed the owned native process and gateway separately: autoload recovery, systemd restart, child cleanup and durable usage totals passed.
 - Windows reached both numeric and MagicDNS endpoints. HA config validation passed, the container restarted successfully, all 25 entities registered and authenticated polling was observed. The Lovelace buttons were not manually clicked; their underlying operations were tested through the API. Analytics HTML was served and its JavaScript syntax checked, but browser interactions were not automated.
+- Native history extension: configuration validated and deployed; both history sensors, refresh script and filter automations registered. An isolated HA instance inside the installed HA container exercised the real analytics endpoint: all four bucket filters, client/model selection, all five token chart templates, custom/empty/invalid ranges and refresh services passed. Group totals matched independent sums of request rows. No inference request was made or gateway restart performed for this extension. The pre-extension HA package is preserved in `engineathome/backup-20261119T204953Z/`.
 - No long-context benchmark, kernel modification or model-quality sweep ran. An actual machine reboot was not performed; boot enablement and crash restart were verified.
 
 Re-run lightweight tests explicitly (live tests intentionally start/restart/unload the owned model):
@@ -181,6 +194,9 @@ cd ~/llm/serving
 ~/llm/serving-venv/bin/python validate_live.py
 # Only during a maintenance window: intentionally kills the owned backend/gateway.
 ~/llm/serving-venv/bin/python validate_live.py --recovery
+# Native HA history validation; metadata reads only, isolated temporary HA state.
+sudo docker cp ~/llm/serving/validate_ha_history.py homeassistant:/tmp/engineathome-validate-history.py
+sudo docker exec homeassistant python /tmp/engineathome-validate-history.py
 ```
 
 Sanitized evidence: `validation-live.json`, `validation-recovery.json`, `runtime-manifest.json`; logs: `~/llm/serving-tests.log`, `serving-validation.log`, `serving-recovery.log`. The live validation requests are labeled `python` in initial usage totals.
