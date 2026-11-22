@@ -1,62 +1,65 @@
 # ENGINEatHome Serving dashboard
 
-Redesigned 2026-11-22. A Home Assistant dashboard for the homelab inference gateway: dark charcoal surfaces, a responsive 12-column Sections layout, three views. It only changes Home Assistant configuration (package, dashboard, theme). The gateway, lifecycle logic, inference arguments, credentials and API are untouched.
+A Home Assistant console for the homelab inference gateway: dark charcoal surfaces, a responsive 12-column Sections layout, three views. It chooses models and thinking effort, shows live GPU and inference statistics, and never holds a credential. The backend behaviour it controls is described in [multi-model-control-center.md](multi-model-control-center.md).
 
-Dashboard URL: `http://homelab.tail5bda2d.ts.net:8123/engine-at-home/overview` (`/requests`, `/settings`). The old `/serving` path is replaced by `/overview`.
+Dashboard URL: `http://homelab.tail5bda2d.ts.net:8123/engine-at-home/overview` (`/requests`, `/settings`).
 
-![Overview, desktop](assets/serving-dashboard/overview-desktop.png)
+![Overview, Swift running](assets/serving-dashboard/overview-desktop.png)
 
 ## Views
 
-**Overview**: a status header (gateway health, active model, active requests, GPU status), a **Model control** panel, key metrics, and separate charts:
+**Overview**
 
-- Token usage, last 24 h: cached input, fresh input, output (stacked; one tokens axis).
-- Throughput: prefill and decode tok/s per completed request, on their own axes.
-- GPU temperature (°C), power (W), VRAM used (GiB) and utilization (%), each in its own native history chart. Units are never mixed.
-- The five most recent requests with a link to the explorer.
+- Status header: gateway health, the model **actually running**, active requests, GPU status (green / amber / red).
+- **Model control.** *Running model* (blue) and *Runtime* state are separate from the *Target model* dropdown. Choosing a target only records it. The panel then compares the target with what is running (context, microbatch, KV precision, prefix cache, expected VRAM, default thinking) and says whether applying stops the running model and clears its prefix cache. **Apply model** appears only when the target differs, nothing is running or leased, and asks for confirmation. Load (when unloaded or failed), Restart and Unload (when ready) are compact and confirmed. Switching, failed loads and a failed last switch have their own states, and a banner explains why a switch or unload is refused.
+- **Thinking effort.** A separate selector offering only the loaded model's levels, the effective default and its source, whether per-request override is supported, and a note that higher effort can raise latency and tokens. Changing it never reloads the model.
+- **Connect.** API base URL, the served model ID, its context and the thinking default (code blocks with a copy button; no key).
+- KPI tiles (VRAM used/free, GPU utilization/power/temperature, active requests, last prefill/decode/TTFT/latency, cache efficiency, tokens today and in the selected range), then separate charts: token usage (cached, fresh, output), prefill and decode throughput (own axes), and GPU temperature, power, VRAM and utilization as individual history graphs. The five latest requests, each attributed to the model that served it, link to the explorer.
 
-Model control shows the **actual** runtime state and the model actually in memory. Load is offered only when the model is unloaded or failed; Restart and Unload only when ready, each behind a confirmation that states the cost (the prefix cache is discarded, so the next request re-reads its whole prompt). A banner appears while the gateway refuses Unload/Restart because requests or session leases are active. Nothing here interrupts a request or bypasses a lease; the gateway still enforces that (HTTP 409).
+**Requests.** Filters for time range, client, model/profile (active or historical, discovered from usage), status, token category and chart buckets; a stacked token chart; the latest 50 matching requests (model, forwarded thinking effort, status/error, input, cached, fresh, output, TTFT, prefill, decode, duration); a per-period/client/model table. Metadata only.
 
-**Requests**: filters for time range, client, model (active or historical), status, and chart bucket/series; a stacked token chart for the selection; a table of the latest 50 matching requests (input, cached, fresh, output, TTFT, prefill, decode, duration, status/error); and a per-period/client table. Metadata only.
+**Settings.** Default launch profile, automatic unload and idle timeout, all models with IDs, context, KV, microbatch and VRAM, a verbatim OpenCode snippet for the served model, each model's thinking controls, the selected model's launch settings (from the gateway; no paths), diagnostics (uptimes, leases, last load, GPU sample age, last switch, last error) and the lifecycle protections.
 
-**Settings**: automatic unload switch and idle timeout (15 min – 24 h, applied through the existing `PATCH /admin/settings`), API URL and model ID, the real launch settings, diagnostics (uptimes, leases, last load time, GPU sample age, last error) and the lifecycle protections, including the prefix-cache warning.
+| Switch pending | Inkling Maximum running |
+|---|---|
+| ![](assets/serving-dashboard/overview-pending.png) | ![](assets/serving-dashboard/overview-inkling.png) |
 
-| Overview, phone | Requests | Settings |
+| Phone | Requests | Settings |
 |---|---|---|
 | ![](assets/serving-dashboard/overview-phone.png) | ![](assets/serving-dashboard/requests-desktop.png) | ![](assets/serving-dashboard/settings-desktop.png) |
 
-Screenshots are real renders of this configuration in an isolated Home Assistant instance (2026.10.2) reading the live gateway's metadata.
+Screenshots are real renders of this configuration (Home Assistant 2026.10.2, headless Edge) reading the live gateway; the switch screenshots come from clicking through the real UI.
 
 ## Design decisions and limits
 
-- **Native only.** The deployment has no HACS, no custom cards and no Lovelace resources, so ApexCharts and Mushroom are not used. The dashboard uses Sections, Tile, Heading, Gauge, Conditional, Entities, History-graph and Markdown cards plus a theme (`themes/engineathome.yaml`, applied per view). Token and throughput charts are inline SVG rendered by HA templates from real request rows. They are not interactive: no tooltips or zoom.
-- **Theme scope.** The theme styles the dashboard content. HA's own top bar and sidebar follow your HA theme; select *ENGINEatHome* in your profile for a fully dark shell.
-- **No profile selector.** The gateway serves exactly one model (`swift-1.5-qwen3.8-27b`, one `argv`, one port). A Swift / Inkling profile dropdown would be non-functional, so it is not shown. **Backend dependency:** model profiles need gateway support for several named launch profiles, an explicit select-then-apply control endpoint (selecting must never load), per-profile preflight (VRAM, power limit, checksum), and a recorded active-profile field in `/admin/status`. The dashboard needs only a profile list and an active-profile sensor once that exists. Until then the interface states that Unload, Restart (and any future model change) discards the prefix cache.
-- **Status filter** is applied in the dashboard over the newest 500 rows returned by the existing analytics API; no gateway change.
-- **Unavailable is not zero.** Missing measurements (no decode rate, no cache split, nonstream TTFT) show `—`/Unavailable. Chart series ignore unreported counts, and "input, split unreported" is its own series.
-- **Request table width.** Wide tables clip on phones; the Overview table is a compact eight-column version.
-- Overview charts use fixed 24-hour windows; Requests charts follow the filters. GPU history graphs use HA's recorder (default retention), so they are empty right after a fresh install.
+- **Native only.** No HACS, custom card or Lovelace resource is installed, so ApexCharts and Mushroom are not used. The dashboard uses Sections, Tile, Heading, Conditional, Entities, History-graph and Markdown cards and one theme (`themes/engineathome.yaml`, per view). Token and throughput charts are inline SVG rendered by Home Assistant templates from real request rows: not interactive (no tooltips or zoom).
+- **Everything about profiles comes from the gateway's registry.** Dropdown choices, model IDs, levels and launch settings are generated from the configured profiles and read live from `/admin/status`; nothing is hard-coded.
+- **Selection is a request, not an action.** No automation can apply a profile; only the confirmed Apply tile can. A gateway refusal (409) leaves the selection and the running model untouched, and the sync automations show the gateway's truth.
+- **Unavailable is not zero.** Missing measurements show `—` or Unavailable. Chart series ignore unreported counts; "input, split unreported" is its own series.
+- **Theme scope.** The theme styles the dashboard content. Home Assistant's own top bar and sidebar follow your theme; select *ENGINEatHome* in your profile for a fully dark shell.
+- **Tables** clip on phones; the Overview table is the compact one.
+- Overview charts use a fixed 24-hour window; Requests charts follow the filters. GPU graphs use the recorder, so they are empty right after a fresh install.
+- Thinking changes are requests to the gateway: after a failure the selector reverts to the gateway's value within two minutes.
 
 ## Files
 
 | File | Role |
 |---|---|
-| `serving/ha_dashboard.py` | dashboard and theme generator, chart/table templates |
-| `serving/ha_files.py` | package generator (REST sensors, derived template sensors, helpers, commands), runtime facts from real `argv` |
-| `serving/install_home_assistant.py` | backs up, installs package/dashboard/theme, validates with HA `check_config`, rolls back on failure |
-| `serving/configure.py` | passes the real launch arguments to the generator |
-| `serving/test_ha_dashboard.py` | offline checks: YAML, every entity defined, native cards only, secrets, templates and SVG with null/empty data |
-| `serving/validate_ha_history.py` | isolated HA instance against the real metadata API: filters, every status and token view, invalid ranges |
+| `serving/ha_dashboard.py` | dashboard, theme, chart and table templates |
+| `serving/ha_files.py` | package generator: REST/derived sensors, helpers, commands, automations; profile data from `profiles.py` |
+| `serving/install_home_assistant.py` | backup, install package/dashboard/theme, `check_config`, rollback on failure |
+| `serving/test_ha_dashboard.py` | offline checks: YAML, every entity defined, native cards only, secrets, profile-derived content, templates and SVG with null/empty/unavailable data |
+| `serving/validate_ha_history.py` | isolated HA instance against the real API with control services stubbed |
 
 Regenerate and install (on the homelab; no key is printed):
 
 ```bash
 cd ~/llm/serving
-~/llm/serving-venv/bin/python -c "import json,pathlib;from ha_files import generate;c=json.loads(pathlib.Path('config.json').read_text());k=json.loads(pathlib.Path('credentials.json').read_text());generate(pathlib.Path('ha-generated'),c['api_base_url'].rsplit('/v1',1)[0],c['model_id'],k['home-assistant'],c['argv'])"
-sudo ~/llm/serving-venv/bin/python install_home_assistant.py   # backup, check_config, rollback on failure
-sudo docker restart homeassistant                             # package changes need a restart
+~/llm/serving-venv/bin/python -c "import json,pathlib;from ha_files import generate;c=json.loads(pathlib.Path('config.json').read_text());k=json.loads(pathlib.Path('credentials.json').read_text());generate(pathlib.Path('ha-generated'),c['api_base_url'].rsplit('/v1',1)[0],k['home-assistant'],c)"
+sudo python3 install_home_assistant.py      # backup, check_config, rollback on failure
+sudo docker restart homeassistant           # package changes need a restart
 ```
 
-Rollback: copy the files from `engineathome/backup-<stamp>/` back over `engineathome/` (and remove `themes/engineathome.yaml`), then restart HA.
+Rollback: copy the files from `engineathome/backup-<stamp>/` back over `engineathome/`, remove `themes/engineathome.yaml`, restart Home Assistant.
 
-Offline tests: `python serving/test_ha_dashboard.py` (needs `pyyaml` and `jinja2`). Against real HA: copy a generated candidate into the HA container and run `validate_ha_history.py <dir>`; it uses a temporary HA state and only reads metadata.
+Offline tests: `python -m unittest test_serving test_ha_dashboard` in `serving/` (needs `aiohttp`, `pyyaml`, `jinja2`). Against real Home Assistant: copy a generated candidate into the container and run `validate_ha_history.py <dir>`.

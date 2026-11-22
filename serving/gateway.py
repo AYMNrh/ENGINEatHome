@@ -12,11 +12,20 @@ import time
 import uuid
 
 from aiohttp import web,ClientSession,ClientTimeout,ClientError
-from lifecycle import Lifecycle,Busy,Unavailable
+from lifecycle import Lifecycle,Busy,Unavailable,ModelNotActive,SwitchFailed
+import profiles as registry
 from store import Store,Counters
 
+HINTS=dict(inference_requests_active='Requests are running or queued; wait for them to finish. Nothing was interrupted.',
+           session_leases_active='A session lease is held; release it or let it expire. Leases are never bypassed.',
+           model_loading='The runtime is loading; try again when it is ready.',
+           backend_still_processing='The native server is still processing a request.',
+           backend_activity_could_not_be_verified='Native server activity could not be verified, so nothing was stopped.',
+           request_queue_full='The request queue is full.')
 
-def error(status,code):return web.json_response(dict(error=dict(message=code,type='gateway_error',code=code)),status=status)
+
+def error(status,code,message=None,**extra):
+    return web.json_response(dict(error=dict(message=message or HINTS.get(code,code),type='gateway_error',code=code,**extra)),status=status)
 
 
 @web.middleware
@@ -45,31 +54,48 @@ async def protection(request,handler):
 async def inference(request):
     app=request.app;config=app['config'];manager=app['manager'];store=app['store']
     id=str(uuid.uuid4());began=time.perf_counter();values={};status='failed';http_status=500;failure=None
-    counted=False;upstream_start=None;counters=Counters();response=None
+    counted=False;upstream_start=None;counters=Counters();response=None;key=None;label=None
     try:
         body=await request.json()
         if not isinstance(body,dict):raise ValueError('object required')
     except (ValueError,TypeError):return error(400,'invalid_json_object')
     stream=body.get('stream',False)
     if not isinstance(stream,bool):return error(400,'stream_must_be_boolean')
-    await asyncio.to_thread(store.start,id,request['identity']['client'],config['model_id'],stream)
+    requested=body.get('model')
+    if requested is not None and not isinstance(requested,str):return error(400,'invalid_model','model must be a string')
+    # A request names exactly one model. Unknown ids are rejected; known but inactive ids are rejected, never served by another model.
+    key=manager.applied if requested is None else manager.key_for_model(requested)
+    # Client-supplied names are untrusted input: bounded before they reach the ledger.
+    await asyncio.to_thread(store.start,id,request['identity']['client'],(requested or config['profiles'][manager.applied]['model_id'])[:128],stream)
     try:
-        if body.get('model',config['model_id'])!=config['model_id']:
+        if key is None:
             http_status=400;failure='unknown_model';return error(http_status,failure)
-        body['model']=config['model_id']
-        for key,value in config['sampling'].items():body.setdefault(key,value)
+        profile=config['profiles'][key]
+        body['model']=profile['model_id']
+        for name,value in profile.get('sampling',{}).items():body.setdefault(name,value)
         kwargs=body.setdefault('chat_template_kwargs',{})
         if not isinstance(kwargs,dict):raise ValueError('invalid template parameters')
-        kwargs.setdefault('enable_thinking',True);kwargs.setdefault('preserve_thinking',True)
-        kwargs.setdefault('reasoning_effort',body.get('reasoning_effort','xhigh'))
+        for name,value in profile.get('request_defaults',{}).items():kwargs.setdefault(name,value)
+        spec=profile['reasoning']
+        # Precedence is unchanged from the original gateway: template kwargs, then the top-level OpenAI field, then the default.
+        chosen=kwargs.get(spec['parameter'],body.get(spec['parameter']))
+        try:resolved=registry.resolve_effort(spec,chosen,await asyncio.to_thread(manager.reasoning_default,key))
+        except registry.ReasoningError as exc:
+            http_status=400;failure=exc.code
+            return error(400,exc.code,f"{profile['display_name']} supports reasoning_effort: "+', '.join(exc.supported),supported=exc.supported)
+        label=resolved['label']
+        if spec.get('none_disables_thinking') and kwargs.get('enable_thinking') is False and not (chosen is not None and label=='none'):label='none'
+        else:kwargs.update(resolved['kwargs'])
         wanted_usage=bool((body.get('stream_options') or {}).get('include_usage'))
         if stream and request.path.startswith('/v1/'):
             body.setdefault('stream_options',{})['include_usage']=True
         async with asyncio.timeout(config.get('request_timeout',14400)):
-            await manager.enter();counted=True;upstream_start=time.perf_counter()
+            await manager.enter(key);counted=True;upstream_start=time.perf_counter()
+            # Attribution is recorded only once the request is admitted to the model that will serve it.
+            await asyncio.to_thread(store.tag,id,profile['model_id'],key,label)
             async with app['http'].post(config['backend_url']+request.path,json=body) as upstream:
                 http_status=upstream.status
-                headers={'X-Request-ID':id,'Cache-Control':'no-store'}
+                headers={'X-Request-ID':id,'Cache-Control':'no-store','X-Model-Profile':key,'X-Reasoning-Effort':label}
                 if upstream.status>=400:
                     failure='backend_http_'+str(upstream.status)
                     data=await upstream.read()
@@ -106,6 +132,13 @@ async def inference(request):
                 if status=='incomplete':failure='upstream_stream_incomplete'
                 await response.write_eof()
                 return response
+    except ModelNotActive as exc:
+        http_status=409;failure='model_not_active'
+        active=config['profiles'][exc.active]['display_name'] if exc.active else None
+        served=config['profiles'][exc.applied]['model_id']
+        return error(409,failure,f"{exc.requested} is not the model being served. Serving: {served}"+(' (loaded)' if exc.active else ' (not loaded yet)')+
+                     '. Apply the other profile from the dashboard or POST /admin/profile/apply; requests are never served by a different model.',
+                     requested_model=exc.requested,served_model=served,active_profile=exc.active,hint='POST /admin/profile/apply')
     except Busy as exc:http_status=409;failure=str(exc);return error(http_status,failure)
     except Unavailable as exc:http_status=503;failure=str(exc);return error(http_status,failure)
     except (asyncio.TimeoutError,TimeoutError):
@@ -142,17 +175,80 @@ async def action(request):
     return await status(request)
 
 
+async def read_object(request,required=True):
+    try:body=await request.json()
+    except ValueError:
+        if required:raise
+        return {}
+    if not isinstance(body,dict):raise ValueError('object required')
+    return body
+
+
 async def settings(request):
-    manager=request.app['manager'];body=await request.json()
-    if set(body)-{'auto_unload','idle_seconds'}:raise ValueError('unknown setting')
-    if 'auto_unload' in body:
-        if not isinstance(body['auto_unload'],bool):raise ValueError('boolean required')
-        manager.auto_unload=body['auto_unload'];await asyncio.to_thread(manager.store.set_setting,'auto_unload',manager.auto_unload)
+    manager=request.app['manager'];body=await read_object(request)
+    if set(body)-{'auto_unload','idle_seconds','default_profile','reasoning_effort','profile'}:raise ValueError('unknown setting')
+    # Validate everything first so a rejected request changes nothing.
+    if 'auto_unload' in body and not isinstance(body['auto_unload'],bool):raise ValueError('boolean required')
     if 'idle_seconds' in body:
         value=body['idle_seconds']
         if not isinstance(value,int) or isinstance(value,bool) or not 60<=value<=86400:raise ValueError('idle range')
-        manager.idle_seconds=value;await asyncio.to_thread(manager.store.set_setting,'idle_seconds',value)
+    if 'default_profile' in body and body['default_profile'] not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
+    level=None
+    if 'reasoning_effort' in body:
+        key=body.get('profile') or manager.applied
+        if key not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
+        try:level=manager.normalize_reasoning(key,body['reasoning_effort'])
+        except registry.ReasoningError as exc:
+            return error(400,exc.code,f"{manager.profiles[key]['display_name']} supports reasoning_effort: "+', '.join(exc.supported),supported=exc.supported)
+    if 'auto_unload' in body:
+        manager.auto_unload=body['auto_unload'];await asyncio.to_thread(manager.store.set_setting,'auto_unload',manager.auto_unload)
+    if 'idle_seconds' in body:
+        manager.idle_seconds=body['idle_seconds'];await asyncio.to_thread(manager.store.set_setting,'idle_seconds',body['idle_seconds'])
+    if 'default_profile' in body:await asyncio.to_thread(manager.set_default,body['default_profile'])
+    if level is not None:await asyncio.to_thread(manager.set_reasoning_default,key,level)
     return await status(request)
+
+
+async def profiles_list(request):
+    manager=request.app['manager']
+    return web.json_response(dict(profiles=list(manager.public.values()),default=manager.default))
+
+
+async def profile_get(request):
+    manager=request.app['manager']
+    return web.json_response(dict(selected=manager.selected,active=manager.active_key,applied=manager.applied,default=manager.default,
+                                  state=manager.state,switching=manager.switch,last_switch=manager.last_switch))
+
+
+async def profile_select(request):
+    """Choosing a target never touches the running model; it only records the choice."""
+    manager=request.app['manager'];body=await read_object(request)
+    key=body.get('profile')
+    if key not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
+    await asyncio.to_thread(manager.select,key)
+    return await status(request)
+
+
+async def profile_apply(request):
+    manager=request.app['manager']
+    body=await read_object(request,required=False)
+    key=body.get('profile') or manager.selected
+    if key not in manager.profiles:return error(400,'unknown_profile',supported=list(manager.profiles))
+    try:result=await manager.apply(key)
+    except Busy as exc:return error(409,str(exc),profile=key)
+    except SwitchFailed as exc:
+        return error(503,'switch_failed',f'Could not switch to {manager.profiles[key]["display_name"]}: {exc.code}. '+
+                     (f'Restored {manager.profiles[exc.restored]["display_name"]}.' if exc.restored else 'The previous runtime could not be restored automatically.'),
+                     reason=exc.code,restored=exc.restored,profile=key)
+    status_body=json.loads((await status(request)).body)
+    status_body['apply']=result
+    return web.json_response(status_body)
+
+
+async def models(request):
+    manager=request.app['manager'];key=manager.active_key or manager.applied;p=manager.profiles[key]
+    return web.json_response(dict(object='list',data=[dict(id=p['model_id'],object='model',owned_by='local',loaded=manager.active_key is not None,
+                                                           context=p.get('context'),profile=key)]))
 
 
 async def lease(request):
@@ -194,9 +290,10 @@ async def analytics(request):
         return web.json_response(dict(timezone=timezone,periods=await asyncio.to_thread(store.totals,timezone)))
     start=timestamp(q.get('start'),time.time()-7*86400);end=timestamp(q.get('end'),time.time()+1)
     if not start<end or end-start>367*86400:raise ValueError('time range must be <=367 days')
-    rows=await asyncio.to_thread(store.query,start,end,q.get('bucket','day'),timezone,q.get('client'),q.get('model'),request.path.endswith('/requests'))
+    rows=await asyncio.to_thread(store.query,start,end,q.get('bucket','day'),timezone,q.get('client'),q.get('model'),request.path.endswith('/requests'),q.get('profile'))
+    manager=request.app['manager']
     return web.json_response(dict(rows=rows,timezone=timezone,clients=await asyncio.to_thread(store.clients),
-        model=config['model_id'],bucket=q.get('bucket','day'),
+        model=config['profiles'][manager.applied]['model_id'],models=await asyncio.to_thread(store.models),bucket=q.get('bucket','day'),
         accounting='input includes cached; fresh=input-cached only when both reported; total=input+output; reasoning is an output subset; buckets use request start',
         unknown='null means unreported; failed/incomplete requests may lack final usage'))
 
@@ -205,8 +302,9 @@ async def page(request):return web.FileResponse(Path(__file__).with_name('analyt
 
 
 def create_app(config,store=None,manager_factory=Lifecycle):
+    config=registry.normalize(config)
     app=web.Application(middlewares=[protection],client_max_size=32*2**20)
-    app['config']=config;app['store']=store or Store(config['database']);app['ha_last_poll']=None
+    app['config']=config;app['store']=store or Store(config['database'],registry.model_index(config));app['ha_last_poll']=None
     async def resources(app):
         async with ClientSession(timeout=ClientTimeout(total=None,connect=15)) as http:
             app['http']=http;app['manager']=manager_factory(config,app['store'],http)
@@ -222,7 +320,9 @@ def create_app(config,store=None,manager_factory=Lifecycle):
     app.router.add_get('/admin/status',status)
     app.router.add_post('/admin/{action:load|unload|restart}',action)
     app.router.add_patch('/admin/settings',settings)
-    app.router.add_get('/v1/models',lambda request:web.json_response(dict(object='list',data=[dict(id=config['model_id'],object='model',owned_by='local')])) )
+    app.router.add_get('/v1/models',models)
+    app.router.add_get('/admin/profiles',profiles_list);app.router.add_get('/admin/profile',profile_get)
+    app.router.add_post('/admin/profile/select',profile_select);app.router.add_post('/admin/profile/apply',profile_apply)
     for path in ('/v1/chat/completions','/v1/completions','/completion'):app.router.add_post(path,inference)
     for prefix in ('/v1/leases','/admin/leases'):
         app.router.add_get(prefix,lease);app.router.add_post(prefix,lease)
