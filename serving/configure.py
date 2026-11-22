@@ -54,7 +54,10 @@ def main():
           changes='original binary path, fixed localhost port, stable alias, private logging; inference settings unchanged'))
     # Keep the validated Inkling profiles in the regenerated configuration (installs the pinned runtime, verifies hashes).
     import add_profiles
-    config=add_profiles.merge(root/'config.json')
+    try:config=add_profiles.merge(root/'config.json')
+    except (FileNotFoundError,RuntimeError) as exc:
+        print('warning: Inkling profiles not added ('+type(exc).__name__+': '+str(exc)[:120]+'); Swift-only configuration kept')
+        config=json.loads((root/'config.json').read_text())
     from ha_files import generate
     generate(root/'ha-generated',address,credentials['home-assistant'],config)
     print('Configured validated stock serving. Credentials retained in a mode-0600 file; no keys printed.')

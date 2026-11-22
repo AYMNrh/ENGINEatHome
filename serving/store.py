@@ -39,10 +39,12 @@ class Store:
                 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS leases(id TEXT PRIMARY KEY,client TEXT NOT NULL,expires REAL NOT NULL);''')
             columns={row[1] for row in db.execute('PRAGMA table_info(requests)')}
+            migrating='profile' not in columns
             for column in ('profile','effort'):
                 if column not in columns:db.execute(f'ALTER TABLE requests ADD COLUMN {column} TEXT')
-            for model,profile in (legacy_profiles or {}).items():
-                db.execute('UPDATE requests SET profile=? WHERE profile IS NULL AND model=?',(profile,model))
+            if migrating:   # once: later rows without a profile are rejected requests and must never be credited to a model
+                for model,profile in (legacy_profiles or {}).items():
+                    db.execute('UPDATE requests SET profile=? WHERE profile IS NULL AND model=?',(profile,model))
             db.execute("UPDATE requests SET status='interrupted',error='gateway_restart',finished=? WHERE status='running'",(time.time(),))
 
     @contextmanager
@@ -117,7 +119,8 @@ class Store:
         return result
 
     def models(self):
-        with self.connect() as db:return [row[0] for row in db.execute('SELECT DISTINCT model FROM requests ORDER BY model')]
+        # Only models that actually served requests; names from rejected requests are client input, not models.
+        with self.connect() as db:return [row[0] for row in db.execute('SELECT DISTINCT model FROM requests WHERE profile IS NOT NULL ORDER BY model')]
 
     def clients(self):
         with self.connect() as db:return [row[0] for row in db.execute('SELECT DISTINCT client FROM requests ORDER BY client')]

@@ -76,10 +76,15 @@ class Lifecycle:
     def reasoning_default(self, key):
         return self.store.setting('reasoning_default.' + key, None)
 
-    def set_reasoning_default(self, key, level):
+    def normalize_reasoning(self, key, level):
+        """A named level for the dashboard default (aliases such as max are accepted and stored as their canonical name)."""
         spec = self.profiles[key]['reasoning']
-        if not isinstance(level, str) or level not in spec['levels']:raise registry.ReasoningError('unsupported_reasoning_effort', list(spec['levels']))
-        self.store.set_setting('reasoning_default.' + key, level)
+        canonical = spec.get('aliases', {}).get(level, level) if isinstance(level, str) else None
+        if canonical not in spec['levels']:raise registry.ReasoningError('unsupported_reasoning_effort', list(spec['levels']))
+        return canonical
+
+    def set_reasoning_default(self, key, level):
+        self.store.set_setting('reasoning_default.' + key, self.normalize_reasoning(key, level))
 
     def select(self, key):
         if key not in self.profiles:raise KeyError(key)
@@ -277,6 +282,7 @@ class Lifecycle:
         for key in candidates:
             try:
                 if self.switch:self.switch.update(phase='restoring', restoring=key)
+                await self._wait_released(key)   # the failed attempt may still be releasing GPU memory
                 await self._start(key, probe=True)
                 self.applied = key
                 self.last_error = original
@@ -298,6 +304,8 @@ class Lifecycle:
             if await asyncio.to_thread(self.store.leases):raise Busy('session_leases_active')
             await self._slots_idle()
             self._static_preflight(key)
+            # A target that is still cooling down after a failed load must not cost us the model that is running.
+            if time.monotonic() < self.next_retry.get(key, 0):raise Unavailable('load_cooldown')
             previous = self.active_key if running else None
             self.switch = {'from': previous, 'to': key, 'phase': 'unloading' if running else 'loading', 'started': time.time()}
             began = time.time()
@@ -313,10 +321,18 @@ class Lifecycle:
                 self.applied = key
                 self.last_switch = dict(ok=True, at=time.time(), seconds=round(time.time() - began, 1), to=key, previous=previous, error=None, restored=None)
                 return dict(changed=True, active=key, previous=previous)
+            except asyncio.CancelledError:
+                # Shutdown or cancellation: stop what we own and do not start anything new.
+                await self._terminate()
+                self.active_key = None
+                self.state = 'failed'
+                self.last_error = 'switch_cancelled'
+                raise
             except BaseException as error:
                 code = str(error) if isinstance(error, Unavailable) else 'switch_failed'
                 self.last_error = code
                 restored = await self._restore(previous, key)
+                if restored is None and self.state not in ('failed', 'unloaded'):self.state = 'failed'
                 self.last_switch = dict(ok=False, at=time.time(), seconds=round(time.time() - began, 1), to=key, previous=previous, error=code, restored=restored)
                 raise SwitchFailed(code, restored) from None
             finally:
