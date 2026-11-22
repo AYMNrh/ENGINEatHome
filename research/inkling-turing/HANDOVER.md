@@ -137,3 +137,12 @@ Profiling tools:
 - DSpark parked: economics in THEORY.md (verify cost, break-even L), ledger V02-3/V02-REF. The Mini drafter (rnn_hidden Markov head) needs a graph port into dspark.cpp/dflash.cpp; Basalt v0.5.5 dspark.cu has the math.
 - Prefill profile after this round (pp512 0K, nsys): NVFP4 down 18%, IQ3_XXS 17.5%, IQ2_S 12%, Q8_0 MMQ 9.8%, FA 3.9%, fp32 cuBLAS sgemm (relbias projection etc.) ~6.5%, conv 3.4%, quantize 2.4%. At 8K depth FA is 11.4% and inkling2_relbias_mask 2.5%.
 - Next candidates: (1) fuse relbias bias gather into the FA mma kernel (per-token table [1024 x 24] instead of the n_kv x 24 x n_tok mask, est. 3% at 8K, more at 32K); (2) fp32 sgemm -> fp16/INT8 tensor-core path (opt-in, not bit-exact, est. up to 4%); (3) IQ3_XXS LUT bank conflicts (replicate grid per bank group); (4) NVFP4 wide 128-bit global loads + exact integer UE4M3 scale path.
+
+## v0.2 round 2 (2026-11-22): prefill attention and IQ lookup experiments, all rejected
+Validated build is unchanged: HEAD e0be55a (NVFP4 half-K tile). Ledger entries V02-7 .. V02-STOP; patches in results/.
+- V02-7 FA query tile width (sm_75, DKQ=128, ncols2=1): 16 columns pp512 8K 1193 -> 1113 (-7%), 32K 891 -> 780 (-12%); 8 columns -30% / -47%; 64 columns aborts at launch. The 32-column tile is the optimum.
+- V02-8 FA GQA packing for per-head masks (ncols2=4 for ratio 3, 3 real + 1 padded head, per-head mask tile): FLASH_ATTN_EXT 4433/4433 but pp512 8K +0.3%, 32K -2.7%, decode logprob delta 6e-2 (not bit-exact). Patch fagqa3_v02_rejected.patch.
+- V02-9 IQ3_XXS lookup split smem/L1-global: bit-exact, pp512 0K -1%. Random 8-bit grid indices collide ~3.5-way on 32 banks regardless of replication or padding; only fewer lookups could help. Patch iqmix_v02_rejected.patch.
+- Nsight Compute of the stock prefill FA at 8K depth (ncols 32, 128 threads, 244 regs, 2 blocks/SM): long_scoreboard 56%, issue active 14%, SM 14%, DRAM 15% (only ~21 MB read per call), L1 hit 22-28%. It is latency-bound, not bandwidth-bound; Turing has no cp.async and the kernel has no register headroom for a prefetch. Prefill FA is ~10% of a ubatch at ~4K average depth and grows with depth.
+- inkling2_relbias_mask materializes n_kv x n_tok x 24 f16 per layer (~214 MB for a full-attention layer at 8K); fusing the gather into FA could save ~2.5-3% at 8K but cannot lift the FA latency ceiling.
+- Not done: attention CUDA source study of Maya/NInfer-all/Basalt/SGLang, fp32 sgemm tensor-core opt-in. Attention tuning is stopped after three failed hypotheses.

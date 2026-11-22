@@ -1,0 +1,24 @@
+diff --git a/ggml/src/ggml-cuda/mmq-load-tiles.cuh b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+index 2161eac..ec66b26 100644
+--- a/ggml/src/ggml-cuda/mmq-load-tiles.cuh
++++ b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+@@ -1267,6 +1267,9 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+ 
+ // ---- inkling-turing: IQ loader helpers -------------------------------------------------------
+ #ifndef GGML_CUDA_INK_T_IQ_LUT
++#ifndef GGML_CUDA_INK_T_IQ_MIX
++#define GGML_CUDA_INK_T_IQ_MIX 1
++#endif
+ #define GGML_CUDA_INK_T_IQ_LUT 3 // bit 1: IQ3_XXS grid in shared memory, bit 2: IQ2_S grid in shared memory
+ #endif
+ 
+@@ -1413,7 +1416,8 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+ #pragma unroll
+         for (int l = 0; l < QR3_XXS; ++l) {
+             const uint32_t * grid_tab = (GGML_CUDA_INK_T_IQ_LUT & 1) ? ink_t_grid_smem<GGML_TYPE_IQ3_XXS>() : iq3xxs_grid;
+-            const uint2 grid_pos = make_uint2(grid_tab[q3[2*l+0]], grid_tab[q3[2*l+1]]);
++            // inkling-turing: balance the MIO pipe (shared memory) and the LSU pipe (L1 global) by serving one lookup of each pair from each
++            const uint2 grid_pos = make_uint2(grid_tab[q3[2*l+0]], (GGML_CUDA_INK_T_IQ_MIX ? iq3xxs_grid : grid_tab)[q3[2*l+1]]);
+             // 7 sign bits + parity bit, identical to unpack_ksigns (the xor fixes bit 7 to the parity of bits 0..6)
+             const uint32_t v8  = (aux32 >> (7*l)) & 0xFF;
+             const uint32_t sgn = v8 ^ ((__popc(v8) & 1) << 7);

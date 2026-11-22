@@ -73,3 +73,12 @@ Prefill is ~1% lower in all runs of the new binary incl. its all-off control: se
 - Rejected: NVFP4 register prefetch (+1%, V02-1), grouped-expert verify kernel (-28% at N=4, V02-4). The Mini drafter does not load in the fork (needs the rnn_hidden head port). Economics in THEORY.md. Default build unchanged (HEAD 6e225ed, tree clean).
 
 - v0.2 accepted: NVFP4 half-K tile (e0be55a) pp512 0K 1366->1401 (+2.5%), 8K +2.1%, bit-exact. IQ3_XXS half-K neutral (rejected).
+
+## v0.2 round 2 (2026-11-22): prefill attention and IQ lookup experiments, all rejected
+Validated build is unchanged: HEAD e0be55a (NVFP4 half-K tile). Ledger entries V02-7 .. V02-STOP; patches in results/.
+- V02-7 FA query tile width (sm_75, DKQ=128, ncols2=1): 16 columns pp512 8K 1193 -> 1113 (-7%), 32K 891 -> 780 (-12%); 8 columns -30% / -47%; 64 columns aborts at launch. The 32-column tile is the optimum.
+- V02-8 FA GQA packing for per-head masks (ncols2=4 for ratio 3, 3 real + 1 padded head, per-head mask tile): FLASH_ATTN_EXT 4433/4433 but pp512 8K +0.3%, 32K -2.7%, decode logprob delta 6e-2 (not bit-exact). Patch fagqa3_v02_rejected.patch.
+- V02-9 IQ3_XXS lookup split smem/L1-global: bit-exact, pp512 0K -1%. Random 8-bit grid indices collide ~3.5-way on 32 banks regardless of replication or padding; only fewer lookups could help. Patch iqmix_v02_rejected.patch.
+- Nsight Compute of the stock prefill FA at 8K depth (ncols 32, 128 threads, 244 regs, 2 blocks/SM): long_scoreboard 56%, issue active 14%, SM 14%, DRAM 15% (only ~21 MB read per call), L1 hit 22-28%. It is latency-bound, not bandwidth-bound; Turing has no cp.async and the kernel has no register headroom for a prefetch. Prefill FA is ~10% of a ubatch at ~4K average depth and grows with depth.
+- inkling2_relbias_mask materializes n_kv x n_tok x 24 f16 per layer (~214 MB for a full-attention layer at 8K); fusing the gather into FA could save ~2.5-3% at 8K but cannot lift the FA latency ceiling.
+- Not done: attention CUDA source study of Maya/NInfer-all/Basalt/SGLang, fp32 sgemm tensor-core opt-in. Attention tuning is stopped after three failed hypotheses.
