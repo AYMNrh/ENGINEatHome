@@ -1,0 +1,746 @@
+From 7d3e5b1a0937e9dd9f9b19c22619276bd27d6280 Mon Sep 17 00:00:00 2001
+From: inkling-turing <inkling-turing@local>
+Date: Sun, 22 Nov 2026 16:47:47 +0100
+Subject: [PATCH] inkling-turing: relative-bias node from positions
+ (ggml_inkling2_relbias_pos): no CPU-built int32 distance matrix and no
+ host-to-device copy of it, bit-exact
+
+---
+ ggml/include/ggml-inkling2.h    | 16 ++++++
+ ggml/src/ggml-cuda/ggml-cuda.cu |  7 ++-
+ ggml/src/ggml-cuda/inkling2.cu  | 88 +++++++++++++++++++++++++++++----
+ ggml/src/ggml-cuda/inkling2.cuh |  2 +
+ ggml/src/ggml.c                 | 75 ++++++++++++++++++++++++++++
+ src/llama-graph.cpp             | 72 +++++++++++++++++++++------
+ src/llama-graph.h               | 13 ++++-
+ src/llama-kv-cache.cpp          | 25 ++++++++++
+ src/llama-kv-cache.h            |  6 +++
+ src/models/inkling2.cpp         | 10 ++--
+ tests/test-backend-ops.cpp      | 59 ++++++++++++++++++++--
+ 11 files changed, 339 insertions(+), 34 deletions(-)
+
+diff --git a/ggml/include/ggml-inkling2.h b/ggml/include/ggml-inkling2.h
+index cc544e3..fe212b5 100644
+--- a/ggml/include/ggml-inkling2.h
++++ b/ggml/include/ggml-inkling2.h
+@@ -22,6 +22,22 @@ extern "C" {
+ 
+     GGML_API bool ggml_is_inkling2_relbias(const struct ggml_tensor * t);
+ 
++    // The same mask from POSITIONS instead of a dense I32 [n_kv, n_tokens] distance matrix:
++    //   d = cell[kv] >= 0 && tok[t] - cell[kv] >= 0 && tok[t] - cell[kv] < n_rows - 1 ? tok[t] - cell[kv] : n_rows - 1
++    //   dst[kv, t, h] = type((tab[d, h, t] - sinks[0, h, t]) + mask[kv, t])
++    // cell I32 [n_kv]: the position stored in each cell (-1 when empty), tok I32 [n_tokens]: the position of each token.
++    // Bit for bit the same values as the dense matrix version, without building or uploading the n_kv x n_tokens matrix.
++    GGML_API struct ggml_tensor * ggml_inkling2_relbias_pos(
++            struct ggml_context * ctx,
++            struct ggml_tensor  * tab,
++            struct ggml_tensor  * sinks,
++            struct ggml_tensor  * cell,
++            struct ggml_tensor  * tok,
++            struct ggml_tensor  * mask,
++            enum ggml_type        type);
++
++    GGML_API bool ggml_is_inkling2_relbias_pos(const struct ggml_tensor * t);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index 769bd28..600cbb6 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -2820,6 +2820,10 @@ static void ggml_cuda_mul_mat_id(ggml_backend_cuda_context & ctx, ggml_tensor *
+ static bool ggml_cuda_compute_forward(ggml_backend_cuda_context & ctx, struct ggml_tensor * dst) {
+     switch (dst->op) {
+         case GGML_OP_CUSTOM:
++            if (ggml_is_inkling2_relbias_pos(dst) && ggml_cuda_inkling2_relbias_pos_node_supported(dst)) {
++                ggml_cuda_inkling2_relbias_pos_node(ctx, dst);
++                break;
++            }
+             if (!ggml_is_inkling2_relbias(dst) || !ggml_cuda_inkling2_relbias_node_supported(dst)) {
+                 return false;
+             }
+@@ -6810,7 +6814,8 @@ static bool ggml_backend_cuda_device_supports_op(ggml_backend_dev_t dev, const g
+         case GGML_OP_DUP:
+                 return true;
+         case GGML_OP_CUSTOM:
+-            return ggml_is_inkling2_relbias(op) && ggml_cuda_inkling2_relbias_node_supported(op);
++            return (ggml_is_inkling2_relbias(op) && ggml_cuda_inkling2_relbias_node_supported(op)) ||
++                   (ggml_is_inkling2_relbias_pos(op) && ggml_cuda_inkling2_relbias_pos_node_supported(op));
+         case GGML_OP_ARGMAX:
+         case GGML_OP_COUNT_EQUAL:
+             return true;
+diff --git a/ggml/src/ggml-cuda/inkling2.cu b/ggml/src/ggml-cuda/inkling2.cu
+index f516507..8bc0694 100644
+--- a/ggml/src/ggml-cuda/inkling2.cu
++++ b/ggml/src/ggml-cuda/inkling2.cu
+@@ -1890,7 +1890,8 @@ static __global__ void inkling2_relbias_sub_f32(const float * tab_ptr, const flo
+ template <bool sub, int vw, typename T_mask, typename T_dst>
+ static __global__ void inkling2_relbias_mask(const float * tab_ptr, const float * s_ptr, const int32_t * pos_ptr,
+         const T_mask * mask_ptr, T_dst * dst_ptr, const int n_kv, const int n_rows, const int n_tok, const int n_head,
+-        const int64_t tab_s1, const int64_t tab_s2, const int64_t pos_s1, const int64_t mask_s1, const int heads_per_block) {
++        const int64_t tab_s1, const int64_t tab_s2, const int64_t pos_s1, const int64_t mask_s1, const int heads_per_block,
++        const int32_t * tok_ptr) {
+     ggml_cuda_pdl_lc();
+     const int kv = (blockIdx.x*blockDim.x + threadIdx.x)*vw;
+     const int t  = blockIdx.y;
+@@ -1905,7 +1906,15 @@ static __global__ void inkling2_relbias_mask(const float * tab_ptr, const float
+     float m[vw];
+ #pragma unroll
+     for (int c = 0; c < vw; ++c) {
+-        d[c] = min(max(pos_ptr[t*pos_s1 + kv + c], 0), n_rows - 1);
++        if (tok_ptr) {
++            // positions: pos_ptr holds the position of each cell (-1: empty), tok_ptr that of each token; the distance of the dense
++            // matrix, extent (= n_rows - 1) for the empty, future and more distant cells
++            const int      cp   = pos_ptr[kv + c];
++            const int64_t  dist = (int64_t) tok_ptr[t] - cp;
++            d[c] = cp >= 0 && dist >= 0 && dist < n_rows - 1 ? (int) dist : n_rows - 1;
++        } else {
++            d[c] = min(max(pos_ptr[t*pos_s1 + kv + c], 0), n_rows - 1);
++        }
+         m[c] = ggml_cuda_cast<float>(mask_ptr[t*mask_s1 + kv + c]);
+     }
+ 
+@@ -2043,6 +2052,7 @@ static void inkling2_relbias(ggml_backend_cuda_context & ctx, const ggml_cuda_in
+     const float   * td      = (const float *) tab->data;
+     const float   * sd      = (const float *) s->data;
+     const int32_t * pd      = (const int32_t *) pos->data;
++    const int32_t * tok_pd  = args.node[0] ? (const int32_t *) args.node[0]->data : nullptr; // positions: the token positions
+     int64_t         tab_s1  = tab->nb[1]/sizeof(float);
+     int64_t         tab_s2  = tab->nb[2]/sizeof(float);
+     const int64_t   pos_s1  = pos->nb[1]/sizeof(int32_t);
+@@ -2077,11 +2087,11 @@ static void inkling2_relbias(ggml_backend_cuda_context & ctx, const ggml_cuda_in
+     if (copy) {                                                                                                     \
+         ggml_cuda_kernel_launch(inkling2_relbias_mask<false, VW, T_mask, T_dst>, params, td, sd, pd,                 \
+                 (const T_mask *) mask->data, (T_dst *) dst_data, n_kv, n_rows, n_tok, n_head, tab_s1, tab_s2,          \
+-                pos_s1, mask_s1, heads_per_block);                                                                  \
++                pos_s1, mask_s1, heads_per_block, tok_pd);                                                                  \
+     } else {                                                                                                        \
+         ggml_cuda_kernel_launch(inkling2_relbias_mask<true, VW, T_mask, T_dst>, params, td, sd, pd,                  \
+                 (const T_mask *) mask->data, (T_dst *) dst_data, n_kv, n_rows, n_tok, n_head, tab_s1, tab_s2,          \
+-                pos_s1, mask_s1, heads_per_block);                                                                  \
++                pos_s1, mask_s1, heads_per_block, tok_pd);                                                                  \
+     }
+ #define INKLING2_RELBIAS_LAUNCH(T_mask, T_dst)                                                                          \
+     if (vw == 2) {                                                                                                  \
+@@ -2567,7 +2577,7 @@ static void inkling2t_qkv_post(ggml_backend_cuda_context & ctx, const ggml_cuda_
+ template <int vw, typename T_mask, typename T_dst>
+ static __global__ void inkling2t_relbias_f32(const float * W, const int nW, const float * r, const int64_t r_s1,
+         const float * s, const int32_t * pos, const T_mask * mask, T_dst * dst, const int n_kv, const int n_rows,
+-        float * fill, const int n_fill, const float fill_v) {
++        float * fill, const int n_fill, const float fill_v, const int32_t * tok) {
+     ggml_cuda_pdl_lc();
+     constexpr int NK = 16;
+     const int kv = (blockIdx.x*blockDim.x + threadIdx.x)*vw;
+@@ -2593,7 +2603,14 @@ static __global__ void inkling2t_relbias_f32(const float * W, const int nW, cons
+     T_dst v[vw];
+ #pragma unroll
+     for (int c = 0; c < vw; ++c) {
+-        const int   d = min(max(pos[kv + c], 0), n_rows - 1);
++        int d;
++        if (tok) {
++            const int     cp   = pos[kv + c];
++            const int64_t dist = (int64_t) tok[0] - cp;
++            d = cp >= 0 && dist >= 0 && dist < n_rows - 1 ? (int) dist : n_rows - 1;
++        } else {
++            d = min(max(pos[kv + c], 0), n_rows - 1);
++        }
+         const float m = ggml_cuda_cast<float>(mask[kv + c]);
+         float tab = 0.0f;
+         if (d < nW) {
+@@ -2619,6 +2636,17 @@ static __global__ void inkling2t_relbias_f32(const float * W, const int nW, cons
+ // the mask as one graph node (ggml_inkling2_relbias): the same inputs and output as the matched chain, one node
+ static bool inkling2_match_relbias_node(const ggml_cgraph * cgraph, int i, ggml_cuda_inkling2_args & args) {
+     const ggml_tensor * n = cgraph->nodes[i];
++    if (ggml_is_inkling2_relbias_pos(n) && ggml_cuda_inkling2_relbias_pos_node_supported(n)) {
++        args.type    = GGML_CUDA_INKLING2_RELBIAS;
++        args.n_nodes = 1;
++        args.dst     = const_cast<ggml_tensor *>(n);
++        args.src[0]  = n->src[0];
++        args.src[1]  = n->src[1];
++        args.src[2]  = n->src[2]; // the cell positions
++        args.src[3]  = n->src[4]; // the mask
++        args.node[0] = n->src[3]; // the token positions
++        return true;
++    }
+     if (!ggml_is_inkling2_relbias(n) || !ggml_cuda_inkling2_relbias_node_supported(n)) {
+         return false;
+     }
+@@ -2675,9 +2703,11 @@ static bool inkling2t_match_relbias_t(const ggml_cgraph * cgraph, int i, ggml_cu
+ 
+     if (!inkling2t_closed(cgraph, i, end, { dst, fill })) INK_T_FAIL();
+ 
++    const ggml_tensor * tokp = rb.node[0]; // positions: the token positions (null for the dense matrix)
+     for (const ggml_tensor * in : { W, pos, mask }) {
+         if (inkling2_overlap(dst, in) || (fill && inkling2_overlap(fill, in))) INK_T_FAIL();
+     }
++    if (tokp && (inkling2_overlap(dst, tokp) || (fill && inkling2_overlap(fill, tokp)))) INK_T_FAIL();
+     if (fill && inkling2_overlap(fill, dst)) INK_T_FAIL();
+     // r and s die in the chain, so the mask or the sinks fill may be planned over them: stage them into scratch then
+     int stage = 0;
+@@ -2692,12 +2722,14 @@ static bool inkling2t_match_relbias_t(const ggml_cgraph * cgraph, int i, ggml_cu
+     args.dst     = const_cast<ggml_tensor *>(dst);
+     args.ext[0]  = W;  args.ext[1] = pad; args.ext[2] = r; args.ext[3] = s; args.ext[4] = pos; args.ext[5] = mask;
+     args.ext[6]  = fill;
++    args.ext[7]  = tokp;
+     return true;
+ }
+ 
+ static void inkling2t_relbias_t(ggml_backend_cuda_context & ctx, const ggml_cuda_inkling2_args & a) {
+     const ggml_tensor * W = a.ext[0], * pad = a.ext[1], * r = a.ext[2], * s = a.ext[3], * pos = a.ext[4], * mask = a.ext[5];
+     const ggml_tensor * fill = a.ext[6];
++    const int32_t * tok_d = a.ext[7] ? (const int32_t *) a.ext[7]->data : nullptr; // positions: the token position
+     ggml_tensor * dst = a.dst;
+ 
+     const int n_kv   = (int) pos->ne[0];
+@@ -2730,14 +2762,14 @@ static void inkling2t_relbias_t(ggml_backend_cuda_context & ctx, const ggml_cuda
+     if (dst->type == GGML_TYPE_F16) {
+         if (vec2) {
+             ggml_cuda_kernel_launch(inkling2t_relbias_f32<2, half, half>, params, (const float *) W->data, nW, rd, r_s1,
+-                sd, (const int32_t *) pos->data, (const half *) mask->data, (half *) dst->data, n_kv, n_rows, fd, nf, fill_v);
++                sd, (const int32_t *) pos->data, (const half *) mask->data, (half *) dst->data, n_kv, n_rows, fd, nf, fill_v, tok_d);
+         } else {
+             ggml_cuda_kernel_launch(inkling2t_relbias_f32<1, half, half>, params, (const float *) W->data, nW, rd, r_s1,
+-                sd, (const int32_t *) pos->data, (const half *) mask->data, (half *) dst->data, n_kv, n_rows, fd, nf, fill_v);
++                sd, (const int32_t *) pos->data, (const half *) mask->data, (half *) dst->data, n_kv, n_rows, fd, nf, fill_v, tok_d);
+         }
+     } else {
+         ggml_cuda_kernel_launch(inkling2t_relbias_f32<1, float, float>, params, (const float *) W->data, nW, rd, r_s1,
+-            sd, (const int32_t *) pos->data, (const float *) mask->data, (float *) dst->data, n_kv, n_rows, fd, nf, fill_v);
++            sd, (const int32_t *) pos->data, (const float *) mask->data, (float *) dst->data, n_kv, n_rows, fd, nf, fill_v, tok_d);
+     }
+ }
+ 
+@@ -3127,3 +3159,41 @@ void ggml_cuda_inkling2_relbias_node(ggml_backend_cuda_context & ctx, ggml_tenso
+     args.src[3]  = dst->src[3];
+     inkling2_relbias(ctx, args);
+ }
++
++// ---- the mask from positions (ggml_inkling2_relbias_pos) ---------------------------------------------------------------------
++bool ggml_cuda_inkling2_relbias_pos_node_supported(const ggml_tensor * dst) {
++    const ggml_tensor * tab  = dst->src[0];
++    const ggml_tensor * s    = dst->src[1];
++    const ggml_tensor * cell = dst->src[2];
++    const ggml_tensor * tok  = dst->src[3];
++    const ggml_tensor * mask = dst->src[4];
++    if (!tab || !s || !cell || !tok || !mask) {
++        return false;
++    }
++    const int64_t n_rows = tab->ne[0];
++    const int64_t n_head = tab->ne[1];
++    const int64_t n_tok  = tab->ne[2];
++    const int64_t n_kv   = cell->ne[0];
++    return inkling2_is_f32_rows(tab) && tab->ne[3] == 1 &&
++        s->type == GGML_TYPE_F32 && ggml_is_contiguous(s) && s->ne[0] == 1 && s->ne[1] == n_head && s->ne[2] == n_tok && s->ne[3] == 1 &&
++        cell->type == GGML_TYPE_I32 && ggml_is_contiguous(cell) && cell->ne[1] == 1 && cell->ne[2] == 1 &&
++        tok->type == GGML_TYPE_I32 && ggml_is_contiguous(tok) && tok->ne[0] == n_tok && tok->ne[1] == 1 &&
++        (mask->type == GGML_TYPE_F16 || mask->type == GGML_TYPE_F32) && mask->nb[0] == ggml_type_size(mask->type) &&
++        mask->ne[0] == n_kv && mask->ne[1] == n_tok && mask->ne[2] == 1 && mask->ne[3] == 1 &&
++        (dst->type == GGML_TYPE_F16 || dst->type == GGML_TYPE_F32) && ggml_is_contiguous(dst) &&
++        dst->ne[0] == n_kv && dst->ne[1] == n_tok && dst->ne[2] == n_head && dst->ne[3] == 1 &&
++        n_kv <= INT_MAX && n_rows <= INT_MAX && n_rows >= 2 && n_tok <= 65535 && n_head <= 65535;
++}
++
++void ggml_cuda_inkling2_relbias_pos_node(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
++    ggml_cuda_inkling2_args args;
++    args.type    = GGML_CUDA_INKLING2_RELBIAS;
++    args.n_nodes = 1;
++    args.dst     = dst;
++    args.src[0]  = dst->src[0];
++    args.src[1]  = dst->src[1];
++    args.src[2]  = dst->src[2]; // the cell positions
++    args.src[3]  = dst->src[4]; // the mask
++    args.node[0] = dst->src[3]; // the token positions
++    inkling2_relbias(ctx, args);
++}
+diff --git a/ggml/src/ggml-cuda/inkling2.cuh b/ggml/src/ggml-cuda/inkling2.cuh
+index b9e1a77..b01d3fb 100644
+--- a/ggml/src/ggml-cuda/inkling2.cuh
++++ b/ggml/src/ggml-cuda/inkling2.cuh
+@@ -45,4 +45,6 @@ void ggml_cuda_inkling2_fused(ggml_backend_cuda_context & ctx, const ggml_cuda_i
+ 
+ // the relative-position bias mask as one graph node (ggml_inkling2_relbias, GGML_OP_CUSTOM): the kernel of the RELBIAS fusion
+ bool ggml_cuda_inkling2_relbias_node_supported(const ggml_tensor * dst);
++bool ggml_cuda_inkling2_relbias_pos_node_supported(const ggml_tensor * dst);
++void ggml_cuda_inkling2_relbias_pos_node(ggml_backend_cuda_context & ctx, ggml_tensor * dst);
+ void ggml_cuda_inkling2_relbias_node(ggml_backend_cuda_context & ctx, ggml_tensor * dst);
+diff --git a/ggml/src/ggml.c b/ggml/src/ggml.c
+index 8ed3bc6..dadd104 100644
+--- a/ggml/src/ggml.c
++++ b/ggml/src/ggml.c
+@@ -6225,6 +6225,81 @@ bool ggml_is_inkling2_relbias(const struct ggml_tensor * t) {
+     return p.userdata == (void *) &ggml_inkling2_relbias_tag;
+ }
+ 
++// ggml_inkling2_relbias_pos
++
++static const char ggml_inkling2_relbias_pos_tag = 0;
++
++static void ggml_inkling2_relbias_pos_cpu(struct ggml_tensor * dst, int ith, int nth, void * userdata) {
++    GGML_UNUSED(userdata);
++
++    const struct ggml_tensor * tab  = dst->src[0];
++    const struct ggml_tensor * s    = dst->src[1];
++    const struct ggml_tensor * cell = dst->src[2];
++    const struct ggml_tensor * tok  = dst->src[3];
++    const struct ggml_tensor * mask = dst->src[4];
++
++    const int64_t n_rows = tab->ne[0];
++    const int64_t n_head = tab->ne[1];
++    const int64_t n_tok  = tab->ne[2];
++    const int64_t n_kv   = cell->ne[0];
++    const int64_t extent = n_rows - 1;
++
++    const int32_t * cp = (const int32_t *) cell->data;
++    const int32_t * tp = (const int32_t *) tok->data;
++
++    for (int64_t t = ith; t < n_tok; t += nth) {
++        for (int64_t h = 0; h < n_head; ++h) {
++            const float * tb = (const float *) ((const char *) tab->data + h*tab->nb[1] + t*tab->nb[2]);
++            const float   sv = *(const float *) ((const char *) s->data + h*s->nb[1] + t*s->nb[2]);
++            for (int64_t kv = 0; kv < n_kv; ++kv) {
++                const int64_t dist = (int64_t) tp[t] - cp[kv];
++                const int64_t d    = cp[kv] >= 0 && dist >= 0 && dist < extent ? dist : extent;
++                const float m = mask->type == GGML_TYPE_F16 ?
++                    GGML_FP16_TO_FP32(((const ggml_fp16_t *) ((const char *) mask->data + t*mask->nb[1]))[kv]) :
++                    ((const float *) ((const char *) mask->data + t*mask->nb[1]))[kv];
++                const float b = tb[d] - sv;
++                const float v = b + m;
++                char * out = (char *) dst->data + ((h*n_tok + t)*n_kv + kv)*ggml_type_size(dst->type);
++                if (dst->type == GGML_TYPE_F16) {
++                    *(ggml_fp16_t *) out = GGML_FP32_TO_FP16(v);
++                } else {
++                    *(float *) out = v;
++                }
++            }
++        }
++    }
++}
++
++struct ggml_tensor * ggml_inkling2_relbias_pos(
++        struct ggml_context * ctx,
++        struct ggml_tensor  * tab,
++        struct ggml_tensor  * sinks,
++        struct ggml_tensor  * cell,
++        struct ggml_tensor  * tok,
++        struct ggml_tensor  * mask,
++        enum ggml_type        type) {
++    GGML_ASSERT(tab->type == GGML_TYPE_F32 && tab->nb[0] == sizeof(float) && tab->ne[3] == 1);
++    GGML_ASSERT(sinks->type == GGML_TYPE_F32 && sinks->ne[0] == 1 && sinks->ne[1] == tab->ne[1] && sinks->ne[2] == tab->ne[2] && sinks->ne[3] == 1);
++    GGML_ASSERT(cell->type == GGML_TYPE_I32 && ggml_is_contiguous(cell) && cell->ne[1] == 1 && cell->ne[2] == 1 && cell->ne[3] == 1);
++    GGML_ASSERT(tok->type == GGML_TYPE_I32 && ggml_is_contiguous(tok) && tok->ne[0] == tab->ne[2] && tok->ne[1] == 1 && tok->ne[2] == 1 && tok->ne[3] == 1);
++    GGML_ASSERT(mask->type == GGML_TYPE_F16 || mask->type == GGML_TYPE_F32);
++    GGML_ASSERT(mask->ne[0] == cell->ne[0] && mask->ne[1] == tab->ne[2] && mask->ne[2] == 1 && mask->ne[3] == 1);
++    GGML_ASSERT(type == GGML_TYPE_F16 || type == GGML_TYPE_F32);
++
++    struct ggml_tensor * args[5] = { tab, sinks, cell, tok, mask };
++    return ggml_custom_4d(ctx, type, cell->ne[0], tab->ne[2], tab->ne[1], 1, args, 5, ggml_inkling2_relbias_pos_cpu,
++            GGML_N_TASKS_MAX, (void *) &ggml_inkling2_relbias_pos_tag);
++}
++
++bool ggml_is_inkling2_relbias_pos(const struct ggml_tensor * t) {
++    if (t->op != GGML_OP_CUSTOM) {
++        return false;
++    }
++    struct ggml_custom_op_params p;
++    memcpy(&p, t->op_params, sizeof(p));
++    return p.userdata == (void *) &ggml_inkling2_relbias_pos_tag;
++}
++
+ struct ggml_tensor * ggml_custom_inplace(
+         struct ggml_context * ctx,
+         struct ggml_tensor  * a,
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index 281fbab..8bbed21 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -1402,6 +1402,11 @@ bool llm_graph_input_mem_hybrid_iswa::can_reuse(const llm_graph_params & params)
+     return res;
+ }
+ 
++bool llama_ink_relbias_node_enabled() {
++    static const bool enabled = [] { const char * e = getenv("LLAMA_INK_RELBIAS_NODE"); return !e || atoi(e) != 0; }();
++    return enabled;
++}
++
+ void llm_graph_input_mem_hybrid_iswa_rel::set_input(const llama_ubatch * ubatch) {
+     const auto * attn_ctx = mctx->get_attn();
+ 
+@@ -1415,10 +1420,18 @@ void llm_graph_input_mem_hybrid_iswa_rel::set_input(const llama_ubatch * ubatch)
+         attn_ctx->get_base()->set_input_attn_mask(inp_attn->self_attn_mask, ubatch, cparams.causal_attn);
+     }
+ 
+-    if (self_rel_pos->buffer) {
++    if (self_rel_pos && self_rel_pos->buffer) {
+         attn_ctx->get_base()->set_input_relative_pos(self_rel_pos, ubatch, extent);
+     }
+ 
++    if (self_rel_cell && self_rel_cell->buffer) {
++        attn_ctx->get_base()->set_input_rel_cell_pos(self_rel_cell);
++    }
++
++    if (self_rel_tok && self_rel_tok->buffer) {
++        attn_ctx->get_base()->set_input_rel_tok_pos(self_rel_tok, ubatch);
++    }
++
+     // swa tensors may not be allocated if there are no SWA attention layers
+     if (inp_attn->self_k_idxs_swa && inp_attn->self_k_idxs_swa->buffer) {
+         attn_ctx->get_swa()->set_input_k_idxs(inp_attn->self_k_idxs_swa, ubatch);
+@@ -1429,10 +1442,14 @@ void llm_graph_input_mem_hybrid_iswa_rel::set_input(const llama_ubatch * ubatch)
+         attn_ctx->get_swa()->set_input_attn_mask(inp_attn->self_attn_mask_swa, ubatch, cparams.causal_attn);
+     }
+ 
+-    if (self_rel_pos_swa->buffer) {
++    if (self_rel_pos_swa && self_rel_pos_swa->buffer) {
+         attn_ctx->get_swa()->set_input_relative_pos(self_rel_pos_swa, ubatch, extent_swa);
+     }
+ 
++    if (self_rel_cell_swa && self_rel_cell_swa->buffer) {
++        attn_ctx->get_swa()->set_input_rel_cell_pos(self_rel_cell_swa);
++    }
++
+     const int64_t n_rs = mctx->get_recr()->get_n_rs();
+ 
+     if (inp_rs->s_copy) {
+@@ -1464,8 +1481,14 @@ bool llm_graph_input_mem_hybrid_iswa_rel::can_reuse(const llm_graph_params & par
+ 
+     res &= can_reuse_kq_mask(inp_attn->self_attn_mask.raw, attn_ctx->get_base(), params.ubatch, params.cparams);
+ 
+-    res &= self_rel_pos->ne[0] == attn_ctx->get_base()->get_n_kv();
+-    res &= self_rel_pos->ne[1] == params.ubatch.n_tokens;
++    if (self_rel_pos) {
++        res &= self_rel_pos->ne[0] == attn_ctx->get_base()->get_n_kv();
++        res &= self_rel_pos->ne[1] == params.ubatch.n_tokens;
++    }
++    if (self_rel_cell) {
++        res &= self_rel_cell->ne[0] == attn_ctx->get_base()->get_n_kv();
++        res &= self_rel_tok->ne[0] == params.ubatch.n_tokens;
++    }
+ 
+     // swa tensors may not be allocated if there are no SWA attention layers
+     if (inp_attn->self_k_idxs_swa && inp_attn->self_k_idxs_swa->buffer) {
+@@ -1474,8 +1497,13 @@ bool llm_graph_input_mem_hybrid_iswa_rel::can_reuse(const llm_graph_params & par
+ 
+     res &= can_reuse_kq_mask(inp_attn->self_attn_mask_swa.raw, attn_ctx->get_swa(), params.ubatch, params.cparams);
+ 
+-    res &= self_rel_pos_swa->ne[0] == attn_ctx->get_swa()->get_n_kv();
+-    res &= self_rel_pos_swa->ne[1] == params.ubatch.n_tokens;
++    if (self_rel_pos_swa) {
++        res &= self_rel_pos_swa->ne[0] == attn_ctx->get_swa()->get_n_kv();
++        res &= self_rel_pos_swa->ne[1] == params.ubatch.n_tokens;
++    }
++    if (self_rel_cell_swa) {
++        res &= self_rel_cell_swa->ne[0] == attn_ctx->get_swa()->get_n_kv();
++    }
+ 
+     res &= inp_rs->s_copy->ne[0] == mctx->get_recr()->get_n_rs();
+ 
+@@ -4465,13 +4493,28 @@ llm_graph_input_mem_hybrid_iswa_rel * llm_graph_context::build_inp_mem_hybrid_is
+ 
+     auto inp = std::make_unique<llm_graph_input_mem_hybrid_iswa_rel>(cparams, std::move(inp_attn), std::move(inp_rs), mctx_cur, extent, extent_swa);
+ 
+-    inp->self_rel_pos = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, attn_ctx->get_base()->get_n_kv(), ubatch.n_tokens);
+-    ggml_set_input(inp->self_rel_pos);
+-    ggml_set_name(inp->self_rel_pos, "attn_inp_rel_pos");
++    if (llama_ink_relbias_node_enabled() && inp->get_attn()->self_attn_mask.raw->ne[3] == 1) {
++        // the bias node derives the distances itself: the positions of the cells and of the tokens are all it needs
++        inp->self_rel_cell = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, attn_ctx->get_base()->get_n_kv());
++        ggml_set_input(inp->self_rel_cell);
++        ggml_set_name(inp->self_rel_cell, "attn_inp_rel_cell");
+ 
+-    inp->self_rel_pos_swa = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, attn_ctx->get_swa()->get_n_kv(), ubatch.n_tokens);
+-    ggml_set_input(inp->self_rel_pos_swa);
+-    ggml_set_name(inp->self_rel_pos_swa, "attn_inp_rel_pos_swa");
++        inp->self_rel_cell_swa = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, attn_ctx->get_swa()->get_n_kv());
++        ggml_set_input(inp->self_rel_cell_swa);
++        ggml_set_name(inp->self_rel_cell_swa, "attn_inp_rel_cell_swa");
++
++        inp->self_rel_tok = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, ubatch.n_tokens);
++        ggml_set_input(inp->self_rel_tok);
++        ggml_set_name(inp->self_rel_tok, "attn_inp_rel_tok");
++    } else {
++        inp->self_rel_pos = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, attn_ctx->get_base()->get_n_kv(), ubatch.n_tokens);
++        ggml_set_input(inp->self_rel_pos);
++        ggml_set_name(inp->self_rel_pos, "attn_inp_rel_pos");
++
++        inp->self_rel_pos_swa = ggml_new_tensor_2d(ctx0, GGML_TYPE_I32, attn_ctx->get_swa()->get_n_kv(), ubatch.n_tokens);
++        ggml_set_input(inp->self_rel_pos_swa);
++        ggml_set_name(inp->self_rel_pos_swa, "attn_inp_rel_pos_swa");
++    }
+ 
+     return (llm_graph_input_mem_hybrid_iswa_rel *) res->add_input(std::move(inp));
+ }
+@@ -4522,7 +4565,8 @@ ggml_tensor * llm_graph_context::build_attn_relbias(
+         ggml_tensor * v_cur,
+         ggml_tensor * rel_tab,
+         ggml_tensor * rel_s,
+-        ggml_tensor * rel_pos,
++        ggml_tensor * rel_cell,
++        ggml_tensor * rel_tok,
+         ggml_tensor * sinks,
+             float     kq_scale,
+             int       il) const {
+@@ -4535,7 +4579,7 @@ ggml_tensor * llm_graph_context::build_attn_relbias(
+     GGML_ASSERT(attn_mask.rows == nullptr);
+     GGML_ASSERT(attn_mask.raw->ne[3] == 1);
+ 
+-    ggml_tensor * kq_mask = ggml_inkling2_relbias(ctx0, rel_tab, rel_s, rel_pos, attn_mask.raw,
++    ggml_tensor * kq_mask = ggml_inkling2_relbias_pos(ctx0, rel_tab, rel_s, rel_cell, rel_tok, attn_mask.raw,
+             cparams.flash_attn ? GGML_TYPE_F16 : GGML_TYPE_F32);
+     cb(kq_mask, "kq_mask_rel_pos", il);
+ 
+diff --git a/src/llama-graph.h b/src/llama-graph.h
+index 864ebcd..1e6e9c5 100644
+--- a/src/llama-graph.h
++++ b/src/llama-graph.h
+@@ -776,6 +776,9 @@ public:
+ // hybrid iswa memory with a per-head attention bias that depends on the distance from the query to the cell (Inkling)
+ // the KQ masks are always dense (rows == nullptr) and are filled from the same cells as the distances, so that the bias
+ // gathered by distance lines up with the mask
++// LLAMA_INK_RELBIAS_NODE=0 keeps the unfused chain of the relative-position bias mask (and its dense distance matrix)
++bool llama_ink_relbias_node_enabled();
++
+ class llm_graph_input_mem_hybrid_iswa_rel : public llm_graph_input_i {
+ public:
+     llm_graph_input_mem_hybrid_iswa_rel(
+@@ -804,9 +807,14 @@ public:
+     llm_graph_input_rs           * get_recr() const { return inp_rs.get(); }
+ 
+     // distance from the token to the cell, extent for the empty, future and more distant cells
+-    ggml_tensor * self_rel_pos     = nullptr; // I32 [n_kv,     n_batch]
++    ggml_tensor * self_rel_pos     = nullptr; // I32 [n_kv,     n_batch]  (not built when the bias node takes positions)
+     ggml_tensor * self_rel_pos_swa = nullptr; // I32 [n_kv_swa, n_batch]
+ 
++    // instead of the dense matrix: the positions of the cells (-1: empty) and of the tokens, a few KB instead of n_kv x n_batch x 4 bytes
++    ggml_tensor * self_rel_cell     = nullptr; // I32 [n_kv]
++    ggml_tensor * self_rel_cell_swa = nullptr; // I32 [n_kv_swa]
++    ggml_tensor * self_rel_tok      = nullptr; // I32 [n_batch]
++
+     const uint32_t extent;
+     const uint32_t extent_swa;
+ 
+@@ -1566,7 +1574,8 @@ struct llm_graph_context {
+             ggml_tensor * v_cur,   // [n_embd_head_v, n_head_v, n_tokens]
+             ggml_tensor * rel_tab, // [n_rows, n_head_q, n_tokens]: r projected on the bias table
+             ggml_tensor * rel_s,   // [1, n_head_q, n_tokens]: the sink logit of each query, subtracted from the table
+-            ggml_tensor * rel_pos, // [n_kv, n_tokens]: the distances
++            ggml_tensor * rel_cell, // [n_kv]: the position of each cell, -1 when empty
++            ggml_tensor * rel_tok,  // [n_tokens]: the position of each token
+             ggml_tensor * sinks,   // [n_head_q]
+                   float   kq_scale,
+                     int   il) const;
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index fbe422a..a29212e 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -2021,6 +2021,23 @@ void llama_kv_cache::set_input_relative_pos(ggml_tensor * dst, const llama_ubatc
+     ggml_backend_tensor_set(dst, data.data(), 0, ggml_nbytes(dst));
+ }
+ 
++void llama_kv_cache::set_input_rel_cell_pos(ggml_tensor * dst) const {
++    GGML_ASSERT(dst->type == GGML_TYPE_I32);
++    GGML_ASSERT(v_cells.size() == 1); // one stream: the bias node is not used otherwise
++    const auto & cells = v_cells[0];
++    const int64_t n_kv = dst->ne[0];
++    std::vector<int32_t> data(n_kv);
++    for (int64_t j = 0; j < n_kv; ++j) {
++        data[j] = cells.is_empty(j) ? -1 : cells.pos_get(j);
++    }
++    ggml_backend_tensor_set(dst, data.data(), 0, ggml_nbytes(dst));
++}
++
++void llama_kv_cache::set_input_rel_tok_pos(ggml_tensor * dst, const llama_ubatch * ubatch) const {
++    GGML_ASSERT(dst->type == GGML_TYPE_I32 && dst->ne[0] == (int64_t) ubatch->n_tokens);
++    ggml_backend_tensor_set(dst, ubatch->pos, 0, ggml_nbytes(dst));
++}
++
+ void llama_kv_cache::get_prev_tokens(const llama_ubatch & ubatch, uint32_t n, std::vector<llama_token> & res) const {
+     const uint32_t n_tokens = ubatch.n_tokens;
+ 
+@@ -3128,6 +3145,14 @@ void llama_kv_cache_context::set_input_relative_pos(ggml_tensor * dst, const lla
+     kv->set_input_relative_pos(dst, ubatch, extent);
+ }
+ 
++void llama_kv_cache_context::set_input_rel_cell_pos(ggml_tensor * dst) const {
++    kv->set_input_rel_cell_pos(dst);
++}
++
++void llama_kv_cache_context::set_input_rel_tok_pos(ggml_tensor * dst, const llama_ubatch * ubatch) const {
++    kv->set_input_rel_tok_pos(dst, ubatch);
++}
++
+ void llama_kv_cache_context::get_prev_tokens(const llama_ubatch & ubatch, uint32_t n, std::vector<llama_token> & res) const {
+     kv->get_prev_tokens(ubatch, n, res);
+ }
+diff --git a/src/llama-kv-cache.h b/src/llama-kv-cache.h
+index 1b40f6f..199b346 100644
+--- a/src/llama-kv-cache.h
++++ b/src/llama-kv-cache.h
+@@ -250,6 +250,9 @@ public:
+     void set_input_attn_mask (const llm_attn_mask & attn_mask, const llama_ubatch * ubatch, bool causal_attn) const;
+     void set_input_pos_bucket(ggml_tensor * dst, const llama_ubatch * ubatch) const;
+     void set_input_relative_pos(ggml_tensor * dst, const llama_ubatch * ubatch, uint32_t extent) const;
++    // the positions of the cells (-1: empty) and of the tokens: what the relative-position bias node derives its distances from
++    void set_input_rel_cell_pos(ggml_tensor * dst) const;
++    void set_input_rel_tok_pos (ggml_tensor * dst, const llama_ubatch * ubatch) const;
+ 
+     // true if llama_kv_cell_ext holds information that has to survive a state save/restore
+     bool has_cell_ext() const;
+@@ -455,6 +458,9 @@ public:
+     void set_input_attn_mask (const llm_attn_mask & attn_mask, const llama_ubatch * ubatch, bool causal_attn) const;
+     void set_input_pos_bucket(ggml_tensor * dst, const llama_ubatch * ubatch) const;
+     void set_input_relative_pos(ggml_tensor * dst, const llama_ubatch * ubatch, uint32_t extent) const;
++    // the positions of the cells (-1: empty) and of the tokens: what the relative-position bias node derives its distances from
++    void set_input_rel_cell_pos(ggml_tensor * dst) const;
++    void set_input_rel_tok_pos (ggml_tensor * dst, const llama_ubatch * ubatch) const;
+ 
+     // see llama_kv_cache::get_prev_tokens()
+     void get_prev_tokens(const llama_ubatch & ubatch, uint32_t n, std::vector<llama_token> & res) const;
+diff --git a/src/models/inkling2.cpp b/src/models/inkling2.cpp
+index 12b692f..eff0bb5 100644
+--- a/src/models/inkling2.cpp
++++ b/src/models/inkling2.cpp
+@@ -405,10 +405,11 @@ ggml_tensor * llama_model_inkling2::graph::build_layer(int il, int ip, ggml_tens
+         cb(Vcur, "Vcur", il);
+         cb(Rcur, "Rcur", il);
+ 
+-        ggml_tensor * rel_pos = is_swa ? inp->self_rel_pos_swa : inp->self_rel_pos;
++        ggml_tensor * rel_pos  = is_swa ? inp->self_rel_pos_swa : inp->self_rel_pos;   // the dense distances (null with the bias node)
++        ggml_tensor * rel_cell = is_swa ? inp->self_rel_cell_swa : inp->self_rel_cell; // the cell positions (null without it)
+ 
+         const int64_t n_stream = (is_swa ? attn->self_attn_mask_swa.raw : attn->self_attn_mask.raw)->ne[3];
+-        const int64_t n_kv     = rel_pos->ne[0];
++        const int64_t n_kv     = rel_pos ? rel_pos->ne[0] : rel_cell->ne[0];
+ 
+         ggml_tensor * sinks = ggml_reshape_3d(ctx0, build_lora_mm(layer.attn_sink_proj, inputs[0]), 1, n_head, n_tokens);
+ 
+@@ -423,15 +424,14 @@ ggml_tensor * llama_model_inkling2::graph::build_layer(int il, int ip, ggml_tens
+         // planned by the allocator (at 256K they are most of the compute buffer). All batch sizes: the prefill and the decode graph
+         // keep the same topology (a different one makes the scheduler re-plan the buffer at every switch); the decode fusion
+         // RELBIAS_T takes the node as it took the chain. LLAMA_INK_RELBIAS_NODE=0 keeps the chain.
+-        static const bool relbias_node = [] { const char * e = getenv("LLAMA_INK_RELBIAS_NODE"); return !e || atoi(e) != 0; }();
+-        if (relbias_node && n_stream == 1) {
++        if (rel_cell) {
+             ggml_tensor * rel_sinks = sinks;
+ 
+             sinks = ggml_fill(ctx0, ggml_new_tensor_1d(ctx0, GGML_TYPE_F32, n_head), 0.0f);
+ 
+             cur = build_attn_relbias(inp,
+                     nullptr, nullptr, nullptr,
+-                    Qcur, Kcur, Vcur, table, rel_sinks, rel_pos, sinks, 1.0f/sqrtf(n_embd_head), il);
++                    Qcur, Kcur, Vcur, table, rel_sinks, rel_cell, inp->self_rel_tok, sinks, 1.0f/sqrtf(n_embd_head), il);
+         } else {
+         // the sink logit t is per query: exp(s - t)/(1 + sum(exp(s - t))) = exp(s)/(exp(t) + sum(exp(s))), with a zero sink
+         table = ggml_sub(ctx0, table, sinks);
+diff --git a/tests/test-backend-ops.cpp b/tests/test-backend-ops.cpp
+index 49b57d1..f412dd0 100644
+--- a/tests/test-backend-ops.cpp
++++ b/tests/test-backend-ops.cpp
+@@ -3869,7 +3869,7 @@ struct test_softcap : public test_case {
+ // Inkling 2: the glue op chains of src/models/inkling2.cpp, built in the same op order as the model, so that a
+ // backend that fuses them (CUDA, inkling2.cu) is compared against the unfused CPU ops
+ struct test_inkling2 : public test_case {
+-    enum chain_type { CLIP, CONV, SITU, MIX, CTRL, RELBIAS, CONV_STATE, CONV_DYN, RELBIAS_NODE };
++    enum chain_type { CLIP, CONV, SITU, MIX, CTRL, RELBIAS, CONV_STATE, CONV_DYN, RELBIAS_NODE, RELBIAS_POS };
+ 
+     const chain_type chain;
+     const int64_t    n;     // channels
+@@ -3880,13 +3880,14 @@ struct test_inkling2 : public test_case {
+                             // CONV_DYN: heads, CONV(_STATE): a residual add follows
+ 
+     ggml_tensor * state_store = nullptr; // CONV_STATE: the state store, compared along with the output
++    std::vector<int32_t> cell_pos, tok_pos; // RELBIAS_POS: the positions the dense matrix is derived from
+ 
+     static constexpr int64_t n_expert = 16;
+ 
+     std::string op_desc(ggml_tensor * t) override {
+         GGML_UNUSED(t);
+         static const char * names[] = { "INKLING2_CLIP", "INKLING2_CONV", "INKLING2_SITU", "INKLING2_MIX", "INKLING2_CTRL",
+-            "INKLING2_RELBIAS", "INKLING2_CONV_STATE", "INKLING2_CONV_DYN", "INKLING2_RELBIAS_NODE" };
++            "INKLING2_RELBIAS", "INKLING2_CONV_STATE", "INKLING2_CONV_DYN", "INKLING2_RELBIAS_NODE", "INKLING2_RELBIAS_POS" };
+         return names[chain];
+     }
+ 
+@@ -3907,7 +3908,7 @@ struct test_inkling2 : public test_case {
+ 
+     double max_nmse_err() override {
+         // MIX, CTRL and RELBIAS contain matrix multiplications, the tolerance of test_mul_mat
+-        return chain == MIX || chain == CTRL || chain == RELBIAS || chain == RELBIAS_NODE ? 5e-4 : 1e-6;
++        return chain == MIX || chain == CTRL || chain == RELBIAS || chain == RELBIAS_NODE || chain == RELBIAS_POS ? 5e-4 : 1e-6;
+     }
+ 
+     test_inkling2(chain_type chain, int64_t n, int64_t n_tok, int64_t k, int64_t v)
+@@ -4057,6 +4058,30 @@ struct test_inkling2 : public test_case {
+                 ggml_tensor * diff   = ggml_sub(ctx, node32, ggml_cast(ctx, chain_out, GGML_TYPE_F32));
+                 out = ggml_add(ctx, node32, ggml_scale(ctx, diff, 1e4f));
+             } break;
++            case RELBIAS_POS: {
++                // the node from positions against the node from the dense matrix of the same distances (initialize_tensors derives
++                // the matrix from the positions): out = pos + 1e4*(pos - dense) is the pos node where the two agree bit for bit
++                const int64_t n_rel  = n;
++                const int64_t n_head = k;
++                const int64_t n_kv   = v;
++                const int64_t n_ext  = 64;
++                ggml_tensor * w     = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, n_rel, n_ext);
++                ggml_tensor * r     = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, n_rel, n_head, n_tok);
++                ggml_tensor * sinks = ggml_new_tensor_3d(ctx, GGML_TYPE_F32, 1, n_head, n_tok);
++                ggml_tensor * cell  = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, n_kv);
++                ggml_tensor * tokp  = ggml_new_tensor_1d(ctx, GGML_TYPE_I32, n_tok);
++                ggml_tensor * pos   = ggml_new_tensor_2d(ctx, GGML_TYPE_I32, n_kv, n_tok);
++                ggml_tensor * mask  = ggml_new_tensor_2d(ctx, GGML_TYPE_F16, n_kv, n_tok);
++                ggml_set_name(cell, "cell");
++                ggml_set_name(tokp, "tokp");
++                ggml_set_name(pos, "pos");
++                ggml_tensor * table = ggml_mul_mat(ctx, ggml_pad(ctx, w, 0, 1, 0, 0), r);
++                ggml_tensor * by_pos   = ggml_inkling2_relbias_pos(ctx, table, sinks, cell, tokp, mask, GGML_TYPE_F16);
++                ggml_tensor * by_dense = ggml_inkling2_relbias(ctx, table, sinks, pos, mask, GGML_TYPE_F16);
++                ggml_tensor * pos32   = ggml_cast(ctx, by_pos, GGML_TYPE_F32);
++                ggml_tensor * diff    = ggml_sub(ctx, pos32, ggml_cast(ctx, by_dense, GGML_TYPE_F32));
++                out = ggml_add(ctx, pos32, ggml_scale(ctx, diff, 1e4f));
++            } break;
+             case CONV_STATE:
+             case CONV_DYN: {
+                 // the short convolution over the stored state and the tokens, the state store keeps the last
+@@ -4107,6 +4132,31 @@ struct test_inkling2 : public test_case {
+             if (ggml_is_view_op(t->op)) {
+                 continue;
+             }
++            if (chain == RELBIAS_POS && (std::string(t->name) == "cell" || std::string(t->name) == "tokp" || std::string(t->name) == "pos")) {
++                // positions: cells hold -1 (empty) or a position, tokens a position; the dense matrix is derived from them
++                const int64_t n_tk = n_tok;
++                if (std::string(t->name) == "cell") {
++                    std::vector<int32_t> d(ggml_nelements(t));
++                    for (auto & x : d) { x = rand() % 7 == 0 ? -1 : rand() % 400; }
++                    ggml_backend_tensor_set(t, d.data(), 0, d.size()*sizeof(int32_t));
++                    cell_pos = d;
++                } else if (std::string(t->name) == "tokp") {
++                    std::vector<int32_t> d(ggml_nelements(t));
++                    for (auto & x : d) { x = rand() % 400; }
++                    ggml_backend_tensor_set(t, d.data(), 0, d.size()*sizeof(int32_t));
++                    tok_pos = d;
++                } else {
++                    std::vector<int32_t> d(ggml_nelements(t));
++                    for (int64_t i = 0; i < n_tk; ++i) {
++                        for (int64_t j = 0; j < t->ne[0]; ++j) {
++                            const int64_t dist = (int64_t) tok_pos[i] - cell_pos[j];
++                            d[i*t->ne[0] + j] = cell_pos[j] >= 0 && dist >= 0 && dist < 64 ? (int32_t) dist : 64;
++                        }
++                    }
++                    ggml_backend_tensor_set(t, d.data(), 0, d.size()*sizeof(int32_t));
++                }
++                continue;
++            }
+             if (t->type == GGML_TYPE_I32) {
+                 // expert ids, or relative positions in [0, n_ext] (n_ext: the padded zero column)
+                 const int range = chain == RELBIAS || chain == RELBIAS_NODE ? 64 + 1 : n_expert;
+@@ -12051,6 +12101,9 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
+         test_cases.emplace_back(new test_inkling2(test_inkling2::RELBIAS_NODE, 16, n_tok, 24, 256));
+         test_cases.emplace_back(new test_inkling2(test_inkling2::RELBIAS_NODE, 16, n_tok, 24, 1024 + n_tok));
+         test_cases.emplace_back(new test_inkling2(test_inkling2::RELBIAS_NODE, 16, n_tok, 24, 4096 + 2));
++        test_cases.emplace_back(new test_inkling2(test_inkling2::RELBIAS_POS, 16, n_tok, 24, 256));
++        test_cases.emplace_back(new test_inkling2(test_inkling2::RELBIAS_POS, 16, n_tok, 24, 1031));
++        test_cases.emplace_back(new test_inkling2(test_inkling2::RELBIAS_POS, 16, n_tok, 24, 4098));
+     }
+     test_cases.emplace_back(new test_inkling2(test_inkling2::CONV_STATE, 2304, 1, 1, 0));
+     test_cases.emplace_back(new test_inkling2(test_inkling2::CONV_STATE, 2304, 1, 1, 1));

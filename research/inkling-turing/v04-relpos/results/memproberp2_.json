@@ -1,0 +1,32 @@
+[
+ {
+  "spec": "262144:256:q8_0",
+  "loaded": true,
+  "used_mib": 19824,
+  "buffers": []
+ },
+ {
+  "spec": "262144:128:q8_0",
+  "loaded": true,
+  "used_mib": 18188,
+  "buffers": []
+ },
+ {
+  "spec": "262144:64:q8_0",
+  "loaded": true,
+  "used_mib": 17368,
+  "buffers": []
+ },
+ {
+  "spec": "131072:512:q8_0",
+  "loaded": true,
+  "used_mib": 17230,
+  "buffers": []
+ },
+ {
+  "spec": "131072:256:q8_0",
+  "loaded": true,
+  "used_mib": 15536,
+  "buffers": []
+ }
+]
