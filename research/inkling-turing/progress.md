@@ -68,3 +68,8 @@ Prefill is ~1% lower in all runs of the new binary incl. its all-off control: se
 
 ## Files
 `THEORY.md` ceilings, `ledger.jsonl` experiments, `results/` raw bench/decode JSON + hwbench, `prof/` nsys/ncu/graph dumps, `sessions/` logs, fusion sources `ink_t_qkv.inc`, `ink_t_rb.inc`, `ink_t_ctrl.inc`, patch scripts `k_patch_*.py`.
+
+## v0.2 round 1 (2026-11-22): DSpark parked
+- Rejected: NVFP4 register prefetch (+1%, V02-1), grouped-expert verify kernel (-28% at N=4, V02-4). The Mini drafter does not load in the fork (needs the rnn_hidden head port). Economics in THEORY.md. Default build unchanged (HEAD 6e225ed, tree clean).
+
+- v0.2 accepted: NVFP4 half-K tile (e0be55a) pp512 0K 1366->1401 (+2.5%), 8K +2.1%, bit-exact. IQ3_XXS half-K neutral (rejected).

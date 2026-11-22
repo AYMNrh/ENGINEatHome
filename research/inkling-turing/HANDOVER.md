@@ -3,7 +3,7 @@
 Status 2026-11-22 00:10: research **stopped** at the user's request (usage limit). All validated work is committed. The GPU is idle and Swift production is restored.
 
 ## 1. Current best configuration
-- **Host / GPU:** the homelab host (SSH details in the local `.homelab-access` notes, not in git). RTX 2080 Ti 22 GB, sm_75, 175 W limit.
+- **Host / GPU:** homelab (private host). RTX 2080 Ti 22 GB, sm_75, 175 W limit.
 - **Code:** `~/llm/experiments/inkling-kernels/llama.cpp`, branch `turing-iq3-opt`, HEAD `6e225ed`. Base is `realugbun/llama.cpp@inkling2-speed` 7669d89, the local clone `refs/speed-fork`.
 - **Binaries:** `~/llm/experiments/inkling-kernels/bin-best/` holds the HEAD build. `bin-base/` is the pure fork and `bin-cp3/` is checkpoint 3 plus GQA opt-in.
 - **Model:** `model/Inkling-2-Mini-UD-IQ3_XXS.mainline.gguf`. This is the mainline-format GGUF; the old Unsloth `inkling2` GGUF does not load in this fork.
@@ -130,3 +130,10 @@ Profiling tools:
   - Same-session interleaved controls.
   - No 128K/256K runs, no quantization sweeps, no full coding suites, no model downloads.
 - Stop after three consecutive hypotheses below +2% end to end. The current streak is 0: NVFP4 2 blocks/SM failed, then GQA mode 1 passed with +3.5% at 32K.
+
+## 9. v0.2 round 1 addendum (2026-11-22)
+- Accepted (bit-exact, commit e0be55a): NVFP4 MMQ half-K tile (layout NVFP4H, K_vram 128, x tile 84 -> 44 ints/row, 2 blocks/SM for J<=48, regs 138 -> 108-114, no spills). pp512 0K 1366 -> 1401 (+2.5%), 8K 1171 -> 1196 (+2.1%). Correction to section 5: the J=48 MoE kernels use 120-138 registers (255 applied to J=128 tiles); the limiter for a second resident block was shared memory (~50 KB), not registers.
+- Rejected: NVFP4 register prefetch (+1%, results/nvpf_v02_rejected.patch), grouped-expert multi-token verify kernel (-28% at N=4, results/grp_verify_v02_rejected.patch), IQ3_XXS half-K tile (0%, results/iq3_halfk_v02_rejected.patch; IQ2_S cannot fit 2 blocks because of its 8 KB LUT).
+- DSpark parked: economics in THEORY.md (verify cost, break-even L), ledger V02-3/V02-REF. The Mini drafter (rnn_hidden Markov head) needs a graph port into dspark.cpp/dflash.cpp; Basalt v0.5.5 dspark.cu has the math.
+- Prefill profile after this round (pp512 0K, nsys): NVFP4 down 18%, IQ3_XXS 17.5%, IQ2_S 12%, Q8_0 MMQ 9.8%, FA 3.9%, fp32 cuBLAS sgemm (relbias projection etc.) ~6.5%, conv 3.4%, quantize 2.4%. At 8K depth FA is 11.4% and inkling2_relbias_mask 2.5%.
+- Next candidates: (1) fuse relbias bias gather into the FA mma kernel (per-token table [1024 x 24] instead of the n_kv x 24 x n_tok mask, est. 3% at 8K, more at 32K); (2) fp32 sgemm -> fp16/INT8 tensor-core path (opt-in, not bit-exact, est. up to 4%); (3) IQ3_XXS LUT bank conflicts (replicate grid per bank group); (4) NVFP4 wide 128-bit global loads + exact integer UE4M3 scale path.

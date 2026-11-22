@@ -103,3 +103,10 @@ A GQA-batched q8_0 decode kernel with per-head mask rows is the identified lever
 | CP3 default (bit-exact) | 62.4 | 37% | 56.5 | 36% |
 | CP3 IQ opt-in | 64.4 | 38% | 57.8 | 37% |
 | round 4 default (bit-exact; 32K 50.8) | 62.4 | 37% | 56.5 | 36% |
+
+## Multi-token verification economics (v0.2, DSpark parked)
+- Generic verify batch (target only, bin-best, depth 0): N=1 15.3 ms, 2 24.2 (1.58x), 3 29.7 (1.95x), 4 35.7 (2.34x), 5 44.3 (2.9x), 6 50.4 (3.3x), 8 47.6 (3.1x, MMQ path). About 3.8 ms per extra token.
+- Break-even accepted tokens per step L = (Tv(N) + Td) / T1, with Td about 3.5 ms (estimate: 0.4 GB Q8 drafter + 201K head + launches): N2 1.81 (max 2), N3 2.17, N4 2.56, N5 3.13, N8 3.34. Reported L on a 3090 (NInfer/Maya, other engines): prose 1.5-2.6, code 2.3-2.9, edit/copy 3.7-4.4. So: marginal on code, loss on prose, win on edit/copy only.
+- nsys at N=4: expert mat-vecs 17.1 ms (3.0x the N=1 5.7 ms). Per-pair time is roughly constant (0.71 ms per pair-set at N=1, 0.53 at N=4). The union of experts at N=4 is about 28 of 32 pairs for random routing, so cross-token weight reuse can remove at most ~12% (more with correlated real routing, not measured).
+- Grouped-expert warp kernel (per-expert ballot grouping, one warp applies dequantized rows to all its tokens, bit-exact): slower, N=4 35.7 -> 45.6 ms. Dequant was not common-subexpression-eliminated across tokens and one warp serializing N tokens loses latency hiding. Patch: results/grp_verify_v02_rejected.patch. To revisit: register-resident dequantized weight reuse with tokens spread across warps, or tensor-core small-N tiles, and a real speculative loop to measure correlated routing.
+- Drafter facts: dspark-Inkling-2-Mini-Q8_0.gguf (402 MB, arch dflash) has an rnn_hidden Markov head (dspark_fuse, dspark_hidden_out, dspark_norm, joint_proj, markov_w1 with 201024 rows, mask_embd, attn_k_ctx/v_ctx, dflare_norm). The fork dspark.cpp expects markov_w2/output instead, so it does not load. Math reference: Basalt v0.5.5 (ledger V02-REF). Rollback must be verified independently for SWA rings, conv rings (k, v, a, m) and full-attention KV.
