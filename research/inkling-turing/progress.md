@@ -102,3 +102,21 @@ Validated runtime unchanged: HEAD e0be55a. Ledger V02-10, V02-RES. Optimization 
 - Fusion point is the mask-tile load of fattn-mma-f16 (D=128, ncols1 32/16/8, ncols2=1): registers 204 -> 212, no spills, exact arithmetic reproduced; unit tests (new INKLING2_FA_REL, f16 and q8_0) bit-exact, FA 4433/4433.
 - Two model-integration variants (descriptor node + pinned outputs; real sources 6..9) failed the stress harness: crashes, differing logprobs, scheduler re-plans (reserve graph 11,740 nodes vs real prefill 11,862); also with CUDA graphs disabled. Rejected patches kept. Rule reinforced: real sources only, same node count for prefill and decode graphs, no hidden tensor dependencies.
 - Next: policy ub 256 at 256K; GPU mask node from positions (same pattern as 7d3e5b1); understand the node-count difference with a CPU-only allocator test before touching FA again.
+
+
+## v0.6 (2026-11-22): graph audit of the rejected relbias-FA fusion + long-context qualification at 128K / 185K
+Baseline unchanged: **7d3e5b1** (branch relpos-gpu); fallbacks e4a7ea6 (relbias-node) and e0be55a unchanged. FA relbias fusion stays rejected. No kernel or production change.
+
+**Phase 1 (offline, `graph_audit.py` + `k_patch_dump.py`, CPU dumps and one 7 s CUDA dump of the rejected fused variant).**
+- The llama-level graph has the same node count in reserve (pp), real prefill and decode graphs, fused or not (CPU 11,164, CUDA 11,740). The 11,862 seen in `sched_graph_realloc` is the scheduler graph after split/copy insertion (122 nodes added by ggml_backend_sched), not a graph-builder difference.
+- The fused variant breaks op-sequence equality between the prefill and the decode graph: identical node count and op histogram but the op SEQUENCE diverges at node 1131 (PAD + bias MUL_MAT + descriptor CUSTOM sit before the Q-clip chain in prefill, after it in decode) and 280 nodes have different source lists (unfused: 0). The allocation planned for one graph does not fit the other: scheduler re-plans with unchanged backend ids and graph size. Independent of CUDA graphs, which is why disabling them did not help.
+- Live-range overlap check on the real graphs: 0 overlaps in about 7,200 tensors (fused and unfused); the exact corrupting access (hidden read through another tensor pointer / split copy) is still not located.
+- Deterministic regression test (no GPU): pp, tg and real graphs must have equal node count, equal op sequence, equal source index lists, zero live-range overlaps, zero re-plans in a CPU stress. 7d3e5b1 passes, the fused variant fails.
+- Safe future integration: identical nodes in identical positions for prefill and decode (change what they compute, not the topology), real sources only, run the audit on CPU before any GPU test.
+
+**Phase 2 (7d3e5b1, q8_0 KV, ctx 204800, ub 512, np 1, real docker sandbox, 4 turns, prefix cache).**
+| size (tokenizer) | cold prefill | prefill tps | hidden tests | rules | retrieval/recall/rules | warm TTFT | cached follow-up | decode tps | VRAM loaded/peak |
+|---|---|---|---|---|---|---|---|---|---|
+| 127,671 | 167.9 s | 767 | 7/7 | ok | 3/3 | 1.44 s | 0.85-0.91 s | 35.8 | 20,542 / 20,570 MiB |
+| 185,099 | 285.7 s | 652 | pass | ok | 3/3 | 1.85 s | 1.04-1.15 s | 30.5 | 20,542 / 20,572 MiB |
+No model error, no harness failure, 0 scheduler re-plans, no CUDA errors in the server log. GPU time about 11 of 30 minutes.
