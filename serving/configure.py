@@ -25,7 +25,7 @@ def main():
         for block in iter(lambda:f.read(8*2**20),b''):sha.update(block)
     expected='9aecf1cd41b2cb2f32a74e0d889e33855ebef43b26f43b43feb5720239e677e5'
     if sha.hexdigest()!=expected:raise RuntimeError('model checksum mismatch')
-    alias='swift-1.5-qwen3.8-27b';port=8081;argv=list(measured['argv']);argv[0]=str(binary)
+    alias='swift-1.5-qwen3.8-27b';port=18081;argv=list(measured['argv']);argv[0]=str(binary)
     for flag,value in (('--port',str(port)),('--alias',alias),('--verbosity','0')):argv[argv.index(flag)+1]=value
     argv.append('--log-disable')
     credentials_path=root/'credentials.json'
@@ -53,7 +53,7 @@ def main():
           source_revision=baseline['revision'],original_argv=measured['argv'],production_argv=argv,
           changes='original binary path, fixed localhost port, stable alias, private logging; inference settings unchanged'))
     from ha_files import generate
-    generate(root/'ha-generated',address,alias,credentials['home-assistant'])
+    generate(root/'ha-generated',address,alias,credentials['home-assistant'],argv)
     print('Configured validated stock serving. Credentials retained in a mode-0600 file; no keys printed.')
 
 
