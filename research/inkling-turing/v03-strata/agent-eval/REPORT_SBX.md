@@ -1,0 +1,37 @@
+# v0.3 sandboxed agent evaluation and staging (2026-11-22)
+Build frozen: llama.cpp HEAD e0be55a (Inkling), production Swift unchanged. Raw data: `results_sbx/` (results json, `*.toollog.jsonl` = every tool call with raw arguments, category, duration and full result; `*.transcript.jsonl` = full assistant output incl. reasoning), `inkling_server.log`, sessions `134755-k_psbx.log`.
+
+## Harness v2 (pilot2.py)
+- One throw-away docker container per task (`pilot-sbx:1`, python 3.12 + git + pytest + freezegun): uid 1000 non-root, `--network none`, all capabilities dropped, no-new-privileges, read-only rootfs, tmpfs /tmp and /home, 3 GB RAM (no swap), 3 CPUs, 512 pids, 200 MB file-size limit, only the task workspace mounted at /work. Verified: network unreachable, root filesystem read-only, host paths invisible, uid 1000.
+- Real bash: pipes, chaining, redirects, heredocs, git (baseline commit, no future history), sed, python, pytest. 120 s per command. File tools operate on the mounted workspace only.
+- Context: server -c 81920 for Inkling (-ub 256); harness stops with `context_exhausted` if prompt + 6000 output + 2K headroom would overflow. Largest context used in any run: 26.7K tokens.
+- `finish_reason=length` is never executed as a tool call: it is counted as `truncated_calls`, the partial call is logged, the model gets a "your response was cut off" message, and after 2 truncations the task ends as `truncated_output`.
+- Metrics keep separate: functional pass (hidden upstream tests, run in the sandbox), clean completion (model ended with finish_reason=stop, tests green, no model-side error), tool categories (ok, cmd_nonzero = normal dev feedback, cmd_timeout, schema, invalid_json, policy_refusal, tool_error, truncated), status (completed, task_timeout, turn_limit, context_exhausted, transport_error, backend_parse_error), turns, generated tokens, wall, cache reuse.
+- Checked with a mock model server (CPU only): one scripted run produced exactly one ok, one cmd_nonzero, one schema, one invalid_json, one policy_refusal and one truncation, with the partial call not executed. A harness bug found and fixed there (closed-connection socket guard in `pilot.chat`). Tasks re-validated in the sandbox (parent fails, upstream fix passes; reference counts 157/8/312/383).
+
+## Results (same four real tasks, one run each, 190 s cap per task, 6000 tokens/turn, temperature 0)
+| task | Swift 1.5 | Inkling-Turing |
+|---|---|---|
+| boltons_addlist (2 files) | PASS 157/157, clean, 184 s, 15 turns, 6.2K tokens | PASS 157/157, clean, 111 s, 20 turns, 5.0K tokens |
+| boltons_barrel | FAIL 5/8, timeout, 2 turns (one cut at the 6000-token limit while still reasoning), 6.1K tokens | FAIL 5/8, timeout, 5 turns (one cut at the limit), 6.2K tokens |
+| cachetools_setitem | PASS 312/312 at the deadline, not clean (timeout, 6 turns), 5.1K tokens | FAIL 306/312, timeout, 14 turns, 6.5K tokens |
+| humanize_tzaware | FAIL 382/383, timeout (one cut at the limit), 4 turns, 6.3K tokens | PASS 383/383, clean, 179 s, 14 turns, 8.1K tokens |
+Summary: functional pass 2/4 vs 2/4; clean completion 1/4 vs 2/4. Decode 36-39 tok/s vs 53-55. Reasoning text 69K vs 59K characters in total. Prefix reuse in later turns 23-94% (Swift) vs 69-95% (Inkling); the low values are single long reasoning turns, not cache failures.
+Tool reliability: Swift 34 calls, Inkling 50 calls, 0 invalid JSON, 0 schema errors, 0 policy refusals, 0 tool errors, 0 transport errors for both. The only model-side events are truncations (Swift 2, Inkling 1), all caused by a single turn exceeding the 6000-token output limit while reasoning. 4 of Swift's and 0 of Inkling's calls returned a non-zero exit (normal test failures).
+GPU time: Swift 769 s, Inkling 701 s (~24.5 of 30 minutes); no fresh tasks (budget).
+
+## Findings
+- With an unrestricted-within-sandbox shell the earlier "malformed call" problem disappears for both models: no invalid output at all in 84 calls. The earlier counts came from the harness policy, as already reported.
+- Neither model is limited by tool use here; both are limited by long reasoning: single turns of 5-6K generated tokens before any action, which at 36-55 tok/s consumes 110-170 s of a 190 s budget. The 190 s cap decides most outcomes (4 of 8 runs ended by the cap). Inkling is ~1.45x faster per token, so it gets more turns per second but did not solve more tasks.
+- Per-token costs: Inkling cold TTFT 0.6-1.6 s, warm medians 0.9-2.1 s (Swift 0.7-6 s, inflated by cache-cold turns after long reasoning).
+- Unverified: single run per cell, temperature 0, one 190 s cap; no repeat to estimate variance; not the real OpenCode client or its tool schema; Inkling thinking uses the template default while Swift is forced to xhigh.
+
+## Staging multi-model gateway (Priority 3; production untouched)
+Location `~/llm/serving-staging/` (copy; fake tokens, staging DB, port 18480; production files unmodified, timestamps unchanged, Swift service never touched by this work). Files: `models.py` (new, 44 lines), `lifecycle.py` (+~170), `gateway.py` (+~70), `store.py` (+7), `ha_files.py` (+~50), `fake_backend.py`, `test_multimodel.py`, `make_staging_config.py`.
+Re-run by me after the implementing agent finished: new suite 27/27 pass (19 s); the original production `test_serving.py`, byte-identical copy, 3/3 pass against the staging code; no orphan fake backends. Agent-reported: 5 concurrency/lease tests x20 runs, 20/20 passes; HA package generated for the legacy single-model config is byte-identical to production, the two-model output adds per-model sensors, a current-model sensor, per-model load buttons and a model dropdown with two entries.
+Covered: unknown model 400; legacy single-model config; load A, serve A, B request switches; 409 `model_busy` (reasons: inference_requests_active, session_leases_active, backend_still_processing, switch_cooldown, model_loading) while a stream is active, a lease pins its model, cooldown, concurrent A/B (never two backends alive), crash during load of B (A unloaded, state failed, cooldown, recovery), idle unload, analytics model column, rollback by reverting to the legacy config.
+Deviations from the design: unknown models recorded as `unknown` in analytics; leases without model pin the loaded model; cooldown measured from the end of a model-to-model switch; four extra config keys (`switch_cooldown_seconds`, `load_retry_seconds`, `release_timeout`, `background_interval`); `configure.py` not extended.
+Not verified: real nvidia-smi / power-limit / VRAM-recovery / residency guards, `gateway.main()`, real switch timings, loading the generated HA package into Home Assistant. Switching stays disabled in production.
+
+## Recommendation
+Inkling-Turing is not yet ready as the default for daily OpenCode use, but it is ready as an opt-in second model. It matched Swift on correctness (2/4 each), finished cleanly more often (2/4 vs 1/4), runs ~1.45x faster per token and showed no tool-call unreliability in the sandbox. What blocks "daily": the evidence is four tasks, one run, a 190 s cap, no real OpenCode client, and both models spend most of the budget on very long reasoning turns. Next steps in order: (1) run 8-12 tasks x 2 runs with a 600 s cap and a per-turn reasoning limit through the actual OpenCode tool schema; (2) run the staging gateway on the GPU for switch timing and guard checks; (3) only then consider enabling switching in production with Swift as default.

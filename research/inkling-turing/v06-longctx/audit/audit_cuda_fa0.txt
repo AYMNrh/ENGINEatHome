@@ -1,0 +1,9 @@
+T1 nodes diag/gfa0/graph_011_reserve_256_1.tsv=11740 diag/gfa0/graph_010_reserve_1_1.tsv=11740 OK
+T2 op histogram diff (B-A): none
+T1b first op-sequence divergence: None none
+T3 nodes whose source index lists differ: 0 []
+T1 nodes diag/gfa0/graph_011_reserve_256_1.tsv=11740 diag/gfa0/graph_014_real_69.tsv=11740 OK
+T2 op histogram diff (B-A): none
+T1b first op-sequence divergence: None none
+T3 nodes whose source index lists differ: 195 [4, 9, 84, 86, 95, 196, 284, 286, 295, 395]
+T5 live-range overlaps: 0 OK (7214 tensors)

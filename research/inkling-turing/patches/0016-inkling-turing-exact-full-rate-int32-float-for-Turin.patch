@@ -1,0 +1,92 @@
+From 769efa6754667a62daf380375eb62e4709787f90 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sun, 22 Nov 2026 00:01:21 +0100
+Subject: [PATCH 16/17] inkling-turing: exact full-rate int32->float for Turing
+ MMQ epilogues
+
+I2F issues at 1/4 rate on sm_75 and every MMA partial sum is converted before scaling; SASS source counters showed
+I2F at 13-21% of executed instructions and 20-25% of stall samples in the MoE GEMMs. For |x| < 2^22 the float
+1.5*2^23 + x is exact, so IADD + FADD gives the identical float. pp512 0K 1296 -> 1361 (+5.0%), 8K 1118 -> 1159
+(+3.7%); MUL_MAT 2726/2726, MUL_MAT_ID 1079/1079; long-context greedy decode identical (delta 0.0).
+GGML_CUDA_INK_T_NO_FAST_I2F restores the cast at build time.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ggml/src/ggml-cuda/mmq-vec-dot.cuh | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmq-vec-dot.cuh b/ggml/src/ggml-cuda/mmq-vec-dot.cuh
+index a75dd04..dc35a08 100644
+--- a/ggml/src/ggml-cuda/mmq-vec-dot.cuh
++++ b/ggml/src/ggml-cuda/mmq-vec-dot.cuh
+@@ -5,6 +5,19 @@
+ 
+ using namespace ggml_cuda_mma;
+ 
++// inkling-turing: exact int32 -> float for MMA partial sums. Turing issues I2F at 1/4 of the FP32 rate and the
++// MMQ epilogue converts every MMA result, which made I2F the top stall of the expert GEMMs. For |x| < 2^22
++// (an int8 x int8 MMA over k <= 128 stays far below that), the float 1.5*2^23 + x is exact and holds x in its
++// mantissa, so an integer add plus one float subtraction (both full rate) gives the same float as I2F, bit for bit.
++static __device__ __forceinline__ float ink_t_i2f(const int x) {
++#if defined(TURING_MMA_AVAILABLE) && !defined(GGML_CUDA_INK_T_NO_FAST_I2F)
++    return __int_as_float(x + 0x4B400000) - 12582912.0f;
++#else
++    return (float) x;
++#endif
++}
++
++
+ #include "mmq.cuh"
+ 
+ template <ggml_type type, int J, bool fallback> static __device__ __forceinline__ void ggml_cuda_mmq_vec_dot_q4_0_q8_1_dp4a(
+@@ -269,7 +282,7 @@ static __device__ __forceinline__ void ggml_cuda_mmq_vec_dot_q8_0_q8_1_mma(
+ 
+ #pragma unroll
+                 for (int l = 0; l < tile_C::ne; ++l) {
+-                    sum[(j0/tile_C::J + n)*tile_C::ne + l] += C.x[l]*dA[n][l/2][k01/QI8_0]*dB[l%2];
++                    sum[(j0/tile_C::J + n)*tile_C::ne + l] += ink_t_i2f(C.x[l])*dA[n][l/2][k01/QI8_0]*dB[l%2];
+                 }
+             }
+         }
+@@ -429,7 +442,7 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+ 
+ #pragma unroll
+                 for (int l = 0; l < tile_C::ne; ++l) {
+-                    sum[(j0/tile_C::J + n)*tile_C::ne + l] += dmA[n][l/2][k01/QI8_1].x*dsB[l%2].x*C.x[l];
++                    sum[(j0/tile_C::J + n)*tile_C::ne + l] += dmA[n][l/2][k01/QI8_1].x*dsB[l%2].x*ink_t_i2f(C.x[l]);
+                     sum[(j0/tile_C::J + n)*tile_C::ne + l] += dmA[n][l/2][k01/QI8_1].y*dsB[l%2].y;
+                 }
+             }
+@@ -596,7 +609,7 @@ template <ggml_type type, int J, bool fallback, ggml_prec prec_src1> static __de
+ 
+ #pragma unroll
+                 for (int l = 0; l < tile_C::ne; ++l) {
+-                    sum[(j0/tile_C::J + n)*tile_C::ne + l] += dB[l%2]*(C[0].x[l]*dA[n][l/2][k01/4 + 0] + C[1].x[l]*dA[n][l/2][k01/4 + 1]);
++                    sum[(j0/tile_C::J + n)*tile_C::ne + l] += dB[l%2]*(ink_t_i2f(C[0].x[l])*dA[n][l/2][k01/4 + 0] + ink_t_i2f(C[1].x[l])*dA[n][l/2][k01/4 + 1]);
+                 }
+             }
+         }
+@@ -831,9 +844,9 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+ 
+ #pragma unroll
+                 for (int l = 0; l < tile_C::ne; ++l) {
+-                    float tmp = Cd[0].x[l]*dA[n][l/2][k01/4 + 0] + Cd[1].x[l]*dA[n][l/2][k01/4 + 1];
++                    float tmp = ink_t_i2f(Cd[0].x[l])*dA[n][l/2][k01/4 + 0] + ink_t_i2f(Cd[1].x[l])*dA[n][l/2][k01/4 + 1];
+                     if (k01 >= MMQ_TILE_NE_K * 3/4) {
+-                        tmp -= Cm[0].x[l]*mA[n][l/2][k01/4 + 0] + Cm[1].x[l]*mA[n][l/2][k01/4 + 1];
++                        tmp -= ink_t_i2f(Cm[0].x[l])*mA[n][l/2][k01/4 + 0] + ink_t_i2f(Cm[1].x[l])*mA[n][l/2][k01/4 + 1];
+                     }
+                     sum[(j0/tile_C::J + n)*tile_C::ne + l] += tmp*(k01 < MMQ_TILE_NE_K/2 ? dB[l%2].x : dB[l%2].y);
+                 }
+@@ -1148,7 +1161,7 @@ template <ggml_type type, int J, bool fallback> static __device__ __forceinline_
+ 
+ #pragma unroll
+                 for (int l = 0; l < tile_C::ne; ++l) {
+-                    tmp[n][l] += (C[0].x[l]*scA[n][l/2][k01/4 + 0] + C[1].x[l]*scA[n][l/2][k01/4 + 1])*dB[l%2];
++                    tmp[n][l] += (ink_t_i2f(C[0].x[l])*scA[n][l/2][k01/4 + 0] + ink_t_i2f(C[1].x[l])*scA[n][l/2][k01/4 + 1])*dB[l%2];
+                 }
+             }
+         }
+-- 
+2.53.0
+

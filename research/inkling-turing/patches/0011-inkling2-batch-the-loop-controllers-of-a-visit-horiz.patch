@@ -1,0 +1,317 @@
+From 653b3a301a5d258c46e26d20f51eef929697f0ca Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 22:24:46 +0100
+Subject: [PATCH 11/17] inkling2: batch the loop controllers of a visit
+ horizontally (CTRL_H)
+
+The Q, K and V controllers (and the FFN one) ran as CTRL_DOWN + CTRL_OUT pairs; CTRL_DOWN used only 16 blocks.
+Now one launch computes the rank-64 down projections of all controllers of the group (one output per 256-thread
+block, the 1024-thread norm reduction emulated exactly, mul_mat_vec_f order) and one launch their gated tails,
+with h in private scratch. 8 -> 2 launches per loop visit, bit-identical decode.
+Interleaved screen (control/candidate/control): tg128 0K 61.54/62.42/61.18, 8K 55.32/56.05/55.07.
+Rejected on the way: the same fusion as ONE kernel with an in-kernel grid barrier was 27-31 us per launch vs
+12.5 us for the pair (barrier + serialized latency, 14% DRAM).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ggml/src/ggml-cuda/inkling2.cu  | 241 +++++++++++++++++++++++++++++++-
+ ggml/src/ggml-cuda/inkling2.cuh |   3 +
+ 2 files changed, 242 insertions(+), 2 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/inkling2.cu b/ggml/src/ggml-cuda/inkling2.cu
+index 4a7bb01..a99313e 100644
+--- a/ggml/src/ggml-cuda/inkling2.cu
++++ b/ggml/src/ggml-cuda/inkling2.cu
+@@ -2114,7 +2114,7 @@ static void inkling2_relbias(ggml_backend_cuda_context & ctx, const ggml_cuda_in
+ 
+ // =====================================================================================================================
+ // Turing kernel work (branch turing-iq3-opt). Fusions added on top of the inkling2-speed glue fusions, for decode.
+-// GGML_CUDA_INK_T_DISABLE=<bitmask> turns them off individually (1 = QKV_POST, 2 = RELBIAS_T, 4 = ROUTE_TAIL).
++// GGML_CUDA_INK_T_DISABLE=<bitmask> turns them off individually (1 = QKV_POST, 2 = RELBIAS_T, 4 = ROUTE_TAIL, 8 = q8_1 cache, 16 = CTRL_T).
+ 
+ static bool inkling2t_enabled(int bit) {
+     static const int mask = [] {
+@@ -2726,6 +2726,241 @@ static void inkling2t_route_tail(ggml_backend_cuda_context & ctx, const ggml_cud
+         ggml_get_op_params_f32(sc1, 0), ggml_get_op_params_f32(sc1, 1), ggml_get_op_params_f32(sc2, 0), ggml_get_op_params_f32(sc2, 1));
+ }
+ 
++// ---------------------------------------------------------------------------------------------------------------------
++// CTRL_T: up to three consecutive loop controllers (the Q, K, V controllers of a loop visit, or the FFN one) for one
++// token in ONE launch instead of 2 per controller (CTRL_DOWN + CTRL_OUT of inkling2-speed).
++// Why: CTRL_DOWN ran as 16 blocks on 68 SMs (4 outputs per 1024-thread block, ~164 GB/s on 1.18 MB of F32 weights) and
++// CTRL_OUT, one warp per output, is latency bound; the pairs ran back to back (THEORY.md: 227 MB/token at 34% of bandwidth).
++// Here: phase 1 spreads the rank-64 down projections of all controllers over every SM, phase 2 (after a grid barrier; the
++// grid is 3 blocks per SM, always co-resident; h lives in a private scratch buffer) computes the gated tails. Bits: the norms emulate the 1024-thread
++// rms_norm_f32 reduction the fork replicates (4 virtual warps per real warp, same butterflies), the dots are mul_mat_vec_f's
++// 256-thread order and CTRL_OUT's warp order, so the results equal the unfused/fork ones.
++
++struct inkling2t_ctrl_pair {
++    const float * a; const float * b; const float * w; float * h;
++    const float * f; const float * g; const float * x; const float * m; float * dst;
++    float eps_a, eps_b;
++    int64_t w_s1, f_s1, g_s1;
++};
++struct inkling2t_ctrl_p {
++    inkling2t_ctrl_pair p[3];
++    int P, n, n_out, n_h;
++};
++
++__device__ unsigned int          inkling2t_bar_count = 0;
++__device__ volatile unsigned int inkling2t_bar_gen   = 0;
++
++// grid-wide barrier for a grid whose blocks are all resident (same pattern as cooperative_groups::grid::sync)
++static __device__ __forceinline__ void inkling2t_grid_barrier() {
++    __syncthreads();
++    if (threadIdx.x == 0) {
++        const unsigned int gen = inkling2t_bar_gen;
++        __threadfence();
++        if (atomicAdd(&inkling2t_bar_count, 1u) == gridDim.x - 1) {
++            atomicExch(&inkling2t_bar_count, 0u);
++            __threadfence();
++            inkling2t_bar_gen = gen + 1;
++        } else {
++            while (inkling2t_bar_gen == gen) { }
++        }
++        __threadfence();
++    }
++    __syncthreads();
++}
++
++// block_reduce<SUM, 1024> of inkling2_rms_norm_partial, computed by a 256-thread block (virtual thread vt = tid + 256*r)
++static __device__ __forceinline__ float inkling2t_norm_sum_1024(const float * x, const int n4, float * s_sum) {
++    const int lane = threadIdx.x % WARP_SIZE;
++    const int warp = threadIdx.x / WARP_SIZE;
++#pragma unroll
++    for (int r = 0; r < 4; ++r) {
++        const int vt = threadIdx.x + 256*r;
++        float tmp = 0.0f;
++        if (vt < n4) {
++            const float4 v = ((const float4 *) x)[vt];
++            tmp += v.x*v.x + v.y*v.y + v.z*v.z + v.w*v.w;
++        }
++        tmp = warp_reduce_sum<WARP_SIZE>(tmp);
++        if (lane == 0) {
++            s_sum[warp + 8*r] = tmp;
++        }
++    }
++    __syncthreads();
++    float v = s_sum[lane];
++    v = warp_reduce_sum<WARP_SIZE>(v);
++    __syncthreads();
++    return v;
++}
++
++// CTRL_H, the horizontal version (the grid-barrier version CTRL_T above measured 27-31 us per launch vs 12.5 us for the
++// fork's pair: rejected, see progress.md). Launch 1: the down projections of all P controllers, one output per 256-thread
++// block (P*64 blocks instead of 16 per controller). Launch 2: the gated tails of all P controllers, one warp per element.
++// h lives in a private scratch buffer, so the allocator's reuse of the per-controller h tensors does not matter.
++static __global__ void __launch_bounds__(256) inkling2t_ctrl_down_h(const inkling2t_ctrl_p prm, float * __restrict__ hbuf) {
++    ggml_cuda_pdl_lc();
++    __shared__ float s_sum[32];
++    __shared__ float s_dot[8];
++    const int tid  = threadIdx.x;
++    const int lane = tid % WARP_SIZE;
++    const int warp = tid / WARP_SIZE;
++    const int n    = prm.n;
++    const int n4   = n/4;
++    const int p    = blockIdx.x / prm.n_out;
++    const int oo   = blockIdx.x % prm.n_out;
++    const inkling2t_ctrl_pair & pp = prm.p[p];
++    ggml_cuda_pdl_sync();
++
++    const float sum_a = inkling2t_norm_sum_1024(pp.a, n4, s_sum);
++    const float sum_b = inkling2t_norm_sum_1024(pp.b, n4, s_sum);
++    const float scale_a = rsqrtf(__fadd_rn(sum_a / n, pp.eps_a));
++    const float scale_b = rsqrtf(__fadd_rn(sum_b / n, pp.eps_b));
++
++    float sumf = 0.0f;
++    const float * w = pp.w + oo*pp.w_s1;
++    for (int col2 = tid; col2 < n; col2 += 256) {
++        const int    j  = 2*col2;
++        const float2 wv = ((const float2 *) w)[col2];
++        const float2 xv = j < n ? ((const float2 *) pp.a)[col2] : ((const float2 *) pp.b)[col2 - n/2];
++        const float  sc = j < n ? scale_a : scale_b;
++        sumf += wv.x*__fmul_rn(sc, xv.x);
++        sumf += wv.y*__fmul_rn(sc, xv.y);
++    }
++    sumf = warp_reduce_sum<WARP_SIZE>(sumf);
++    if (lane == 0) {
++        s_dot[warp] = sumf;
++    }
++    __syncthreads();
++    if (tid < WARP_SIZE) {
++        float v = tid < 8 ? s_dot[tid] : 0.0f;
++        v = warp_reduce_sum<WARP_SIZE>(v);
++        if (tid == 0) {
++            hbuf[p*64 + oo] = v;
++        }
++    }
++}
++
++static __global__ void __launch_bounds__(256) inkling2t_ctrl_out_h(const inkling2t_ctrl_p prm, const float * __restrict__ hbuf) {
++    ggml_cuda_pdl_lc();
++    const int lane = threadIdx.x % WARP_SIZE;
++    const int row  = blockIdx.x*8 + threadIdx.x / WARP_SIZE;
++    ggml_cuda_pdl_sync();
++    if (row >= prm.P*prm.n) {
++        return;
++    }
++    const int p = row / prm.n;
++    const int r = row % prm.n;
++    const inkling2t_ctrl_pair & pp = prm.p[p];
++    float df = 0.0f;
++    float dg = 0.0f;
++    if (2*lane < prm.n_h) {
++        const float2 hv = ((const float2 *) (hbuf + p*64))[lane];
++        const float2 fv = ((const float2 *) (pp.f + r*pp.f_s1))[lane];
++        const float2 gv = ((const float2 *) (pp.g + r*pp.g_s1))[lane];
++        df += fv.x*hv.x;
++        df += fv.y*hv.y;
++        dg += gv.x*hv.x;
++        dg += gv.y*hv.y;
++    }
++    df = warp_reduce_sum<WARP_SIZE>(df);
++    dg = warp_reduce_sum<WARP_SIZE>(dg);
++    if (lane == 0) {
++        const float x = pp.x[r];
++        const float m = pp.m[r];
++        const float kept  = __fsub_rn(x, __fmul_rn(tanhf(df), x));
++        const float added = __fmul_rn(tanhf(dg), m);
++        pp.dst[r] = __fadd_rn(kept, added);
++    }
++}
++
++static bool inkling2t_match_ctrl(const ggml_cgraph * cgraph, int i, ggml_cuda_inkling2_args & args) {
++    if (!inkling2t_enabled(16)) {
++        return false;
++    }
++    ggml_cuda_inkling2_args d[3], o[3];
++    int P = 0, k = i, end = -1;
++    while (P < 3) {
++        ggml_cuda_inkling2_args dd, oo;
++        if (k >= cgraph->n_nodes || cgraph->nodes[k]->op != GGML_OP_RMS_NORM || !inkling2_match_ctrl_down(cgraph, k, dd)) break;
++        const int k2 = inkling2t_skip_views(cgraph, k + dd.n_nodes);
++        if (k2 >= cgraph->n_nodes || cgraph->nodes[k2]->op != GGML_OP_MUL_MAT || !inkling2_match_ctrl_out(cgraph, k2, oo) ||
++                oo.src[2] != dd.dst) break;
++        const ggml_tensor * a = dd.src[0], * w = dd.src[2], * f = oo.src[0];
++        if (a->ne[1] != 1 || oo.dst->ne[1] != 1 || inkling2_mmvf_block_size(w->ne[0], WARP_SIZE) != 256 ||
++                w->ne[1] > 64 || f->ne[0] != w->ne[1] || oo.dst->ne[0] != a->ne[0] ||
++                (P > 0 && (a->ne[0] != d[0].src[0]->ne[0] || w->ne[1] != d[0].src[2]->ne[1]))) break;
++        d[P] = dd; o[P] = oo; ++P;
++        end = k2 + oo.n_nodes - 1;
++        k = inkling2t_skip_views(cgraph, end + 1);
++    }
++    if (P == 0) {
++        return false;
++    }
++    // independence and aliasing: h is written in phase 1 while other blocks still read every a/b; dst in phase 2 while
++    // other warps read every x/m/h/F/G. A dst may only sit exactly on its own x or m (the fork allows that layout).
++    for (int p = 0; p < P; ++p) {
++        const ggml_tensor * hp = d[p].dst, * dp = o[p].dst;
++        for (int q = 0; q < P; ++q) {
++            const ggml_tensor * ins[] = { d[q].src[0], d[q].src[1], d[q].src[2], o[q].src[0], o[q].src[1], o[q].src[3], o[q].node[0] };
++            for (const ggml_tensor * t : ins) {
++                const bool own_xm = q == p && (t == o[q].src[3] || t == o[q].node[0]);
++                if (inkling2_overlap(dp, t) && !(own_xm && inkling2_same_or_disjoint(dp, t))) INK_T_FAIL();
++            }
++            if (q != p && inkling2_overlap(dp, o[q].dst)) INK_T_FAIL();
++            // a later controller must not read an earlier one's result (they are independent in the graph)
++            if (q > p) {
++                for (const ggml_tensor * t : { d[q].src[0], d[q].src[1], o[q].src[3], o[q].node[0] }) {
++                    if (t == dp || inkling2t_base(t) == dp) INK_T_FAIL();
++                }
++            }
++        }
++        (void) hp;
++    }
++    args.type    = GGML_CUDA_INKLING2_CTRL_T;
++    args.n_nodes = end - i + 1;
++    args.dst     = o[P - 1].dst;
++    for (int p = 0; p < P; ++p) {
++        args.ext[p*6 + 0] = d[p].src[0]; args.ext[p*6 + 1] = d[p].src[1]; args.ext[p*6 + 2] = d[p].src[2];
++        args.ext[p*6 + 3] = d[p].dst;    args.ext[p*6 + 4] = d[p].node[0]; args.ext[p*6 + 5] = d[p].node[1];
++        args.ext2[p*5 + 0] = o[p].src[0]; args.ext2[p*5 + 1] = o[p].src[1]; args.ext2[p*5 + 2] = o[p].src[3];
++        args.ext2[p*5 + 3] = o[p].node[0]; args.ext2[p*5 + 4] = o[p].dst;
++    }
++    args.n_ext = P;
++    return true;
++}
++
++static void inkling2t_ctrl(ggml_backend_cuda_context & ctx, const ggml_cuda_inkling2_args & args) {
++    inkling2t_ctrl_p prm;
++    prm.P = args.n_ext;
++    for (int p = 0; p < prm.P; ++p) {
++        inkling2t_ctrl_pair & pp = prm.p[p];
++        const ggml_tensor * w = args.ext[p*6 + 2], * f = args.ext2[p*5 + 0], * g = args.ext2[p*5 + 1];
++        pp.a = (const float *) args.ext[p*6 + 0]->data;
++        pp.b = (const float *) args.ext[p*6 + 1]->data;
++        pp.w = (const float *) w->data;
++        pp.h = (float *) args.ext[p*6 + 3]->data;
++        pp.eps_a = ggml_get_op_params_f32(args.ext[p*6 + 4], 0);
++        pp.eps_b = ggml_get_op_params_f32(args.ext[p*6 + 5], 0);
++        pp.f = (const float *) f->data;
++        pp.g = (const float *) g->data;
++        pp.x = (const float *) args.ext2[p*5 + 2]->data;
++        pp.m = (const float *) args.ext2[p*5 + 3]->data;
++        pp.dst = (float *) args.ext2[p*5 + 4]->data;
++        pp.w_s1 = w->nb[1]/sizeof(float);
++        pp.f_s1 = f->nb[1]/sizeof(float);
++        pp.g_s1 = g->nb[1]/sizeof(float);
++    }
++    prm.n     = (int) args.ext[0]->ne[0];
++    prm.n_out = (int) args.ext[2]->ne[1];
++    prm.n_h   = (int) args.ext2[0]->ne[0];
++    const int nsm = ggml_cuda_info().devices[ggml_cuda_get_device()].nsm;
++    ggml_cuda_pool_alloc<float> hbuf(ctx.pool(), 3*64);
++    (void) nsm;
++    const ggml_cuda_kernel_launch_params p1(dim3(prm.P*prm.n_out, 1, 1), dim3(256, 1, 1), 0, ctx.stream());
++    ggml_cuda_kernel_launch(inkling2t_ctrl_down_h, p1, prm, hbuf.get());
++    const ggml_cuda_kernel_launch_params p2(dim3((prm.P*prm.n + 7)/8, 1, 1), dim3(256, 1, 1), 0, ctx.stream());
++    ggml_cuda_kernel_launch(inkling2t_ctrl_out_h, p2, prm, (const float *) hbuf.get());
++}
++
+ 
+ bool ggml_cuda_inkling2_match(const ggml_cgraph * cgraph, int i, ggml_cuda_inkling2_args & args) {
+     args = {};
+@@ -2741,7 +2976,8 @@ bool ggml_cuda_inkling2_match(const ggml_cgraph * cgraph, int i, ggml_cuda_inkli
+         case GGML_OP_REPEAT:
+             return inkling2_match_situ(cgraph, i, args);
+         case GGML_OP_RMS_NORM:
+-            return inkling2_match_mix(cgraph, i, args) || inkling2_match_ctrl_down(cgraph, i, args) ||
++            return inkling2t_match_ctrl(cgraph, i, args) || (args = {}, inkling2_match_mix(cgraph, i, args)) ||
++                   inkling2_match_ctrl_down(cgraph, i, args) ||
+                    inkling2_match_ctrl_norm(cgraph, i, args);
+         case GGML_OP_UNARY:
+             return inkling2_match_ctrl_tail(cgraph, i, args);
+@@ -2776,6 +3012,7 @@ void ggml_cuda_inkling2_fused(ggml_backend_cuda_context & ctx, const ggml_cuda_i
+         case GGML_CUDA_INKLING2_QKV_POST:   inkling2t_qkv_post(ctx, args);  break;
+         case GGML_CUDA_INKLING2_RELBIAS_T:  inkling2t_relbias_t(ctx, args); break;
+         case GGML_CUDA_INKLING2_ROUTE_TAIL: inkling2t_route_tail(ctx, args); break;
++        case GGML_CUDA_INKLING2_CTRL_T:     inkling2t_ctrl(ctx, args);       break;
+         default: GGML_ABORT("fatal error");
+     }
+ }
+diff --git a/ggml/src/ggml-cuda/inkling2.cuh b/ggml/src/ggml-cuda/inkling2.cuh
+index 3e9f456..0dc0669 100644
+--- a/ggml/src/ggml-cuda/inkling2.cuh
++++ b/ggml/src/ggml-cuda/inkling2.cuh
+@@ -19,6 +19,7 @@ enum ggml_cuda_inkling2_fusion {
+     GGML_CUDA_INKLING2_CTRL_TAIL,  // TANH MUL SUB TANH MUL ADD                         : controller output, large batches
+     GGML_CUDA_INKLING2_QKV_POST,   // Q CLIP [*tau] FWHT, K CLIP FWHT SET_ROWS, V RMS_NORM FWHT SET_ROWS (decode, turing-iq3-opt)
+     GGML_CUDA_INKLING2_RELBIAS_T,  // PAD MUL_MAT + RELBIAS chain + FILL                (decode, turing-iq3-opt)
++    GGML_CUDA_INKLING2_CTRL_T,     // up to 3 loop controllers (CTRL_DOWN + CTRL_OUT each), decode (turing-iq3-opt)
+     GGML_CUDA_INKLING2_ROUTE_TAIL, // SUM_ROWS SCALE DIV SCALE after the top-k           (decode, turing-iq3-opt)
+ };
+ 
+@@ -32,6 +33,8 @@ struct ggml_cuda_inkling2_args {
+     const ggml_tensor * src[4]  = {}; // the inputs of the chain
+     const ggml_tensor * node[6] = {}; // further tensors of the chain: op parameters, views, intermediates
+     const ggml_tensor * ext[20] = {}; // the tensors of the larger turing-iq3-opt fusions
++    const ggml_tensor * ext2[16] = {};
++    int n_ext = 0;
+ };
+ 
+ // match one of the chains at node i of cgraph
+-- 
+2.53.0
+
