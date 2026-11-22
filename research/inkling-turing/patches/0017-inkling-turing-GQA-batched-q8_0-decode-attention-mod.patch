@@ -1,0 +1,31 @@
+From 6e225edbb7e37e699543244f9238913b8690324d Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sun, 22 Nov 2026 00:09:19 +0100
+Subject: [PATCH 17/17] inkling-turing: GQA-batched q8_0 decode attention mode
+ 1 on by default (bit-exact)
+
+Mode 1 keeps the stock parallel_blocks split and per-head accumulation order, so results are identical; gated to
+n_kv >= 4096. tg128 32K 49.06 -> 50.79 (+3.5%), 8K 56.18 -> 56.53; ~7K-token greedy decode identical (delta 0.0).
+GGML_CUDA_INK_T_FAGQA=0 disables, =2 selects the faster non-bit-exact split (51.71 at 32K).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ggml/src/ggml-cuda/fattn-vec-gqa.cu | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/ggml/src/ggml-cuda/fattn-vec-gqa.cu b/ggml/src/ggml-cuda/fattn-vec-gqa.cu
+index 4d43b2f..19df0ac 100644
+--- a/ggml/src/ggml-cuda/fattn-vec-gqa.cu
++++ b/ggml/src/ggml-cuda/fattn-vec-gqa.cu
+@@ -553,7 +553,7 @@ static __global__ void flash_attn_ext_vec_gqa(
+ static int ggml_cuda_fattn_vec_gqa_mode() {
+     static const int m = [] {
+         const char * env = getenv("GGML_CUDA_INK_T_FAGQA");
+-        return env ? atoi(env) : 0;
++        return env ? atoi(env) : 1; // 1 = bit-exact GQA batching (default, +3.5% tg at 32K), 2 = retuned split (opt-in, not bit-exact), 0 = off
+     }();
+     return m;
+ }
+-- 
+2.53.0
+

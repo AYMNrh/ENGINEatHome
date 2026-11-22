@@ -1,0 +1,330 @@
+From fff878ecdeda7205d59e69fb420d9f2f0d6ccbd2 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 22:36:43 +0100
+Subject: [PATCH 12/17] inkling2/cuda: pair same-input Q8_0 projections into
+ one mmvq launch; stage aliased inputs of fused runs
+
+- graph: Q + gate (and K + V when they share the input) are expanded next to each other; values unchanged,
+  the allocator plans the new order (verified bit-exact with the pair fusion off).
+- mmvq pair mode: the second matrix runs in the shared_up grid slice of the same kernel (same per-row
+  arithmetic). Fixes has_fusion ignoring shared_up, which made the extra slice recompute matrix A out of bounds.
+- QKV_POST / RELBIAS_T: inputs that the allocator planned under an output are copied to scratch by a tiny
+  stage kernel instead of rejecting the fusion (the reorder had made 20 RELBIAS_T and some QKV_POST fall back).
+Decode bit-identical. Interleaved screen: tg128 0K 62.44/62.74/62.08, 8K 56.06/56.40/55.83.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ggml/src/ggml-cuda/ggml-cuda.cu |  57 +++++++++++++++++
+ ggml/src/ggml-cuda/inkling2.cu  | 106 +++++++++++++++++++++++++-------
+ ggml/src/ggml-cuda/mmvq.cu      |  17 ++++-
+ src/models/inkling2.cpp         |  19 ++++--
+ 4 files changed, 170 insertions(+), 29 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index 30ae90e..c2cde74 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -4473,7 +4473,64 @@ static bool ggml_cuda_can_fuse(const struct ggml_cgraph *                cgraph,
+ }
+ 
+ // try and fuse nodes and return the number of nodes to skip
++
++// turing-iq3-opt: two adjacent decode mat-vecs with the same input and same-shape quantized weights run as one mmvq
++// launch (the second matrix in the shared_up grid slice: same kernel, same per-row arithmetic). GGML_CUDA_INK_T_DISABLE bit 32.
++static int ggml_cuda_try_fuse_mmvq_pair(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph * cgraph, int i) {
++    static const bool disabled = [] {
++        const char * env = getenv("GGML_CUDA_INK_T_DISABLE");
++        return env != nullptr && (atoi(env) & 32) != 0;
++    }();
++    ggml_tensor * a = cgraph->nodes[i];
++    if (disabled || a->op != GGML_OP_MUL_MAT || !cuda_ctx->stream_context().concurrent_events.empty()) {
++        return 0;
++    }
++    int j = i + 1;
++    while (j < cgraph->n_nodes && ggml_cuda_is_view_or_noop(cgraph->nodes[j])) {
++        ++j;
++    }
++    if (j >= cgraph->n_nodes) {
++        return 0;
++    }
++    ggml_tensor * b    = cgraph->nodes[j];
++    ggml_tensor * src1 = a->src[1];
++    const ggml_tensor * wa = a->src[0];
++    const ggml_tensor * wb = b->src[0];
++    if (b->op != GGML_OP_MUL_MAT || b->src[1] != src1 || !(b->flags & GGML_TENSOR_FLAG_COMPUTE) ||
++            !ggml_is_quantized(wa->type) || wb->type != wa->type || !ggml_are_same_shape(wa, wb) || wa->nb[1] != wb->nb[1] ||
++            !ggml_is_contiguous(wa) || !ggml_is_contiguous(wb) || wa->ne[2] != 1 || wa->ne[3] != 1 ||
++            ggml_backend_buffer_get_usage(wa->buffer) == GGML_BACKEND_BUFFER_USAGE_COMPUTE ||
++            ggml_backend_buffer_get_usage(wb->buffer) == GGML_BACKEND_BUFFER_USAGE_COMPUTE ||
++            src1->type != GGML_TYPE_F32 || src1->ne[1] != 1 || src1->ne[2] != 1 || src1->ne[3] != 1 ||
++            a->type != GGML_TYPE_F32 || b->type != GGML_TYPE_F32 || !ggml_is_contiguous(a) || !ggml_is_contiguous(b) ||
++            !ggml_are_same_shape(a, b)) {
++        return 0;
++    }
++    // the path the two nodes would take on their own: plain mmvq
++    const int cc = ggml_cuda_info().devices[cuda_ctx->device].cc;
++    if (!ggml_cuda_should_use_mmvq(wa->type, cc, src1->ne[1])) {
++        return 0;
++    }
++    // both outputs are written by one launch while it reads src1 and both weight sets
++    auto ovl = [](const ggml_tensor * x, const ggml_tensor * y) {
++        const char * x0 = (const char *) x->data; const char * y0 = (const char *) y->data;
++        return x0 < y0 + ggml_nbytes(y) && y0 < x0 + ggml_nbytes(x);
++    };
++    if (ovl(a, src1) || ovl(b, src1) || ovl(a, b) || ovl(a, wb) || ovl(b, wa)) {
++        return 0;
++    }
++    ggml_cuda_mm_fusion_args_host fusion{};
++    fusion.shared_up  = wb;
++    fusion.shared_dst = b;
++    ggml_cuda_mul_mat_vec_q(*cuda_ctx, wa, src1, nullptr, a, &fusion);
++    return j - i;
++}
++
+ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph * cgraph, int i) {
++    if (const int n_pair = ggml_cuda_try_fuse_mmvq_pair(cuda_ctx, cgraph, i)) {
++        return n_pair;
++    }
++
+ 
+     if (ggml_cuda_fusion_disabled()) {
+         return 0;
+diff --git a/ggml/src/ggml-cuda/inkling2.cu b/ggml/src/ggml-cuda/inkling2.cu
+index a99313e..c317227 100644
+--- a/ggml/src/ggml-cuda/inkling2.cu
++++ b/ggml/src/ggml-cuda/inkling2.cu
+@@ -2190,6 +2190,23 @@ static bool inkling2t_closed(const ggml_cgraph * cgraph, int i0, int i1, std::in
+     return true;
+ }
+ 
++// copies up to 4 small contiguous float buffers into private scratch (inputs of a fused run that the allocator planned
++// under one of the run's outputs: the fused kernel reads the copy, the unfused graph would have read them earlier)
++struct inkling2t_stage_p {
++    const float * src[4];
++    float *       dst[4];
++    int           n[4];
++};
++static __global__ void inkling2t_stage_f32(const inkling2t_stage_p p) {
++    ggml_cuda_pdl_lc();
++    ggml_cuda_pdl_sync();
++    for (int b = 0; b < 4; ++b) {
++        for (int i = threadIdx.x; i < p.n[b]; i += blockDim.x) {
++            p.dst[b][i] = p.src[b][i];
++        }
++    }
++}
++
+ // ---------------------------------------------------------------------------------------------------------------------
+ // QKV_POST: the post-projection run of one attention visit for one token, in ONE launch instead of 8-9:
+ //   Q: CLIP(w) [* tau] -> FWHT-128        K: CLIP -> FWHT-128 -> SET_ROWS q8_0        V: RMS_NORM -> FWHT-64 -> SET_ROWS q8_0
+@@ -2440,28 +2457,28 @@ static bool inkling2t_match_qkv(const ggml_cgraph * cgraph, int i, ggml_cuda_ink
+ 
+     if (!inkling2t_closed(cgraph, i, k, { q_rot, set_k, set_v })) INK_T_FAIL();
+ 
+-    // outputs must not overlap any input: blocks write while other blocks still read
+-    const ggml_tensor * ins[]  = { cq.src[0], cq.src[1], tau, ck.src[0], v_norm->src[0] };
+-    const ggml_tensor * outs[] = { q_rot, k_rot, v_rot, set_k, set_v };
+-    // exception: in-place reuse of the same row layout (q_rot on q_in, k_rot on k_in, v_rot on v_in) is safe, because a
+-    // block reads its whole head row before the __syncthreads that precedes its writes of that same row
++    // An input that an output overlaps (other than the safe in-place layouts below) is staged into scratch first; outputs
++    // overlapping each other are not handled.
+     auto same_slot = [](const ggml_tensor * o, const ggml_tensor * in) {
+         return o->data == in->data && ggml_nbytes(o) == ggml_nbytes(in);
+     };
+-    for (const ggml_tensor * o : outs) {
+-        for (const ggml_tensor * in : ins) {
+-            if (in && inkling2_overlap(o, in) &&
+-                    !((o == q_rot && in == cq.src[0] && same_slot(o, in)) ||
+-                      (o == k_rot && in == ck.src[0] && same_slot(o, in)) ||
+-                      (o == v_rot && in == v_norm->src[0] && same_slot(o, in)))) {
+-                if (inkling2t_debug()) {
+-                    fprintf(stderr, "ink_t: overlap out %s (%p, %zu B) in %s (%p, %zu B)%s\n", o->name, o->data, ggml_nbytes(o), in->name, in->data, ggml_nbytes(in), o->data == in->data ? " SAME-BASE" : "");
+-                }
+-                INK_T_FAIL();
++    const ggml_tensor * outs[] = { q_rot, k_rot, v_rot, set_k, set_v };
++    const ggml_tensor * stage_in[4] = { cq.src[0], ck.src[0], v_norm->src[0], tau };
++    const ggml_tensor * own_out[4]  = { q_rot, k_rot, v_rot, nullptr };
++    int stage = 0;
++    for (int b = 0; b < 4; ++b) {
++        const ggml_tensor * in = stage_in[b];
++        if (!in) continue;
++        for (const ggml_tensor * o : outs) {
++            if (inkling2_overlap(o, in) && !(o == own_out[b] && same_slot(o, in))) {
++                if (!ggml_is_contiguous(in)) INK_T_FAIL();
++                stage |= 1 << b;
+             }
+         }
+     }
++    if (inkling2_overlap(cq.src[1], q_rot) || inkling2_overlap(cq.src[1], k_rot) || inkling2_overlap(cq.src[1], v_rot)) INK_T_FAIL();
+     if (inkling2_overlap(q_rot, k_rot) || inkling2_overlap(q_rot, v_rot) || inkling2_overlap(k_rot, v_rot)) INK_T_FAIL();
++    args.n_ext = stage;
+ 
+     args.type    = GGML_CUDA_INKLING2_QKV_POST;
+     args.n_nodes = k - i + 1;
+@@ -2506,6 +2523,30 @@ static void inkling2t_qkv_post(ggml_backend_cuda_context & ctx, const ggml_cuda_
+     p.n_head    = (int) a.ext[3]->ne[1];
+     p.n_head_kv = (int) a.ext[5]->ne[1];
+ 
++    // stage the inputs an output would overwrite (args.n_ext: bit 0 q_in, 1 k_in, 2 v_in, 3 tau)
++    ggml_cuda_pool_alloc<float> scratch(ctx.pool());
++    if (a.n_ext) {
++        const ggml_tensor * in[4] = { a.ext[0], a.ext[4], a.ext[7]->src[0], a.ext[2] };
++        int64_t total = 0;
++        for (int b = 0; b < 4; ++b) {
++            if (a.n_ext & (1 << b)) total += ggml_nelements(in[b]);
++        }
++        float * sc = scratch.alloc(total);
++        inkling2t_stage_p sp = {};
++        const float ** ptrs[4] = { &p.q_in, &p.k_in, &p.v_in, &p.tau };
++        int nb = 0;
++        for (int b = 0; b < 4; ++b) {
++            if (!(a.n_ext & (1 << b))) continue;
++            sp.src[nb] = (const float *) in[b]->data;
++            sp.dst[nb] = sc;
++            sp.n[nb]   = (int) ggml_nelements(in[b]);
++            *ptrs[b]   = sc;
++            sc += sp.n[nb];
++            ++nb;
++        }
++        const ggml_cuda_kernel_launch_params sparams(dim3(1, 1, 1), dim3(512, 1, 1), 0, ctx.stream());
++        ggml_cuda_kernel_launch(inkling2t_stage_f32, sparams, sp);
++    }
+     const dim3 block_nums(p.n_head + 2*p.n_head_kv, 1, 1);
+     const dim3 block_dims(512, 1, 1);
+     const ggml_cuda_kernel_launch_params params(block_nums, block_dims, 0, ctx.stream());
+@@ -2618,10 +2659,17 @@ static bool inkling2t_match_relbias_t(const ggml_cgraph * cgraph, int i, ggml_cu
+ 
+     if (!inkling2t_closed(cgraph, i, end, { dst, fill })) INK_T_FAIL();
+ 
+-    for (const ggml_tensor * in : { W, r, s, pos, mask }) {
++    for (const ggml_tensor * in : { W, pos, mask }) {
+         if (inkling2_overlap(dst, in) || (fill && inkling2_overlap(fill, in))) INK_T_FAIL();
+     }
+     if (fill && inkling2_overlap(fill, dst)) INK_T_FAIL();
++    // r and s die in the chain, so the mask or the sinks fill may be planned over them: stage them into scratch then
++    int stage = 0;
++    if (inkling2_overlap(dst, r) || (fill && inkling2_overlap(fill, r))) stage |= 1;
++    if (inkling2_overlap(dst, s) || (fill && inkling2_overlap(fill, s))) stage |= 2;
++    if ((stage & 1) && r->nb[1] != r->ne[0]*sizeof(float)) INK_T_FAIL();
++    if ((stage & 2) && !ggml_is_contiguous(s)) INK_T_FAIL();
++    args.n_ext = stage;
+ 
+     args.type    = GGML_CUDA_INKLING2_RELBIAS_T;
+     args.n_nodes = end - i + 1;
+@@ -2648,20 +2696,32 @@ static void inkling2t_relbias_t(ggml_backend_cuda_context & ctx, const ggml_cuda
+     const int  bs   = 256;
+     const int  vw   = vec2 ? 2 : 1;
+     const ggml_cuda_kernel_launch_params params(dim3((n_kv/vw + bs - 1)/bs, 1, n_head), dim3(bs, 1, 1), 0, ctx.stream());
+-    const int64_t r_s1 = r->nb[1]/sizeof(float);
++    int64_t r_s1 = r->nb[1]/sizeof(float);
++    const float * rd = (const float *) r->data;
++    const float * sd = (const float *) s->data;
++    ggml_cuda_pool_alloc<float> scratch(ctx.pool());
++    if (a.n_ext) {
++        float * sc = scratch.alloc(ggml_nelements(r) + ggml_nelements(s));
++        inkling2t_stage_p sp = {};
++        int nb = 0;
++        if (a.n_ext & 1) { sp.src[nb] = rd; sp.dst[nb] = sc; sp.n[nb] = (int) ggml_nelements(r); rd = sc; sc += sp.n[nb]; ++nb; }
++        if (a.n_ext & 2) { sp.src[nb] = sd; sp.dst[nb] = sc; sp.n[nb] = (int) ggml_nelements(s); sd = sc; ++nb; }
++        const ggml_cuda_kernel_launch_params sparams(dim3(1, 1, 1), dim3(512, 1, 1), 0, ctx.stream());
++        ggml_cuda_kernel_launch(inkling2t_stage_f32, sparams, sp);
++    }
+     float * fd = fill ? (float *) fill->data : nullptr;
+     const int nf = fill ? (int) ggml_nelements(fill) : 0;
+     if (dst->type == GGML_TYPE_F16) {
+         if (vec2) {
+-            ggml_cuda_kernel_launch(inkling2t_relbias_f32<2, half, half>, params, (const float *) W->data, nW, (const float *) r->data, r_s1,
+-                (const float *) s->data, (const int32_t *) pos->data, (const half *) mask->data, (half *) dst->data, n_kv, n_rows, fd, nf, fill_v);
++            ggml_cuda_kernel_launch(inkling2t_relbias_f32<2, half, half>, params, (const float *) W->data, nW, rd, r_s1,
++                sd, (const int32_t *) pos->data, (const half *) mask->data, (half *) dst->data, n_kv, n_rows, fd, nf, fill_v);
+         } else {
+-            ggml_cuda_kernel_launch(inkling2t_relbias_f32<1, half, half>, params, (const float *) W->data, nW, (const float *) r->data, r_s1,
+-                (const float *) s->data, (const int32_t *) pos->data, (const half *) mask->data, (half *) dst->data, n_kv, n_rows, fd, nf, fill_v);
++            ggml_cuda_kernel_launch(inkling2t_relbias_f32<1, half, half>, params, (const float *) W->data, nW, rd, r_s1,
++                sd, (const int32_t *) pos->data, (const half *) mask->data, (half *) dst->data, n_kv, n_rows, fd, nf, fill_v);
+         }
+     } else {
+-        ggml_cuda_kernel_launch(inkling2t_relbias_f32<1, float, float>, params, (const float *) W->data, nW, (const float *) r->data, r_s1,
+-            (const float *) s->data, (const int32_t *) pos->data, (const float *) mask->data, (float *) dst->data, n_kv, n_rows, fd, nf, fill_v);
++        ggml_cuda_kernel_launch(inkling2t_relbias_f32<1, float, float>, params, (const float *) W->data, nW, rd, r_s1,
++            sd, (const int32_t *) pos->data, (const float *) mask->data, (float *) dst->data, n_kv, n_rows, fd, nf, fill_v);
+     }
+ }
+ 
+diff --git a/ggml/src/ggml-cuda/mmvq.cu b/ggml/src/ggml-cuda/mmvq.cu
+index 24a445f..18a2e51 100644
+--- a/ggml/src/ggml-cuda/mmvq.cu
++++ b/ggml/src/ggml-cuda/mmvq.cu
+@@ -1126,8 +1126,10 @@ static void mul_mat_vec_q_switch_fusion(
+         const dim3 & block_nums, const dim3 & block_dims, const int nbytes_shared,
+         const uint32_t ids_stride, cudaStream_t stream) {
+ 
++    // shared_up counts as a fusion: its extra grid slice is only handled by the has_fusion kernel (turing-iq3-opt pair mode
++    // sets shared_up without a gate)
+     const bool has_fusion = fusion.gate != nullptr || fusion.x_bias != nullptr || fusion.gate_bias != nullptr ||
+-                            fusion.x_scale != nullptr || fusion.gate_scale != nullptr;
++                            fusion.x_scale != nullptr || fusion.gate_scale != nullptr || fusion.shared_up != nullptr;
+     if constexpr (c_ncols_dst == 1) {
+         if (has_fusion) {
+             const ggml_cuda_kernel_launch_params launch_params = ggml_cuda_kernel_launch_params(block_nums, block_dims, nbytes_shared, stream);
+@@ -1588,7 +1590,18 @@ void ggml_cuda_mul_mat_vec_q(
+         // non-negligible for some models such as gpt-oss-20b
+         GGML_ASSERT((fusion->x_scale == nullptr && fusion->gate_scale == nullptr) || src0->type == GGML_TYPE_NVFP4);
+ 
+-        if (fusion->shared_up) {
++        if (fusion->shared_up && !ids && !fusion->gate && !fusion->shared_gate) {
++            // turing-iq3-opt pair mode: a second matrix of the same shape and the same input in the extra grid slice
++            GGML_ASSERT(!fusion->x_bias && !fusion->gate_bias && !fusion->x_scale && !fusion->gate_scale && fusion->shared_dst);
++            GGML_ASSERT(ne11 == 1 && ne12 == 1 && ne13 == 1 && ne02 == 1 && ne03 == 1);
++            GGML_ASSERT(fusion->shared_up->type == src0->type && ggml_are_same_shape(fusion->shared_up, src0));
++            GGML_ASSERT(fusion->shared_up->nb[1] == nb01 && ggml_is_contiguous(fusion->shared_up));
++            GGML_ASSERT(fusion->shared_dst->type == GGML_TYPE_F32 && ggml_is_contiguous(fusion->shared_dst));
++            GGML_ASSERT(ggml_are_same_shape(fusion->shared_dst, dst));
++            fusion_local.shared_up   = fusion->shared_up->data;
++            fusion_local.shared_dst  = (float *) fusion->shared_dst->data;
++            fusion_local.shared_stride_col_dst = fusion->shared_dst->nb[1] / ts_dst;
++        } else if (fusion->shared_up) {
+             GGML_ASSERT(ids && fusion->gate && fusion->shared_gate && fusion->shared_dst);
+             GGML_ASSERT(!fusion->x_bias && !fusion->gate_bias && !fusion->x_scale && !fusion->gate_scale);
+             GGML_ASSERT(ne11 == 1 && ne03 == 1 && ne13 == 1);
+diff --git a/src/models/inkling2.cpp b/src/models/inkling2.cpp
+index d567b97..02bfbf1 100644
+--- a/src/models/inkling2.cpp
++++ b/src/models/inkling2.cpp
+@@ -372,10 +372,21 @@ ggml_tensor * llama_model_inkling2::graph::build_layer(int il, int ip, ggml_tens
+ 
+     // self-attention
+     {
+-        ggml_tensor * Qcur = build_lora_mm(layer.wq, inputs[0]);
+-        ggml_tensor * Kcur = convolve(build_lora_mm(layer.wk, inputs[1]), layer.attn_k_conv,
++        // turing-iq3-opt: projections that read the same input are expanded next to each other, so that the backend can
++        // run each pair as one mat-vec launch (Q + gate always, K + V when they share the input); values are unchanged
++        ggml_tensor * Qcur      = build_lora_mm(layer.wq, inputs[0]);
++        ggml_tensor * gate_proj = build_lora_mm(layer.wqkv_gate, inputs[0]);
++        ggml_build_forward_expand(gf, Qcur);
++        ggml_build_forward_expand(gf, gate_proj);
++        ggml_tensor * Kproj = build_lora_mm(layer.wk, inputs[1]);
++        ggml_tensor * Vproj = build_lora_mm(layer.wv, inputs[2]);
++        if (inputs[1] == inputs[2]) {
++            ggml_build_forward_expand(gf, Kproj);
++            ggml_build_forward_expand(gf, Vproj);
++        }
++        ggml_tensor * Kcur = convolve(Kproj, layer.attn_k_conv,
+                 is_swa ? nullptr : build_lora_mm(layer.attn_k_conv_proj, inputs[1]), state, history, recr, 0);
+-        ggml_tensor * Vcur = convolve(build_lora_mm(layer.wv, inputs[2]), layer.attn_v_conv,
++        ggml_tensor * Vcur = convolve(Vproj, layer.attn_v_conv,
+                 is_swa ? nullptr : build_lora_mm(layer.attn_v_conv_proj, inputs[2]), state, history, recr, n_embd_k_gqa);
+         ggml_tensor * Rcur = build_lora_mm(layer.attn_rel, inputs[0]);
+ 
+@@ -423,7 +434,7 @@ ggml_tensor * llama_model_inkling2::graph::build_layer(int il, int ip, ggml_tens
+                 nullptr, nullptr, nullptr,
+                 Qcur, Kcur, Vcur, kq_b, sinks, 1.0f/sqrtf(n_embd_head), il);
+ 
+-        cur = ggml_mul(ctx0, cur, ggml_sigmoid(ctx0, build_lora_mm(layer.wqkv_gate, inputs[0])));
++        cur = ggml_mul(ctx0, cur, ggml_sigmoid(ctx0, gate_proj));
+         cur = convolve(build_lora_mm(layer.wo, cur), layer.attn_post_conv, nullptr, state, history, recr, 2*n_embd_k_gqa);
+         cb(cur, "attn_out", il);
+     }
+-- 
+2.53.0
+

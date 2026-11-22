@@ -14,6 +14,30 @@ Local inference benchmarking and private serving with Strata and llama.cpp. The 
 
 [Latest recommendation and evidence](docs/swift-selected-20261119.md) · [Production setup and clients](docs/production-serving.md) · [Latest measurements JSON](docs/results/swift-serving-20261119.json) · [Serving source](serving/)
 
+## Inkling-Turing / Long-Context CUDA Engineering
+
+A separately validated **research engine**, not the production winner: Inkling 2 Mini (UD-IQ3_XXS) on the RTX 2080 Ti 22 GB at 175 W, Q8_0 KV, with a llama.cpp fork carrying sm_75 kernels and a GPU-side relative-position path (validated runtime `7d3e5b1`, fallbacks `e4a7ea6` and `e0be55a`). Swift 1.5 remains the selected production backend.
+
+[![Inkling-Turing overview: 242,134 actual input tokens in a 262,144-token window, 7/7 hidden tests, 3/3 follow-up checks](docs/assets/inkling-turing-overview.png)](docs/inkling-turing-20261122.md)
+
+**Measured limits.** Largest qualified actual input **242,134 snapshot tokens** (246,714 in context after the session) in a 262,144-token window at ub256; **not** a 256K actual-input run. Cold prefill 556 s (437 tok/s), decode 26.8 tok/s, cached follow-up TTFT 1.24 to 1.34 s, 19,846 MiB peak VRAM, 0 scheduler re-plans. At 128K with ub512: 767 tok/s cold prefill and 35.8 tok/s decode. ub512 does not load at 262,144.
+
+**What was done.** The relative-position bias was turned into one graph node and then computed from cell and token positions on the GPU, which removed 2,333 MB of host uploads per 32K prefill (13.2 MB remain) and made 256K fit at ub256 (the unfused build did not fit). A Flash Attention fusion of the bias was **rejected**: unit tests were bit-exact but model runs were unstable, and a graph audit shows prefill and decode op sequences diverge. Patches, the audit and the regression gate are published.
+
+**Limitations.** One successful run per context size, so this is a qualification and not a reliability estimate; a controlled synthetic-repository task, not SWE-bench; cold prefill at 242K takes 9.3 minutes, so interactive use needs a warm prefix cache; the ub512 and ub256 runs differ in capacity, seed and content.
+
+[![Inkling-Turing long-context decode: 35.8, 30.5 and 26.8 tok/s at 128K, 185K and 242K](docs/assets/inkling-turing-decode.png)](docs/inkling-turing-20261122.md#results)
+
+[![Inkling-Turing cold prefill throughput by context size and microbatch](docs/assets/inkling-turing-prefill.png)](docs/inkling-turing-20261122.md#microbatch-effect)
+
+[![Inkling-Turing context intelligence: two-file fix, retrieval, recall and contradictory rules](docs/assets/inkling-turing-intelligence.png)](docs/inkling-turing-20261122.md#what-was-measured)
+
+[![Inkling-Turing memory engineering: host uploads, VRAM and the rejected Flash Attention fusion](docs/assets/inkling-turing-memory.png)](docs/inkling-turing-20261122.md#memory-engineering)
+
+[![Inkling-Turing cache and agent responsiveness: cold 9.3 minutes, cached follow-ups about one second](docs/assets/inkling-turing-cache.png)](docs/inkling-turing-20261122.md#cache-and-responsiveness)
+
+[Full report and methodology](docs/inkling-turing-20261122.md) · [Measurements JSON](docs/results/inkling-turing-20261122.json) · [Raw results and logs](research/inkling-turing/v06-longctx/results/) · [Long-context readiness report](research/inkling-turing/v06-longctx/LONGCTX_READINESS.md) · [Research bundle, patches and rebuild](research/inkling-turing/README.md) · [Rejected experiments](research/inkling-turing/rejected/) · [Graph audit](research/inkling-turing/v06-longctx/graph_audit.py)
+
 [Setup & methodology](docs/benchmark-guide.md) · [Architecture](docs/architecture-audit.md) · [Memory model](docs/memory-model.md)
 
 [![RTX 2080 Ti 22GB Swift 1.5 filled 128K, 192K and 256K MTP benchmarks](docs/assets/swift-2080ti-filled-mtp.png)](docs/swift-2080ti-20261119.md)
