@@ -1,4 +1,4 @@
-D = '/home/marvin/llm/experiments/inkling-kernels/'
+D = '~/llm/experiments/inkling-kernels/'
 H = D + 'llama.cpp/ggml/src/ggml-cuda/inkling2.cuh'
 C = D + 'llama.cpp/ggml/src/ggml-cuda/inkling2.cu'
 h = open(H).read()

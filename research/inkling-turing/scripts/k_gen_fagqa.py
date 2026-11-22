@@ -2,7 +2,7 @@
 # The GQA kernel processes the gqa_ratio query heads of one KV head as the kernel's "columns": K/V are loaded (and V
 # dequantized) once per block instead of once per query head. Per-head arithmetic and the KV split are those of the
 # stock single-column launch, so the results are the same bits.
-D = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/'
+D = '~/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/'
 src = open(D + 'fattn-vec.cuh').read()
 a = src.index('template<int D, int ncols, ggml_type type_K, ggml_type type_V, bool use_logit_softcap> // D == head size')
 b = src.index('#ifdef __clang__\n#pragma clang diagnostic pop')

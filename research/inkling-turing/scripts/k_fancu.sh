@@ -7,7 +7,7 @@ sudo -n env LD_LIBRARY_PATH=$B GGML_CUDA_DISABLE_GRAPHS=1 ncu --kernel-name-base
 python3 $R/k_ncusum.py "$R/prof/ncu_fa8k.csv" | cut -c1-760
 python3 - <<'PY'
 import csv, io
-t = open('/home/marvin/llm/experiments/inkling-kernels/prof/ncu_fa8k.csv', errors='ignore').read(); t = t[t.find('"ID"'):]
+t = open('~/llm/experiments/inkling-kernels/prof/ncu_fa8k.csv', errors='ignore').read(); t = t[t.find('"ID"'):]
 r = list(csv.reader(io.StringIO(t))); h, d = r[0], r[-1]
 for k in ('lts__t_sectors_srcunit_tex_op_read.sum', 'lts__t_sector_hit_rate.pct', 'launch__grid_size', 'launch__block_size', 'dram__bytes_read.sum', 'gpu__time_duration.sum'):
     print(k, d[h.index(k)] if k in h else 'n/a')

@@ -1,4 +1,4 @@
-p = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/mmvq.cu'
+p = '~/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/mmvq.cu'
 s = open(p).read()
 a = s.index('    // turing-iq3-opt: single-token MUL_MAT_ID through the warp-per-row MoE kernel.')
 b = s.index('    if (has_ids && (ncols_dst > 1 || moe1_type)) {')

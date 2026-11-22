@@ -25,7 +25,7 @@ source <(sed -n "1,/^run() /p" $R/k_ncu.sh | sed "\$d")
 sudo -n env LD_LIBRARY_PATH=$B GGML_CUDA_DISABLE_GRAPHS=1 ncu --kernel-name-base demangled -k "regex:mul_mat_q<\(ggml_type\)(22|18|40), \(int\)48" -s 6 -c 6 --metrics $MET --csv --page raw $B/llama-bench -m $M -ngl 99 -fa 1 -ctk q8_0 -ctv q8_0 -ub 512 -p 512 -n 0 -d 0 -r 1 -o md > $R/prof/ncu_iqB.csv 2>/dev/null
 python3 - <<"PY"
 import csv,io
-t=open("/home/marvin/llm/experiments/inkling-kernels/prof/ncu_iqB.csv",errors="ignore").read(); t=t[t.find("\"ID\""):]
+t=open("~/llm/experiments/inkling-kernels/prof/ncu_iqB.csv",errors="ignore").read(); t=t[t.find("\"ID\""):]
 rows=list(csv.reader(io.StringIO(t))); h=rows[0]
 for d in rows[2:]:
     g=lambda k: d[h.index(k)]

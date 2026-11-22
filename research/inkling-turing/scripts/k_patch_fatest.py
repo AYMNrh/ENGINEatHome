@@ -1,4 +1,4 @@
-p = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/tests/test-backend-ops.cpp'
+p = '~/llm/experiments/inkling-kernels/llama.cpp/tests/test-backend-ops.cpp'
 s = open(p).read()
 if 'test_flash_attn_ext_ink' not in s:
     cls = '''

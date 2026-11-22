@@ -1,5 +1,5 @@
 # Same-input q8_1 quantization cache for the mat-vec path (turing-iq3-opt).
-D = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/'
+D = '~/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/'
 
 # 1) context members + declaration
 p = D + 'common.cuh'

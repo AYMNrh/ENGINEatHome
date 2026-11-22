@@ -1,5 +1,5 @@
 import re
-p = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/mmvq.cu'
+p = '~/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/mmvq.cu'
 s = open(p).read()
 if 'mmvq-iq.cuh' not in s:
     s = s.replace('#include "vecdotq.cuh"', '#include "vecdotq.cuh"\n#include "mmvq-iq.cuh"', 1)

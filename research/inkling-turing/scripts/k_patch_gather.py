@@ -1,5 +1,5 @@
 # Fold the per-expert down-scale gather (REPEAT + GET_ROWS) into the MoE weighted reduction (turing-iq3-opt)
-p = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu'
+p = '~/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu'
 s = open(p).read()
 if 'ggml_cuda_try_fuse_moe_scale_gather' not in s:
     helper = r'''

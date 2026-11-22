@@ -1,4 +1,4 @@
-p = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu'
+p = '~/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu'
 s = open(p).read()
 if 'GGML_CUDA_DUMP_GRAPH' in s:
     print('already'); raise SystemExit

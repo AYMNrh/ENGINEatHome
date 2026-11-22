@@ -1,4 +1,4 @@
-p = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/mmvq.cu'
+p = '~/llm/experiments/inkling-kernels/llama.cpp/ggml/src/ggml-cuda/mmvq.cu'
 s = open(p).read()
 a = s.index("    if constexpr (type == GGML_TYPE_IQ3_XXS) {\n        // Turing-oriented")
 b = s.index("    const int device = ggml_cuda_get_device();", a)

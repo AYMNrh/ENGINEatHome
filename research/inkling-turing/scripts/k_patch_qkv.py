@@ -1,5 +1,5 @@
 import sys
-D = '/home/marvin/llm/experiments/inkling-kernels/'
+D = '~/llm/experiments/inkling-kernels/'
 H = D + 'llama.cpp/ggml/src/ggml-cuda/inkling2.cuh'
 C = D + 'llama.cpp/ggml/src/ggml-cuda/inkling2.cu'
 inc = open(D + 'ink_t_qkv.inc').read().replace('ggml_is_contiguous_rows(t)', 't->nb[0] == ggml_type_size(GGML_TYPE_Q8_0)')

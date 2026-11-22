@@ -1,5 +1,5 @@
 # Horizontal fusion of same-input, same-shape quantized decode mat-vecs (turing-iq3-opt)
-D = '/home/marvin/llm/experiments/inkling-kernels/llama.cpp/'
+D = '~/llm/experiments/inkling-kernels/llama.cpp/'
 
 # 1) graph order: Q + gate adjacent; K + V adjacent when they read the same input (SWA without controllers)
 p = D + 'src/models/inkling2.cpp'

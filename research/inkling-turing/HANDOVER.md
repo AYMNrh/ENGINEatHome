@@ -3,7 +3,7 @@
 Status 2026-11-22 00:10: research **stopped** at the user's request (usage limit). All validated work is committed. The GPU is idle and Swift production is restored.
 
 ## 1. Current best configuration
-- **Host / GPU:** homelab `marvin@<ip>` (Tailscale). RTX 2080 Ti 22 GB, sm_75, 175 W limit.
+- **Host / GPU:** homelab `user@<host>` (Tailscale). RTX 2080 Ti 22 GB, sm_75, 175 W limit.
 - **Code:** `~/llm/experiments/inkling-kernels/llama.cpp`, branch `turing-iq3-opt`, HEAD `6e225ed`. Base is `realugbun/llama.cpp@inkling2-speed` 7669d89, the local clone `refs/speed-fork`.
 - **Binaries:** `~/llm/experiments/inkling-kernels/bin-best/` holds the HEAD build. `bin-base/` is the pure fork and `bin-cp3/` is checkpoint 3 plus GQA opt-in.
 - **Model:** `model/Inkling-2-Mini-UD-IQ3_XXS.mainline.gguf`. This is the mainline-format GGUF; the old Unsloth `inkling2` GGUF does not load in this fork.
