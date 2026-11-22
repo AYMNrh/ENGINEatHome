@@ -3,7 +3,7 @@
 Status 2026-11-22 00:10: research **stopped** at the user's request (usage limit). All validated work is committed. The GPU is idle and Swift production is restored.
 
 ## 1. Current best configuration
-- **Host / GPU:** homelab (private host). RTX 2080 Ti 22 GB, sm_75, 175 W limit.
+- **Host / GPU:** homelab `marvin@100.75.206.4` (Tailscale). RTX 2080 Ti 22 GB, sm_75, 175 W limit.
 - **Code:** `~/llm/experiments/inkling-kernels/llama.cpp`, branch `turing-iq3-opt`, HEAD `6e225ed`. Base is `realugbun/llama.cpp@inkling2-speed` 7669d89, the local clone `refs/speed-fork`.
 - **Binaries:** `~/llm/experiments/inkling-kernels/bin-best/` holds the HEAD build. `bin-base/` is the pure fork and `bin-cp3/` is checkpoint 3 plus GQA opt-in.
 - **Model:** `model/Inkling-2-Mini-UD-IQ3_XXS.mainline.gguf`. This is the mainline-format GGUF; the old Unsloth `inkling2` GGUF does not load in this fork.
@@ -146,3 +146,11 @@ Validated build is unchanged: HEAD e0be55a (NVFP4 half-K tile). Ledger entries V
 - Nsight Compute of the stock prefill FA at 8K depth (ncols 32, 128 threads, 244 regs, 2 blocks/SM): long_scoreboard 56%, issue active 14%, SM 14%, DRAM 15% (only ~21 MB read per call), L1 hit 22-28%. It is latency-bound, not bandwidth-bound; Turing has no cp.async and the kernel has no register headroom for a prefetch. Prefill FA is ~10% of a ubatch at ~4K average depth and grows with depth.
 - inkling2_relbias_mask materializes n_kv x n_tok x 24 f16 per layer (~214 MB for a full-attention layer at 8K); fusing the gather into FA could save ~2.5-3% at 8K but cannot lift the FA latency ceiling.
 - Not done: attention CUDA source study of Maya/NInfer-all/Basalt/SGLang, fp32 sgemm tensor-core opt-in. Attention tuning is stopped after three failed hypotheses.
+
+## v0.2 round 3 (2026-11-22): source reading and fragment-direct IQ3_XXS, rejected
+Validated runtime unchanged: HEAD e0be55a. Ledger V02-10, V02-RES. Optimization round declared complete.
+- Source reading (Maya, NInfer-all, Basalt, SGLang). Verified from source: Maya's NVFP4 expert kernel keeps weights packed in global memory, 32-bit loads, register nibble decode, one-block prefetch; its MMA is m16n8k16 fp16 (sm_80+). NInfer-all GGUF prefill is ggml-style MMQ (same as ours); its Q4-Q8 prefill needs cp.async + BF16 MMA, its NVFP4 kernel is sm_120a only. SGLang's native NVFP4 path calls FlashInfer Blackwell kernels, tile width depends on token count, rows padded to 128 per expert for scale blocks. Nothing is portable to sm_75 beyond our MMQ.
+- Unverified / not read: Maya prefill files; any Basalt prefill expert GEMM (none found in the files read, not proven absent); SGLang Triton/CUTLASS fallbacks for pre-Blackwell; findings partly come from subagent summaries and were spot-checked only.
+- Three designs compared: (1) fragment-direct dequant (no smem weight tile: ~8 KB smem, 128 regs; risk: redundant global gathers; exact by construction), (2) token-count-adaptive tile width (J=24/40/64/128 already measured worse than J=48; not implemented), (3) persistent tile scheduler (tail waves small, est. <1%; not implemented).
+- V02-10 result (design 1, IQ3_XXS): MUL_MAT_ID 1074/1077, decode logprob delta 0.9 (mapping bug not chased), pp512 0K 1404 -> 1222 (-13%), 8K 1194 -> 1074 (-10%). Cause: six redundant 32-bit global loads per lane per 32-value fragment plus sign/popc work exceed the saved shared-memory round trip. Patch results/iq3_direct_v02_rejected.patch.
+- Four consecutive failed hypotheses (V02-7..V02-10) after the last accept (V02-5). Remaining unstarted options: opt-in fp32 sgemm to tensor cores (<=4%), fused relbias gather in FA (~2.5-3% at 8K), NVFP4 128-bit loads, decode glue items in HANDOVER section 5. DSpark stays parked.

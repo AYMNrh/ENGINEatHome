@@ -1,0 +1,201 @@
+diff --git a/ggml/src/ggml-cuda/mmq-config-ampere.cuh b/ggml/src/ggml-cuda/mmq-config-ampere.cuh
+index c9e45e1..b560db5 100644
+--- a/ggml/src/ggml-cuda/mmq-config-ampere.cuh
++++ b/ggml/src/ggml-cuda/mmq-config-ampere.cuh
+@@ -275,17 +275,17 @@ static constexpr __host__ __device__ ggml_cuda_mmq_config ggml_cuda_mmq_get_conf
+     CASE(GGML_TYPE_IQ2_S, 256, 1, 128, 112, GGML_CUDA_MMQ_SRAM_LAYOUT_Q3_K, MMQ_ITER_K, true, false);
+     CASE(GGML_TYPE_IQ2_S, 256, 1, 128, 128, GGML_CUDA_MMQ_SRAM_LAYOUT_Q3_K, MMQ_ITER_K, true, false);
+ 
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,   8, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, true);
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  16, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, true);
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  32, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, true);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,   8, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, true);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,  16, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, true);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,  32, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, true);
+     CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  64, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, true);
+     CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128, 128, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, true);
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,   8, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  16, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  24, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  32, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  40, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  48, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,   8, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,  16, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,  24, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,  32, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,  40, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
++    CASE(GGML_TYPE_IQ3_XXS, 256, 2, 128,  48, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+     CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  64, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+     CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  80, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+     CASE(GGML_TYPE_IQ3_XXS, 256, 1, 128,  96, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, MMQ_ITER_K, true, false);
+diff --git a/ggml/src/ggml-cuda/mmq-vec-dot.cuh b/ggml/src/ggml-cuda/mmq-vec-dot.cuh
+index 8629cb4..cb68ad3 100644
+--- a/ggml/src/ggml-cuda/mmq-vec-dot.cuh
++++ b/ggml/src/ggml-cuda/mmq-vec-dot.cuh
+@@ -291,6 +291,106 @@ static __device__ __forceinline__ void ggml_cuda_mmq_vec_dot_q8_0_q8_1_mma(
+ }
+ 
+ 
++
++// inkling-turing: IQ3_XXS "fragment-direct" dot. The x tile never goes through shared memory: every lane builds its IMMA A
++// fragments (4 int8 values = one grid entry with its signs) straight from the global block, using the shared-memory grid.
++// Same int8 values, same scales and same accumulation order as load_tiles_iq3_xxs + vec_dot_q8_0_q8_1_mma, so bit-exact.
++template <ggml_type type, int J, bool fallback> static __device__ __forceinline__ void ink_vec_dot_iq3_direct(
++        const block_iq3_xxs * __restrict__ xb, const int stride_blocks, const int i_max,
++        const int * __restrict__ y, float * __restrict__ sum, const int g0) {
++#if defined(TURING_MMA_AVAILABLE) && !defined(AMD_MFMA_AVAILABLE) && !defined(AMD_WMMA_AVAILABLE)
++    typedef tile<16, 8, int> tile_A;
++    typedef tile< 8, 8, int> tile_B;
++    typedef tile<16, 8, int> tile_C;
++
++    constexpr int rows_per_warp = ggml_cuda_mmq_get_rows_per_warp(type, J, fallback, GGML_PREC_Q8);
++    constexpr int ntx           = rows_per_warp/tile_C::I;
++
++    y += (threadIdx.y % ntx) * (tile_C::J*MMQ_TILE_Y_K);
++    const int   * y_qs = (const int   *) y + 4;
++    const float * y_df = (const float *) y;
++
++    const uint32_t * grid_tab = ink_t_grid_smem<GGML_TYPE_IQ3_XXS>();
++
++    tile_A A[ntx][MMQ_TILE_NE_K/QI8_0];
++    float dA[ntx][tile_C::ne/2][MMQ_TILE_NE_K/QI8_0];
++
++    const int i0 = (threadIdx.y/ntx)*rows_per_warp;
++
++#pragma unroll
++    for (int n = 0; n < ntx; ++n) {
++#pragma unroll
++        for (int g = 0; g < MMQ_TILE_NE_K/QI8_0; ++g) {
++            const int gg = g0 + g; // 32-value group inside the 256-value super-block
++#pragma unroll
++            for (int l = 0; l < tile_A::ne; ++l) {
++                int row = i0 + n*tile_A::I + tile_A::get_i(l);
++                if (fallback) {
++                    row = min(row, i_max);
++                }
++                const block_iq3_xxs * bxi = xb + (int64_t) row*stride_blocks;
++                const int s = tile_A::get_j(l); // int slot (0..7) of the group = index byte s
++                const uint32_t aux32 = get_int_b2(bxi->qs, QK_K/16 + gg);
++                const uint32_t w     = get_int_b2(bxi->qs, 2*gg + (s >> 2));
++                const uint32_t idx   = (w >> (8*(s & 3))) & 0xFF;
++                const uint32_t v8    = (aux32 >> (7*(s >> 1))) & 0xFF;
++                const uint32_t sgn   = v8 ^ ((__popc(v8) & 1) << 7);
++                const uint32_t sg4   = (s & 1) ? (sgn >> 4) : (sgn & 0x0F);
++                A[n][g].x[l] = ink_t_apply_signs4(grid_tab[idx], sg4);
++            }
++        }
++
++#pragma unroll
++        for (int l = 0; l < tile_C::ne/2; ++l) {
++            int row = i0 + n*tile_A::I + tile_C::get_i(2*l);
++            if (fallback) {
++                row = min(row, i_max);
++            }
++            const block_iq3_xxs * bxi = xb + (int64_t) row*stride_blocks;
++#pragma unroll
++            for (int g = 0; g < MMQ_TILE_NE_K/QI8_0; ++g) {
++                const int gg = g0 + g;
++                const uint32_t aux32 = get_int_b2(bxi->qs, QK_K/16 + gg);
++                const int ls = aux32 >> 28;
++                const float d = bxi->d;
++                dA[n][l][g] = (ls*d + d/2)/2;
++            }
++        }
++    }
++
++#pragma unroll
++    for (int j0 = 0; j0 < J; j0 += ntx*tile_C::J) {
++#pragma unroll
++        for (int k01 = 0; k01 < MMQ_TILE_NE_K; k01 += QI8_0) {
++            tile_B B;
++            float dB[tile_C::ne/2];
++
++            load_generic(B, y_qs + j0*MMQ_TILE_Y_K + k01, MMQ_TILE_Y_K);
++
++#pragma unroll
++            for (int l = 0; l < tile_C::ne/2; ++l) {
++                const int j = j0 + tile_C::get_j(l);
++                dB[l] = y_df[j*MMQ_TILE_Y_K + k01/QI8_1];
++            }
++
++#pragma unroll
++            for (int n = 0; n < ntx; ++n) {
++                tile_C C;
++                mma(C, A[n][k01/QI8_0], B);
++
++#pragma unroll
++                for (int l = 0; l < tile_C::ne; ++l) {
++                    sum[(j0/tile_C::J + n)*tile_C::ne + l] += ink_t_i2f(C.x[l])*dA[n][l/2][k01/QI8_0]*dB[l%2];
++                }
++            }
++        }
++    }
++#else
++    GGML_UNUSED_VARS(xb, stride_blocks, i_max, y, sum, g0);
++    NO_DEVICE_CODE;
++#endif // TURING_MMA_AVAILABLE
++}
++
+ template <ggml_type type, int J, bool fallback> static __device__ __forceinline__ void ggml_cuda_mmq_vec_dot_q8_1_q8_1_dp4a(
+         const int * __restrict__ x, const int * __restrict__ y, float * __restrict__ sum, const int k00) {
+     constexpr int warp_size = ggml_cuda_get_physical_warp_size();
+diff --git a/ggml/src/ggml-cuda/mmq.cuh b/ggml/src/ggml-cuda/mmq.cuh
+index 46b067c..c9fc115 100644
+--- a/ggml/src/ggml-cuda/mmq.cuh
++++ b/ggml/src/ggml-cuda/mmq.cuh
+@@ -435,6 +435,11 @@ static constexpr __host__ __device__ tile_x_sizes mmq_get_dp4a_tile_x_sizes(ggml
+ 
+ // FIXME temporary until all combinations of data types and GPUs can use the MMA data layout
+ static __host__ int ggml_cuda_mmq_get_nbytes_shared_x(const ggml_cuda_mmq_config & config, const int cc) {
++#if !defined(GGML_CUDA_INK_T_NO_IQ3_DIRECT)
++    if (config.type == GGML_TYPE_IQ3_XXS && turing_mma_available(cc) && !amd_mfma_available(cc) && !amd_wmma_available(cc)) {
++        return 0; // inkling-turing: fragment-direct IQ3_XXS keeps no x tile in shared memory
++    }
++#endif
+     if (config.use_mma_data_layout(cc)) {
+         return config.I * ggml_cuda_mmq_get_sram_stride(config.sram_layout) * 4;
+     }
+@@ -1010,6 +1015,33 @@ static __device__ __forceinline__ void mul_mat_q_process_tile(
+         }
+     } else
+     {
++#if defined(TURING_MMA_AVAILABLE) && !defined(GGML_CUDA_INK_T_NO_IQ3_DIRECT)
++    if constexpr (type == GGML_TYPE_IQ3_XXS && !has_fusion) {
++        // inkling-turing: fragment-direct IQ3_XXS (no x tile in shared memory)
++        const block_iq3_xxs * xb0 = (const block_iq3_xxs *) x + offset_x;
++        for (int kb0 = kb0_start; kb0 < kb0_stop; kb0 += blocks_per_iter) {
++#pragma unroll
++            for (int h = 0; h < 2; ++h) {
++                {
++                    const int * by0 = y + ncols_y * ((kb0 * qk / ne_block) * sz + h * sz);
++#pragma unroll
++                    for (int l0 = 0; l0 < J * MMQ_TILE_Y_K; l0 += nwarps * warp_size) {
++                        int l = l0 + threadIdx.y*warp_size + threadIdx.x;
++
++                        tile_y[l] = by0[l];
++                    }
++                }
++
++                __syncthreads();
++
++                ink_vec_dot_iq3_direct<type, J, fallback>(xb0 + kb0, stride_row_x, tile_x_i_max, tile_y, sum, 4*h);
++
++                __syncthreads();
++            }
++        }
++    } else
++#endif
++    {
+     for (int kb0 = kb0_start; kb0 < kb0_stop; kb0 += blocks_per_iter) {
+         load_tiles(x, x_gate, tile_x, offset_x + kb0, tile_x_i_max, stride_row_x);
+         {
+@@ -1047,6 +1079,8 @@ static __device__ __forceinline__ void mul_mat_q_process_tile(
+ 
+     }
+ 
++    }
++
+     if (fixup) {
+         write_back(sum, ids_dst, tmp_fixup + blockIdx.x*(J*I), y_scale, I, I, J, glu_op, glu_limit, x_scale, gate_scale);
+     } else {
