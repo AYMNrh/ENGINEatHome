@@ -1,0 +1,65 @@
+From 6aad7e0bf1a8f413e7aa9bc1ab42ca8bacfc4394 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 20:40:07 +0100
+Subject: [PATCH 05/17] debug: GGML_CUDA_DUMP_GRAPH node dump
+
+---
+ ggml/src/ggml-cuda/ggml-cuda.cu | 27 +++++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index 1ad59eb..d99eb14 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -5319,7 +5319,29 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+     return 0;
+ }
+ 
++// debug aid (kernel work): GGML_CUDA_DUMP_GRAPH=<file> writes the nodes of the 3rd evaluated graph with their fusion status
++static FILE * ggml_cuda_dump_graph_file(const ggml_cgraph * cgraph) {
++    static const char * path = getenv("GGML_CUDA_DUMP_GRAPH");
++    static int calls = 0;
++    if (!path) return nullptr;
++    if (++calls != 3) return nullptr;
++    FILE * f = fopen(path, "w");
++    if (f) fprintf(f, "n_nodes %d\n", cgraph->n_nodes);
++    return f;
++}
++static void ggml_cuda_dump_node(FILE * f, int i, const ggml_tensor * t, const char * tag) {
++    fprintf(f, "%5d %-4s %-14s %-28.28s %-6s [%lld,%lld,%lld,%lld]", i, tag, ggml_op_name(t->op), t->name, ggml_type_name(t->type),
++        (long long) t->ne[0], (long long) t->ne[1], (long long) t->ne[2], (long long) t->ne[3]);
++    for (int j = 0; j < GGML_MAX_SRC; ++j) {
++        if (t->src[j]) fprintf(f, " | %s:%s:%s", ggml_op_name(t->src[j]->op), t->src[j]->name, ggml_type_name(t->src[j]->type));
++    }
++    fprintf(f, "\n");
++    fflush(f);
++}
++
+ static void ggml_cuda_graph_evaluate_and_capture(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph * cgraph, const bool use_cuda_graph, const bool cuda_graph_update_required, const void * graph_key) {
++    FILE * dump_f = ggml_cuda_dump_graph_file(cgraph);
++
+     bool graph_evaluated_or_captured = false;
+ 
+     // flag used to determine whether it is an integrated_gpu
+@@ -5468,6 +5490,7 @@ static void ggml_cuda_graph_evaluate_and_capture(ggml_backend_cuda_context * cud
+                 prev_i = i;
+ 
+                 if (ggml_cuda_is_view_or_noop(node)) {
++                    if (dump_f) ggml_cuda_dump_node(dump_f, i, node, "view");
+                     continue;
+                 }
+ 
+@@ -5476,6 +5499,10 @@ static void ggml_cuda_graph_evaluate_and_capture(ggml_backend_cuda_context * cud
+                 }
+ 
+                 int nodes_to_skip = ggml_cuda_try_fuse(cuda_ctx, cgraph, i);
++                if (dump_f) {
++                    ggml_cuda_dump_node(dump_f, i, node, nodes_to_skip ? "FUSE" : "K");
++                    for (int k = 1; k <= nodes_to_skip; ++k) ggml_cuda_dump_node(dump_f, i + k, cgraph->nodes[i + k], " +");
++                }
+ 
+                 if (nodes_to_skip != 0) {
+ #ifdef GGML_CUDA_DEBUG
+-- 
+2.53.0
+

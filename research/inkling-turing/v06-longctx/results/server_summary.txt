@@ -1,0 +1,10 @@
+re-plan lines: 0
+0.02.766.397 I llama_kv_cache:      CUDA0 KV buffer size =  4352.00 MiB
+0.02.767.085 I llama_kv_cache:      CUDA0 KV buffer size =   106.25 MiB
+0.02.768.877 I sched_reserve: reserving ...
+0.02.907.840 I sched_reserve:      CUDA0 compute buffer size =  4299.25 MiB
+0.02.907.844 I sched_reserve:  CUDA_Host compute buffer size =   134.14 MiB
+0.02.907.846 I sched_reserve: graph: nodes = 11740, splits = 2, input objects = 4, input tensors = 13
+0.02.907.847 I sched_reserve: reserve took 138.97 ms, sched copies = 1
+errors:
+cuda graph lines: 0

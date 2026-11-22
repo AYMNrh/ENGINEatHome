@@ -1,0 +1,118 @@
+From 25fb730aa6990bb7cf47f29ce6be2e07a5068ca0 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 20:27:06 +0100
+Subject: [PATCH 04/17] mmvq-iq v4 (2 rows in flight): neutral end to end; make
+ the path opt-in (GGML_CUDA_MMVQ_IQ_NEW=1)
+
+---
+ ggml/src/ggml-cuda/mmvq-iq.cuh | 55 +++++++++++++++++++++++-----------
+ 1 file changed, 38 insertions(+), 17 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmvq-iq.cuh b/ggml/src/ggml-cuda/mmvq-iq.cuh
+index 29f9747..150ff30 100644
+--- a/ggml/src/ggml-cuda/mmvq-iq.cuh
++++ b/ggml/src/ggml-cuda/mmvq-iq.cuh
+@@ -19,7 +19,8 @@
+ #include "common.cuh"
+ #include "vecdotq.cuh"
+ 
+-#define MMVQ_IQ_WARPS 4
++#define MMVQ_IQ_WARPS 8
++#define MMVQ_IQ_ROWS  2   // rows in flight per warp
+ 
+ static __device__ __forceinline__ uint32_t mmvq_iq_ld16x2(const void * p, const int byte_off) {
+     const uint16_t * q = (const uint16_t *) ((const char *) p + byte_off);
+@@ -52,10 +53,10 @@ static __device__ __forceinline__ float mmvq_iq3_xxs_subblock(
+ }
+ 
+ template <ggml_type type>
+-static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 3) mul_mat_vec_q_iq_warp(
++static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 2) mul_mat_vec_q_iq_warp(
+         const void * __restrict__ vx_ptr, const void * __restrict__ vy_ptr, const int32_t * __restrict__ ids, float * __restrict__ dst,
+         const int ncols_x, const int nrows_x, const int nchannels_dst, const uint32_t stride_row_x,
+-        const uint32_t stride_channel_x, const uint32_t stride_channel_dst, const uint3 channel_ratio) {
++        const uint32_t stride_channel_x, const uint32_t stride_channel_dst, const uint3 channel_ratio, const uint3 nrows_fd) {
+     static_assert(type == GGML_TYPE_IQ3_XXS, "extend the sub-block helper to add types");
+     extern __shared__ __align__(16) int mmvq_iq_smem[];   // [nsub*8 activation ints][nsub scales]
+     __shared__ __align__(16) uint32_t lut_s[4096];         // [grid byte][sign nibble] -> 4 signed int8
+@@ -89,29 +90,48 @@ static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 3) mul_mat_vec_q_iq_w
+     }
+     __syncthreads();
+ 
+-    const int total = nrows_x * nchannels_dst;
+-    for (int r = blockIdx.x*MMVQ_IQ_WARPS + threadIdx.y; r < total; r += gridDim.x*MMVQ_IQ_WARPS) {
+-        const int ch  = r / nrows_x;
+-        const int row = r - ch*nrows_x;
+-        const uint32_t channel_x = ids ? ids[ch] : fastdiv(ch, channel_ratio);
+-        const block_iq3_xxs * bx = (const block_iq3_xxs *) vx_ptr + (channel_x*stride_channel_x + (uint32_t) row*stride_row_x);
++    const int total  = nrows_x * nchannels_dst;
++    const int stride = gridDim.x*MMVQ_IQ_WARPS;
++    for (int r0 = blockIdx.x*MMVQ_IQ_WARPS + threadIdx.y; r0 < total; r0 += MMVQ_IQ_ROWS*stride) {
++        const block_iq3_xxs * bx[MMVQ_IQ_ROWS];
++        int   dst_off[MMVQ_IQ_ROWS];
++        bool  valid[MMVQ_IQ_ROWS];
++#pragma unroll
++        for (int k = 0; k < MMVQ_IQ_ROWS; ++k) {
++            int r = r0 + k*stride;
++            valid[k] = r < total;
++            r = valid[k] ? r : total - 1;                         // keep the loads convergent, skip the store
++            const int ch  = (int) fastdiv((uint32_t) r, nrows_fd);
++            const int row = r - ch*nrows_x;
++            const uint32_t channel_x = ids ? ids[ch] : fastdiv(ch, channel_ratio);
++            bx[k]      = (const block_iq3_xxs *) vx_ptr + (channel_x*stride_channel_x + (uint32_t) row*stride_row_x);
++            dst_off[k] = ch*stride_channel_dst + row;
++        }
+ 
+-        float acc = 0.0f;
++        float acc[MMVQ_IQ_ROWS] = {};
+ #pragma unroll 3
+         for (int s = lane; s < nsub; s += 32) {
+             const int4 ya = *(const int4 *) (ys_q + 8*s + 0);
+             const int4 yb = *(const int4 *) (ys_q + 8*s + 4);
+-            acc += mmvq_iq3_xxs_subblock(bx + (s >> 3), s & 7, ya, yb, ys_d[s], lut_s, sb_s);
++            const float yd = ys_d[s];
++#pragma unroll
++            for (int k = 0; k < MMVQ_IQ_ROWS; ++k) {
++                acc[k] += mmvq_iq3_xxs_subblock(bx[k] + (s >> 3), s & 7, ya, yb, yd, lut_s, sb_s);
++            }
+         }
+-        acc = warp_reduce_sum<32>(acc);
+-        if (lane == 0) {
+-            dst[ch*stride_channel_dst + row] = acc;
++#pragma unroll
++        for (int k = 0; k < MMVQ_IQ_ROWS; ++k) {
++            const float v = warp_reduce_sum<32>(acc[k]);
++            if (lane == 0 && valid[k]) {
++                dst[dst_off[k]] = v;
++            }
+         }
+     }
+ }
+ 
+ static bool ggml_cuda_mmvq_iq_new_enabled() {
+-    static const bool enabled = getenv("GGML_CUDA_MMVQ_IQ_OLD") == nullptr;
++    // opt-in: measured neutral on RTX 2080 Ti (see progress.md), so the stock kernel stays the default
++    static const bool enabled = getenv("GGML_CUDA_MMVQ_IQ_NEW") != nullptr;
+     return enabled;
+ }
+ 
+@@ -124,7 +144,8 @@ static void mul_mat_vec_q_iq_warp_launch(
+     const int device = ggml_cuda_get_device();
+     const int nsm    = ggml_cuda_info().devices[device].nsm;
+     const int total  = nrows_x * nchannels_dst;
+-    const int nblocks = std::min((total + MMVQ_IQ_WARPS - 1)/MMVQ_IQ_WARPS, 3*nsm);
++    const int nblocks = std::min((total + MMVQ_IQ_WARPS - 1)/MMVQ_IQ_WARPS, 2*nsm);
++    const uint3 nrows_fd = init_fastdiv_values(nrows_x);
+     const dim3 block_nums(nblocks, 1, 1);
+     const dim3 block_dims(32, MMVQ_IQ_WARPS, 1);
+     const int  nbytes_shared = (ncols_x/32) * (8*4 + 4);
+@@ -133,5 +154,5 @@ static void mul_mat_vec_q_iq_warp_launch(
+     }
+     const ggml_cuda_kernel_launch_params lp = ggml_cuda_kernel_launch_params(block_nums, block_dims, nbytes_shared, stream);
+     ggml_cuda_kernel_launch(mul_mat_vec_q_iq_warp<type>, lp, vx, vy, ids, dst, ncols_x, nrows_x, nchannels_dst, stride_row_x,
+-        stride_channel_x, stride_channel_dst, channel_ratio);
++        stride_channel_x, stride_channel_dst, channel_ratio, nrows_fd);
+ }
+-- 
+2.53.0
+

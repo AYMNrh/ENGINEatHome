@@ -1,0 +1,140 @@
+diff --git a/ggml/src/ggml-cuda/mmq-load-tiles.cuh b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+index 31943ee..97c6291 100644
+--- a/ggml/src/ggml-cuda/mmq-load-tiles.cuh
++++ b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+@@ -1818,6 +1818,66 @@ template <ggml_type type, int J, bool fallback, ggml_prec prec_src1, bool has_fu
+     }
+ }
+ 
++
++// inkling-turing: NVFP4 loader split in two so the global loads of the next K tile can be issued before the MMAs of the
++// current one (Turing has no cp.async; the serial LDG->STS chain was 69% long_scoreboard). Pure data movement: bit-exact.
++struct ink_nvfp4_raw { uint32_t q[2][8]; uint32_t d[2]; };
++
++template <ggml_type type, int J, bool fallback, ggml_prec prec_src1, bool has_fusion> static __device__ __forceinline__ void ink_nvfp4_fetch(
++        ink_nvfp4_raw & rw, const char * __restrict__ x, const char * __restrict__ x_gate, const int kb0, const int i_max, const int stride) {
++    constexpr int warp_size   = ggml_cuda_get_physical_warp_size();
++    constexpr int nwarps      = ggml_cuda_mmq_get_nthreads(type, J, fallback, prec_src1) / warp_size;
++    constexpr int I           = ggml_cuda_mmq_get_I(type, J, fallback, prec_src1);
++    constexpr int threads_per_row = MMQ_ITER_K / QK_NVFP4;
++    constexpr int rows_per_warp = warp_size / threads_per_row;
++    const int kbx = threadIdx.x % threads_per_row;
++    const int row_in_warp = threadIdx.x / threads_per_row;
++#pragma unroll
++    for (int p = 0; p < I / (rows_per_warp * nwarps); ++p) {
++        int i = p * rows_per_warp * nwarps + threadIdx.y * rows_per_warp + row_in_warp;
++        if constexpr (fallback) {
++            i = min(i, i_max);
++        }
++        const block_nvfp4 * bxi = ggml_cuda_mmq_x_row<block_nvfp4, has_fusion>(x, x_gate, kb0, i, stride) + kbx;
++        const uint32_t * __restrict__ src_qs = reinterpret_cast<const uint32_t *>(bxi->qs);
++        rw.d[p] = *reinterpret_cast<const uint32_t *>(bxi->d);
++#pragma unroll
++        for (int k = 0; k < 8; ++k) {
++            rw.q[p][k] = src_qs[k];
++        }
++    }
++}
++
++template <ggml_type type, int J, bool fallback, ggml_prec prec_src1> static __device__ __forceinline__ void ink_nvfp4_store(
++        const ink_nvfp4_raw & rw, int * __restrict__ x_tile) {
++    constexpr int warp_size   = ggml_cuda_get_physical_warp_size();
++    constexpr int nwarps      = ggml_cuda_mmq_get_nthreads(type, J, fallback, prec_src1) / warp_size;
++    constexpr int I           = ggml_cuda_mmq_get_I(type, J, fallback, prec_src1);
++    constexpr int sram_stride = ggml_cuda_mmq_get_sram_stride(type, J, fallback, prec_src1);
++    int   * x_qs = (int   *) x_tile;
++    float * x_df = (float *) (x_qs + MMQ_TILE_NE_K*2);
++    constexpr int threads_per_row = MMQ_ITER_K / QK_NVFP4;
++    constexpr int rows_per_warp = warp_size / threads_per_row;
++    const int kbx = threadIdx.x % threads_per_row;
++    const int row_in_warp = threadIdx.x / threads_per_row;
++#pragma unroll
++    for (int p = 0; p < I / (rows_per_warp * nwarps); ++p) {
++        const int i = p * rows_per_warp * nwarps + threadIdx.y * rows_per_warp + row_in_warp;
++        const int kqs = 16 * kbx;
++        const int ksc = 4 * kbx;
++#pragma unroll
++        for (int sub = 0; sub < QK_NVFP4 / QK_NVFP4_SUB; ++sub) {
++            const int2 q0 = get_int_from_table_16(rw.q[p][2 * sub + 0], kvalues_mxfp4);
++            const int2 q1 = get_int_from_table_16(rw.q[p][2 * sub + 1], kvalues_mxfp4);
++            x_qs[i*sram_stride + kqs + 4 * sub + 0] = q0.x;
++            x_qs[i*sram_stride + kqs + 4 * sub + 1] = q1.x;
++            x_qs[i*sram_stride + kqs + 4 * sub + 2] = q0.y;
++            x_qs[i*sram_stride + kqs + 4 * sub + 3] = q1.y;
++            x_df[i*sram_stride + ksc + sub] = ggml_cuda_ue4m3_to_fp32((uint8_t) (rw.d[p] >> (8 * sub)));
++        }
++    }
++}
++
+ template <ggml_type type, int J, bool fallback, bool has_fusion> static __device__ __forceinline__ void ggml_cuda_mmq_load_tiles_nvfp4_nvfp4(
+         const char * __restrict__ x, const char * __restrict__ x_gate, int * __restrict__ x_tile, const int kbx0, const int i_max, const int stride) {
+     constexpr int warp_size       = ggml_cuda_get_physical_warp_size();
+diff --git a/ggml/src/ggml-cuda/mmq.cuh b/ggml/src/ggml-cuda/mmq.cuh
+index 74b2178..0d3b864 100644
+--- a/ggml/src/ggml-cuda/mmq.cuh
++++ b/ggml/src/ggml-cuda/mmq.cuh
+@@ -978,6 +978,55 @@ static __device__ __forceinline__ void mul_mat_q_process_tile(
+         __syncthreads();
+     }
+ 
++#if defined(TURING_MMA_AVAILABLE) && !defined(GGML_CUDA_INK_T_NO_NVPF)
++    if constexpr (type == GGML_TYPE_NVFP4 && prec_src1 != GGML_PREC_Q4) {
++        // inkling-turing: register prefetch of the next K tile's raw weights and activations across the MMAs.
++        constexpr int NY = (J * MMQ_TILE_Y_K + nwarps*warp_size - 1) / (nwarps*warp_size);
++        const int tl = threadIdx.y*warp_size + threadIdx.x;
++        ink_nvfp4_raw rw;
++        int yv[NY];
++        if (kb0_start < kb0_stop) {
++            ink_nvfp4_fetch<type, J, fallback, prec_src1, has_fusion>(rw, x, x_gate, offset_x + kb0_start, tile_x_i_max, stride_row_x);
++            const int * by0 = y + ncols_y * (kb0_start * qk / ne_block) * sz;
++#pragma unroll
++            for (int n = 0; n < NY; ++n) { yv[n] = by0[n*nwarps*warp_size + tl]; }
++        }
++        for (int kb0 = kb0_start; kb0 < kb0_stop; kb0 += blocks_per_iter) {
++            ink_nvfp4_store<type, J, fallback, prec_src1>(rw, tile_x);
++#pragma unroll
++            for (int n = 0; n < NY; ++n) {
++                if ((n*nwarps*warp_size) < J*MMQ_TILE_Y_K) { tile_y[n*nwarps*warp_size + tl] = yv[n]; }
++            }
++            __syncthreads();
++            {
++                const int * by0 = y + ncols_y * ((kb0 * qk / ne_block) * sz + sz);
++#pragma unroll
++                for (int n = 0; n < NY; ++n) { yv[n] = by0[n*nwarps*warp_size + tl]; }
++            }
++            const bool more = kb0 + blocks_per_iter < kb0_stop;
++            ink_nvfp4_raw rn;
++            if (more) {
++                ink_nvfp4_fetch<type, J, fallback, prec_src1, has_fusion>(rn, x, x_gate, offset_x + kb0 + blocks_per_iter, tile_x_i_max, stride_row_x);
++            }
++            vec_dot(tile_x, tile_y, sum, 0);
++            __syncthreads();
++#pragma unroll
++            for (int n = 0; n < NY; ++n) {
++                if ((n*nwarps*warp_size) < J*MMQ_TILE_Y_K) { tile_y[n*nwarps*warp_size + tl] = yv[n]; }
++            }
++            __syncthreads();
++            if (more) {
++                rw = rn;
++                const int * by0 = y + ncols_y * ((kb0 + blocks_per_iter) * qk / ne_block) * sz;
++#pragma unroll
++                for (int n = 0; n < NY; ++n) { yv[n] = by0[n*nwarps*warp_size + tl]; }
++            }
++            vec_dot(tile_x, tile_y, sum, MMQ_TILE_NE_K);
++            __syncthreads();
++        }
++    } else
++#endif
++    {
+     for (int kb0 = kb0_start; kb0 < kb0_stop; kb0 += blocks_per_iter) {
+         load_tiles(x, x_gate, tile_x, offset_x + kb0, tile_x_i_max, stride_row_x);
+         {
+@@ -1013,6 +1062,8 @@ static __device__ __forceinline__ void mul_mat_q_process_tile(
+         __syncthreads();
+     }
+ 
++    }
++
+     if (fixup) {
+         write_back(sum, ids_dst, tmp_fixup + blockIdx.x*(J*I), y_scale, I, I, J, glu_op, glu_limit, x_scale, gate_scale);
+     } else {

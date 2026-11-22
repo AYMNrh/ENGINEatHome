@@ -1,0 +1,188 @@
+From e0be55a25d03f03a7077d3f48de17dbb12f66c23 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sun, 22 Nov 2026 08:27:32 +0100
+Subject: [PATCH] inkling-turing: NVFP4 MMQ 128-wide K tile (NVFP4H layout), 2
+ blocks/SM for J<=48, bit-exact
+
+Halves the x tile (84 -> 44 ints/row) so two 256-thread blocks fit per SM; registers 138 -> 108-114 without spills;
+K=1152 down projections no longer pad to 1280. Same accumulation order as the 256-wide loop.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ ggml/src/ggml-cuda/mmq-config-ampere.cuh | 32 ++++++++++----------
+ ggml/src/ggml-cuda/mmq-load-tiles.cuh    |  4 +--
+ ggml/src/ggml-cuda/mmq-vec-dot.cuh       |  2 +-
+ ggml/src/ggml-cuda/mmq.cuh               | 38 ++++++++++++++++++++++--
+ 4 files changed, 55 insertions(+), 21 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmq-config-ampere.cuh b/ggml/src/ggml-cuda/mmq-config-ampere.cuh
+index 9f9fd19..c9e45e1 100644
+--- a/ggml/src/ggml-cuda/mmq-config-ampere.cuh
++++ b/ggml/src/ggml-cuda/mmq-config-ampere.cuh
+@@ -362,22 +362,22 @@ static constexpr __host__ __device__ ggml_cuda_mmq_config ggml_cuda_mmq_get_conf
+     CASE(GGML_TYPE_MXFP4, 256, 1, 128, 112, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_1, MMQ_ITER_K, true, false);
+     CASE(GGML_TYPE_MXFP4, 256, 1, 128, 128, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_1, MMQ_ITER_K, true, false);
+ 
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,   8, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, true);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  16, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, true);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  32, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, true);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  64, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, true);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128, 128, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, true);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,   8, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  16, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  24, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  32, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  40, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  48, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  64, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  80, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  96, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128, 112, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
+-    CASE(GGML_TYPE_NVFP4, 256, 1, 128, 128, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, MMQ_ITER_K, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,   8, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, true);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,  16, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, true);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,  32, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, true);
++    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  64, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, true);
++    CASE(GGML_TYPE_NVFP4, 256, 1, 128, 128, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, true);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,   8, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,  16, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,  24, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,  32, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,  40, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 2, 128,  48, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  64, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  80, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 1, 128,  96, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 1, 128, 112, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
++    CASE(GGML_TYPE_NVFP4, 256, 1, 128, 128, GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, MMQ_ITER_K/2, true, false);
+ 
+     return ggml_cuda_mmq_config(GGML_TYPE_COUNT, 256, 1, 128, 64, GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_0, 256, false, true);
+ }
+diff --git a/ggml/src/ggml-cuda/mmq-load-tiles.cuh b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+index 31943ee..2161eac 100644
+--- a/ggml/src/ggml-cuda/mmq-load-tiles.cuh
++++ b/ggml/src/ggml-cuda/mmq-load-tiles.cuh
+@@ -1771,14 +1771,14 @@ template <ggml_type type, int J, bool fallback, ggml_prec prec_src1, bool has_fu
+ #if defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
+     constexpr int sram_stride = ggml_cuda_mmq_get_sram_stride(type, J, fallback, prec_src1);
+     int   * x_qs = (int   *) x_tile;
+-    float * x_df = (float *) (x_qs + MMQ_TILE_NE_K*2);
++    float * x_df = (float *) (x_qs + ggml_cuda_mmq_df_offset(ggml_cuda_mmq_get_sram_layout(type, J, fallback, prec_src1)));
+ #else
+     constexpr tile_x_sizes txs = mmq_get_dp4a_tile_x_sizes(GGML_TYPE_NVFP4, I);
+     int   * x_qs = (int   *) x_tile;
+     float * x_df = (float *) (x_qs + txs.qs);
+ #endif // defined(AMD_MFMA_AVAILABLE) || defined(TURING_MMA_AVAILABLE) || defined(AMD_WMMA_AVAILABLE)
+ 
+-    constexpr int threads_per_row = MMQ_ITER_K / QK_NVFP4;
++    constexpr int threads_per_row = ggml_cuda_mmq_get_K_vram(type, J, fallback, prec_src1) / QK_NVFP4;
+     constexpr int rows_per_warp = warp_size / threads_per_row;
+     const int kbx = threadIdx.x % threads_per_row;
+     const int row_in_warp = threadIdx.x / threads_per_row;
+diff --git a/ggml/src/ggml-cuda/mmq-vec-dot.cuh b/ggml/src/ggml-cuda/mmq-vec-dot.cuh
+index dc35a08..8629cb4 100644
+--- a/ggml/src/ggml-cuda/mmq-vec-dot.cuh
++++ b/ggml/src/ggml-cuda/mmq-vec-dot.cuh
+@@ -552,7 +552,7 @@ template <ggml_type type, int J, bool fallback, ggml_prec prec_src1> static __de
+     y += (threadIdx.y % ntx) * (tile_C::J*MMQ_TILE_Y_K);
+ 
+     const int   * x_qs = (const int   *) x;
+-    const float * x_df = (const float *) x_qs + MMQ_TILE_NE_K*2;
++    const float * x_df = (const float *) x_qs + ggml_cuda_mmq_df_offset(ggml_cuda_mmq_get_sram_layout(type, J, fallback, prec_src1));
+     const int   * y_qs = (const int   *) y + 4;
+     const float * y_df = (const float *) y;
+ 
+diff --git a/ggml/src/ggml-cuda/mmq.cuh b/ggml/src/ggml-cuda/mmq.cuh
+index 74b2178..46b067c 100644
+--- a/ggml/src/ggml-cuda/mmq.cuh
++++ b/ggml/src/ggml-cuda/mmq.cuh
+@@ -130,6 +130,7 @@ enum ggml_cuda_mmq_sram_layout {
+     GGML_CUDA_MMQ_SRAM_LAYOUT_Q6_K,
+     GGML_CUDA_MMQ_SRAM_LAYOUT_FP4,   // MXFP4 and NVFP4 on Blackwell.
+     GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4, // Generic NVFP4
++    GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H, // inkling-turing: NVFP4 with a 128-wide K tile (half the shared memory of NVFP4)
+ };
+ 
+ static constexpr __host__ __device__ int ggml_cuda_mmq_get_sram_stride(ggml_cuda_mmq_sram_layout sram_layout) {
+@@ -148,6 +149,8 @@ static constexpr __host__ __device__ int ggml_cuda_mmq_get_sram_stride(ggml_cuda
+             return 2*MMQ_TILE_NE_K + 8                     + 4;
+         case GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4:
+             return 2*MMQ_TILE_NE_K + MMQ_TILE_NE_K/2       + 4;
++        case GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H:
++            return   MMQ_TILE_NE_K + MMQ_TILE_NE_K/4       + 4;
+         default:
+             return -1;
+     }
+@@ -160,6 +163,12 @@ static_assert(ggml_cuda_mmq_get_sram_stride(GGML_CUDA_MMQ_SRAM_LAYOUT_Q3_K)  % 8
+ static_assert(ggml_cuda_mmq_get_sram_stride(GGML_CUDA_MMQ_SRAM_LAYOUT_Q6_K)  % 8 == 4, "Wrong padding.");
+ static_assert(ggml_cuda_mmq_get_sram_stride(GGML_CUDA_MMQ_SRAM_LAYOUT_FP4)   % 8 == 4, "Wrong padding.");
+ static_assert(ggml_cuda_mmq_get_sram_stride(GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4) % 8 == 4, "Wrong padding.");
++static_assert(ggml_cuda_mmq_get_sram_stride(GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H) % 8 == 4, "Wrong padding.");
++
++// offset (in ints) of the per-16 scales inside an x tile row
++static constexpr __host__ __device__ int ggml_cuda_mmq_df_offset(ggml_cuda_mmq_sram_layout l) {
++    return l == GGML_CUDA_MMQ_SRAM_LAYOUT_NVFP4H ? MMQ_TILE_NE_K : 2*MMQ_TILE_NE_K;
++}
+ 
+ static_assert(ggml_cuda_mmq_get_sram_stride(GGML_CUDA_MMQ_SRAM_LAYOUT_FP4) == ggml_cuda_mmq_get_sram_stride(GGML_CUDA_MMQ_SRAM_LAYOUT_Q8_1), "Wrong tile size for MXFP4");
+ 
+@@ -212,7 +221,7 @@ struct ggml_cuda_mmq_config {
+         static_assert(                          (occupancy_)      <=   8, "bad occupancy");                                               \
+         static_assert((I_)        %  32 == 0,                             "bad I");                                                       \
+         static_assert((J_)        %   8 == 0 && (J_)              <= 128, "bad J");                                                       \
+-        static_assert((K_vram_)   % 256 == 0,                             "bad K_vram");                                                  \
++        static_assert((K_vram_)   % 128 == 0,                             "bad K_vram");                                                  \
+         return ggml_cuda_mmq_config((type_), (nthreads_), (occupancy_), (I_), (J_), (sram_layout_), (K_vram_), (stream_k_), (fallback_)); \
+     }                                                                                                                                     \
+ 
+@@ -978,6 +987,29 @@ static __device__ __forceinline__ void mul_mat_q_process_tile(
+         __syncthreads();
+     }
+ 
++    if constexpr (ITER_K == MMQ_TILE_NE_K*4) {
++        // inkling-turing: 128-wide K iteration (one y half per iteration). Same accumulation order as the 256-wide loop
++        // (the two halves were already processed sequentially), but the x tile is half as big, so two blocks fit per SM.
++        for (int kb0 = kb0_start; kb0 < kb0_stop; kb0 += blocks_per_iter) {
++            load_tiles(x, x_gate, tile_x, offset_x + kb0, tile_x_i_max, stride_row_x);
++            {
++                const int * by0 = y + ncols_y * (kb0 * qk / ne_block) * sz;
++#pragma unroll
++                for (int l0 = 0; l0 < J * MMQ_TILE_Y_K; l0 += nwarps * warp_size) {
++                    int l = l0 + threadIdx.y*warp_size + threadIdx.x;
++
++                    tile_y[l] = by0[l];
++                }
++            }
++
++            __syncthreads();
++
++            vec_dot(tile_x, tile_y, sum, 0);
++
++            __syncthreads();
++        }
++    } else
++    {
+     for (int kb0 = kb0_start; kb0 < kb0_stop; kb0 += blocks_per_iter) {
+         load_tiles(x, x_gate, tile_x, offset_x + kb0, tile_x_i_max, stride_row_x);
+         {
+@@ -1013,6 +1045,8 @@ static __device__ __forceinline__ void mul_mat_q_process_tile(
+         __syncthreads();
+     }
+ 
++    }
++
+     if (fixup) {
+         write_back(sum, ids_dst, tmp_fixup + blockIdx.x*(J*I), y_scale, I, I, J, glu_op, glu_limit, x_scale, gate_scale);
+     } else {
+@@ -1541,7 +1575,7 @@ static void launch_mul_mat_q(ggml_backend_cuda_context & ctx, const mmq_args & a
+     const int ntiles_dst = args.ntj * nti * ntzw;
+     const int tiles_nwaves = (ntiles_dst + nsm - 1) / nsm;
+     const int tiles_efficiency_percent = 100 * ntiles_dst / (nsm*tiles_nwaves);
+-    const int stream_k_blocks = GGML_CUDA_CC_IS_GCN(cc) ? nsm * config.occupancy : nsm;
++    const int stream_k_blocks = (GGML_CUDA_CC_IS_GCN(cc) || config.occupancy > 1) ? nsm * config.occupancy : nsm;
+ 
+     const int k_chunks = (args.ncols_x + config.K_vram - 1) / config.K_vram;
+     // Use tiling when Stream-K is unlikely to improve performance:
+-- 
+2.53.0
+

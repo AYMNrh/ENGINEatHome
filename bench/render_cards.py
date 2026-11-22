@@ -910,6 +910,230 @@ def swift_2080ti_cards():
     card.save('swift-2080ti-coding.png')
 
 
+def inkling_turing_cards():
+    data = load('inkling-turing-20261122.json')
+    runs = {run['id']: run for run in data['runs']}
+    r128, r185, r242, r128b = runs['ub512-128k'], runs['ub512-185k'], runs['ub256-242k'], runs['ub256-128k']
+    head = data['headline']
+    sub = 'Inkling 2 Mini UD-IQ3_XXS / RTX 2080 Ti 22GB 175 W / Q8_0 KV / runtime 7d3e5b1 / research engine'
+    date = '22 NOV 2026'
+    label = {'ub512-128k': '128K / ub512', 'ub512-185k': '185K / ub512', 'ub256-128k': '128K / ub256', 'ub256-242k': '242K / ub256'}
+    order = ('ub512-128k', 'ub512-185k', 'ub256-128k', 'ub256-242k')
+
+    def short(run):
+        return f'{run["snapshot_tokens"]:,}'
+
+    # 1 overview
+    card = Card('Inkling-Turing / Long-Context Overview', sub, 'INKLING 1', date)
+    card.metric(0, 'MAX ACTUAL INPUT', f'{head["max_snapshot_tokens"]:,}', 'repository snapshot tokens', CYAN)
+    card.metric(1, 'CONFIGURED CAPACITY', f'{head["configured_capacity"]:,}', 'allocated, not input', WHITE)
+    card.metric(2, 'HIDDEN TESTS', head['hidden_tests'], 'two-file fix / rules followed')
+    card.metric(3, 'FOLLOW-UP CHECKS', head['followup_checks'], 'retrieval / recall / rules', CYAN)
+    card.rect((52, 354, 1548, 640), outline=BORDER)
+    for x, text in ((76, 'RUN'), (330, 'SNAPSHOT'), (520, 'CONTEXT AFTER'), (760, 'COLD PREFILL'), (1010, 'DECODE'), (1220, 'PEAK VRAM')):
+        card.text(x, 374, text, 20, MUTED)
+    for i, key in enumerate(order):
+        run = runs[key]
+        y = 418 + i*54
+        color = GREEN if key == 'ub256-242k' else CYAN if key == 'ub512-185k' else WHITE
+        vals = (label[key], short(run), f'{run["final_context_tokens"]:,}', f'{run["cold_prefill"]["seconds"]:.1f} s',
+                f'{run["decode_tok_per_s"]["fix_turn"]:.1f} tok/s', f'{run["vram_mib"]["peak_polled"]:,} MiB')
+        for x, value in zip((76, 330, 520, 760, 1010, 1220), vals):
+            card.text(x, y, value, 23, color, key == 'ub256-242k')
+    card.rect((52, 664, 776, 902), outline=BORDER)
+    card.text(76, 686, 'RUNTIME', 24, WHITE, True)
+    card.text(76, 730, 'Validated baseline  7d3e5b1', 24, GREEN, True)
+    card.text(76, 774, 'Fallbacks  e4a7ea6 / e0be55a', 22)
+    card.text(76, 814, 'GPU-side relative positions, Q8_0 KV', 22)
+    card.text(76, 854, 'No CPU offload / bit-exact default', 22, MUTED)
+    card.rect((800, 664, 1548, 902), outline=BORDER)
+    card.text(824, 686, 'STATUS', 24, WHITE, True)
+    card.text(824, 730, 'Separately validated research engine', 24, CYAN, True)
+    card.text(824, 774, 'Swift 1.5 stays the production backend', 22)
+    card.text(824, 814, f'{head["scheduler_replans"]} scheduler re-plans in the 242K session', 22, GREEN)
+    card.text(824, 854, 'Nothing merged upstream', 22, MUTED)
+    card.footer([f'Actual input is {r242["snapshot_tokens"]:,} snapshot tokens ({r242["first_request_prompt_tokens"]:,} in the first request, {r242["final_context_tokens"]:,} after tool use), never 256K.',
+                 'Controlled synthetic-repository qualification, one run per size, not SWE-bench and not a reliability estimate.',
+                 'Runs differ in ubatch and capacity: ub512 at 204,800, ub256 at 262,144. See the report for provenance.'])
+    card.save('inkling-turing-overview.png')
+
+    # 2 decode
+    card = Card('Inkling-Turing / Long-Context Decode', sub, 'INKLING 2', date)
+    for i, key in enumerate(('ub512-128k', 'ub512-185k', 'ub256-242k', 'ub256-128k')):
+        run = runs[key]
+        card.metric(i, label[key].upper(), f'{run["decode_tok_per_s"]["fix_turn"]:.1f} tok/s', f'{run["snapshot_tokens"]:,} tokens',
+                    GREEN if key == 'ub256-242k' else CYAN)
+    card.rect((52, 354, 1548, 760), outline=BORDER)
+    for x, text in ((76, 'RUN'), (300, 'SNAPSHOT'), (470, 'CONFIG'), (700, 'CONTEXT DURING FIX TURN')):
+        card.text(x, 376, text, 20, MUTED)
+    for i, key in enumerate(order):
+        run = runs[key]
+        y = 440 + i*78
+        color = GREEN if key == 'ub256-242k' else CYAN if key.startswith('ub512') else WHITE
+        cfg = run['configuration']
+        card.text(76, y, label[key], 23, color, True)
+        card.text(300, y, short(run), 23, color)
+        card.text(470, y, f'cap {cfg["context_capacity"]:,} Q8_0', 21, MUTED)
+        card.text(700, y, f'{run["first_request_prompt_tokens"]:,} -> {run["fix_turn"]["context_tokens_after"]:,}', 21, MUTED, width=330)
+        card.bar(1050, y+2, 330, run['decode_tok_per_s']['fix_turn'], 40, color, '')
+        card.text(1400, y, f'{run["decode_tok_per_s"]["fix_turn"]:.1f}', 23, color, True)
+    card.text(76, 735, 'Bars 0 to 40 tok/s / mean decode rate over the fix-turn generations', 18, MUTED)
+    card.rect((52, 784, 1548, 902), outline=BORDER)
+    card.text(76, 802, f'Decode falls from {r128["decode_tok_per_s"]["fix_turn"]:.1f} to {r242["decode_tok_per_s"]["fix_turn"]:.1f} tok/s as the snapshot grows from {r128["snapshot_tokens"]//1000}K to {r242["snapshot_tokens"]//1000}K tokens.', 20, WHITE, width=1440)
+    card.text(76, 836, 'Rates come from the agent session (thinking on, tools, temperature 0), not from a llama-bench sweep.', 20, MUTED, width=1440)
+    card.text(76, 866, f'At 128K the ub512 run measured {r128["decode_tok_per_s"]["fix_turn"]:.1f} and the ub256 run {r128b["decode_tok_per_s"]["fix_turn"]:.1f} tok/s.', 20, MUTED, width=1440)
+    card.footer(['Decode is measured on actual tokens in context at the stated size; capacity is only the allocation.',
+                 'One successful session per size. Run-to-run variance was not measured.',
+                 f'Different seeds and ubatch across runs; 128K decode differs by {abs(r128b["decode_tok_per_s"]["fix_turn"]/r128["decode_tok_per_s"]["fix_turn"]-1)*100:.1f} percent between ub512 and ub256.'])
+    card.save('inkling-turing-decode.png')
+
+    # 3 prefill
+    card = Card('Inkling-Turing / Cold Prefill vs Context', sub, 'INKLING 3', date)
+    for i, key in enumerate(('ub512-128k', 'ub512-185k', 'ub256-128k', 'ub256-242k')):
+        run = runs[key]
+        card.metric(i, label[key].upper(), f'{run["cold_prefill"]["tok_per_s"]:.0f} tok/s', f'{run["cold_prefill"]["seconds"]:.1f} s cold prefill',
+                    GREEN if key == 'ub256-242k' else CYAN if key.startswith('ub512') else WHITE)
+    card.rect((52, 354, 1548, 700), outline=BORDER)
+    card.text(76, 370, 'COLD PREFILL THROUGHPUT / tok/s (bars 0 to 800)', 20, MUTED)
+    for i, key in enumerate(order):
+        run = runs[key]
+        y = 440 + i*62
+        color = CYAN if key.startswith('ub512') else GREEN
+        card.text(76, y-6, label[key], 22, color, True)
+        card.bar(300, y, 900, run['cold_prefill']['tok_per_s'], 800, color, '')
+        card.text(1230, y-6, f'{run["cold_prefill"]["tok_per_s"]:.0f} tok/s', 22, color, True)
+        card.text(1400, y-6, f'{run["cold_prefill"]["seconds"]:.0f} s', 22, WHITE)
+    ratio = r128b['cold_prefill']['seconds'] / r128['cold_prefill']['seconds']
+    card.rect((52, 724, 776, 902), outline=BORDER)
+    card.text(76, 744, 'MICROBATCH EFFECT AT 128K', 22, WHITE, True)
+    card.text(76, 788, f'ub256 takes {ratio:.2f}x the time of ub512', 24, AMBER, True)
+    card.text(76, 832, f'{r128b["cold_prefill"]["seconds"]:.1f} s vs {r128["cold_prefill"]["seconds"]:.1f} s (derived)', 22)
+    card.text(76, 868, f'decode {r128b["decode_tok_per_s"]["fix_turn"]:.1f} vs {r128["decode_tok_per_s"]["fix_turn"]:.1f} tok/s', 21, MUTED)
+    card.rect((800, 724, 1548, 902), outline=BORDER)
+    card.text(824, 744, 'WHY ub256 AT 256K', 22, WHITE, True)
+    card.text(824, 788, 'ub512 does not load at 262,144', 24, AMBER, True)
+    mem = data['memory']['ub512_at_262144']
+    card.text(824, 832, f'cudaMalloc of {mem["failed_allocation_mib"]/1024:.2f} GiB failed', 22)
+    card.text(824, 868, 'ub512 loads at 204,800 capacity', 21, MUTED)
+    card.footer(['Cyan = ub512 at 204,800 capacity. Green = ub256 at 262,144 capacity. Cold means an empty prefix cache.',
+                 'Throughput falls with depth: ' + ', '.join(f'{runs[k]["cold_prefill"]["tok_per_s"]:.0f}' for k in order) + ' tok/s in the order listed above.',
+                 'Tokens processed in the first request include system prompt and tool schema (see JSON).'])
+    card.save('inkling-turing-prefill.png')
+
+    # 4 intelligence
+    card = Card('Inkling-Turing / Context Intelligence', sub, 'INKLING 4', date)
+    card.metric(0, 'HIDDEN TESTS', head['hidden_tests'], 'all four runs passed', GREEN)
+    card.metric(1, 'RETRIEVAL + RULES', head['followup_checks'], 'retrieval / recall / rules', CYAN)
+    card.metric(2, 'FILES FIXED', '2', 'distant bugs, one in legacy/', GREEN)
+    card.metric(3, 'DECOYS IGNORED', 'yes', 'outdated docs, staging at 242K', CYAN)
+    card.rect((52, 354, 1548, 700), outline=BORDER)
+    for x, text in ((76, 'CHECK'), (610, '128K ub512'), (800, '185K ub512'), (1000, '128K ub256'), (1200, '242K ub256')):
+        card.text(x, 374, text, 20, MUTED)
+    names = (('fix', 'Two-file fix, 7 hidden tests'), ('rules', 'Current rules (# fixed, 4 spaces)'),
+             ('retrieval', 'Distant value, decoys ignored'), ('recall', 'Recall first file after tools'), ('rules2', 'Contradictory rules resolved'))
+    for i, (key, text) in enumerate(names):
+        y = 420 + i*54
+        card.text(76, y, text, 22)
+        for x, run in zip((610, 800, 1000, 1200), (r128, r185, r128b, r242)):
+            if key == 'fix':
+                ok = run['fix_turn']['hidden_tests_failed'] == 0
+                value = f'{run["fix_turn"]["hidden_tests_passed"]}/{run["fix_turn"]["hidden_tests_total"]}'
+            elif key == 'rules':
+                ok = run['fix_turn']['rules_ok']
+                value = 'PASS' if ok else 'FAIL'
+            else:
+                follow = {f['name']: f for f in run['followups']}['rules' if key == 'rules2' else key]
+                ok = follow['pass']
+                value = 'PASS' if ok else 'FAIL'
+            card.text(x, y, value, 23, GREEN if ok else AMBER, True)
+    var = r242['randomized_variant']
+    card.rect((52, 724, 1548, 902), outline=BORDER)
+    card.text(76, 744, '242K RUN: FRESH RANDOMIZED CONTENT', 22, WHITE, True)
+    card.text(76, 786, f'Current value {var["needle"]} found; decoys {var["decoy"]} (old docs) and {var["staging"]} (staging file) rejected', 21, CYAN, width=1440)
+    card.text(76, 822, f'Service name {var["service"]} and seed {var["seed_hex"]} recalled from the first file after tool use', 21, WHITE, width=1440)
+    card.text(76, 858, 'Current rules file chosen over the 2024 rules and a never-adopted draft', 21, WHITE, width=1440)
+    card.footer(['Controlled synthetic-repository qualification, not a SWE-bench score and not a general coding benchmark.',
+                 'One run per context size. Pass/fail here is not a statistical reliability measurement.',
+                 'The ub512 runs used fixed needles (seed 31); the ub256 runs used fresh randomized needles (seed 4242).'])
+    card.save('inkling-turing-intelligence.png')
+
+    # 5 memory engineering
+    host = data['host_cost_32k_prefill_ctx262144_ub256']
+    mem = data['memory']
+    card = Card('Inkling-Turing / Memory Engineering', sub, 'INKLING 5', date)
+    card.metric(0, 'HOST UPLOAD / 32K', f'{host["before"]["uploaded_mb"]:,.0f} MB', f'down to {host["after"]["uploaded_mb"]:.1f} MB', GREEN)
+    card.metric(1, 'CPU FILL / 32K', f'{host["before"]["cpu_fill_ms"]:,.0f} ms', f'down to {host["after"]["cpu_fill_ms"]:.1f} ms', CYAN)
+    card.metric(2, '256K AT ub256', f'{mem["loaded_mib_7d3e5b1"]["262144:256:q8_0"]:,} MiB', 'loaded, Q8_0 KV', GREEN)
+    card.metric(3, 'PEAK VRAM 242K', f'{head["peak_vram_mib"]:,} MiB', 'polled during the session', CYAN)
+    card.rect((52, 354, 776, 902), outline=BORDER)
+    card.text(76, 374, 'LOADED VRAM / 7d3e5b1 / MiB (bars 0 to 22,528)', 20, MUTED, width=680)
+    specs = (('262144:256:q8_0', '256K ub256'), ('262144:128:q8_0', '256K ub128'), ('262144:64:q8_0', '256K ub64'),
+             ('131072:512:q8_0', '128K ub512'), ('131072:256:q8_0', '128K ub256'))
+    for i, (spec, text) in enumerate(specs):
+        y = 450 + i*74
+        value = mem['loaded_mib_7d3e5b1'][spec]
+        card.text(76, y-30, f'{text}   {value:,}', 21, GREEN if i == 0 else WHITE, i == 0)
+        card.bar(76, y, 650, value, 22528, GREEN if i == 0 else CYAN, '')
+    card.text(76, 825, f'e4a7ea6 at 256K/ub256: {mem["loaded_mib_e4a7ea6_262144_ub256"]:,} MiB', 20, MUTED, width=680)
+    card.text(76, 860, 'e0be55a (unfused chain): did not fit', 20, MUTED, width=680)
+    card.rect((800, 354, 1548, 902), outline=BORDER)
+    card.text(824, 374, 'WHAT CHANGED', 22, WHITE, True)
+    card.text(824, 420, 'Relative-bias mask as one graph node', 21, GREEN, width=700)
+    card.text(824, 452, 'no F32 chain intermediates planned', 20, MUTED, width=700)
+    card.text(824, 494, 'GPU-side distances from cell and token', 21, GREEN, width=700)
+    card.text(824, 526, 'positions, no CPU int32 matrix upload', 20, MUTED, width=700)
+    card.text(824, 576, f'Compute buffer at 262,144 / ub256: {mem["compute_buffer_mib_ub256_262144"]:,.0f} MiB', 20, WHITE, width=700)
+    card.text(824, 608, f'KV buffers {mem["kv_buffer_mib_ub256_262144"][0]:,.0f} + {mem["kv_buffer_mib_ub256_262144"][1]:,.0f} MiB (Q8_0)', 20, WHITE, width=700)
+    card.text(824, 656, 'REJECTED: relbias inside Flash Attention', 21, AMBER, True, width=700)
+    card.text(824, 690, 'unit tests bit-exact, model runs unstable:', 20, MUTED, width=700)
+    card.text(824, 720, 'prefill and decode op sequences diverge', 20, MUTED, width=700)
+    card.text(824, 750, 'at node 1131 (280 nodes differ vs 0)', 20, MUTED, width=700)
+    card.text(824, 800, f'ub512 at 262,144 fails: {mem["ub512_at_262144"]["failed_allocation_mib"]/1024:.2f} GiB alloc', 20, WHITE, width=700)
+    card.text(824, 840, 'Patches and graph_audit.py kept in repo', 20, CYAN, width=700)
+    card.footer(['Host figures: instrumented builds, 32K-token prefill at 262,144 capacity, ub256, 320 calls. End-to-end gain about 1 percent.',
+                 'The saving is host work and memory, not speed: the fill overlapped GPU work of the previous micro-batch.',
+                 'Rejected experiments and the graph audit that explains them are published with the patches.'])
+    card.save('inkling-turing-memory.png')
+
+    # 6 cache and responsiveness
+    card = Card('Inkling-Turing / Cache and Responsiveness', sub, 'INKLING 6', date)
+    f242 = r242['followups']
+    cold = r242['cold_prefill']['seconds']
+    solve = r242['fix_turn']['seconds']
+    card.metric(0, 'COLD PREFILL 242K', f'{cold/60:.1f} min', f'{cold:.1f} s / empty cache', AMBER)
+    card.metric(1, 'CACHED FOLLOW-UP', f'{min(f["ttft_s"] for f in f242):.2f}-{max(f["ttft_s"] for f in f242):.2f} s', 'TTFT / 3 follow-up turns', GREEN)
+    card.metric(2, 'WARM FIX TTFT', f'{r242["fix_turn"]["median_warm_ttft_s"]:.2f} s', 'median / tool-call steps', CYAN)
+    card.metric(3, 'PREFIX REUSE', f'{f242[0]["cached_tokens"]:,}', f'of {f242[0]["context_tokens"]:,} tokens', GREEN)
+    card.rect((52, 354, 1548, 640), outline=BORDER)
+    card.text(76, 370, 'TIME TO SOLUTION AT 242K / seconds (bar 0 to 700)', 20, MUTED)
+    card.text(76, 410, 'Cold prefill', 22, AMBER, True)
+    card.bar(300, 412, 1000, cold, 700, AMBER, '')
+    card.text(1330, 410, f'{cold:.1f} s', 22, AMBER, True)
+    card.text(76, 470, 'Agent work', 22, CYAN, True)
+    card.bar(300, 472, 1000, solve - cold, 700, CYAN, '')
+    card.text(1330, 470, f'{solve - cold:.1f} s', 22, CYAN, True)
+    card.text(76, 530, 'Follow-up turn', 22, GREEN, True)
+    card.bar(300, 532, 1000, max(f242[0]['ttft_s'], 0.1), 700, GREEN, '')
+    card.text(1330, 530, f'{f242[0]["ttft_s"]:.2f} s', 22, GREEN, True)
+    card.text(76, 590, f'Fix turn {solve:.1f} s = cold prefill + {r242["fix_turn"]["model_calls"]} model calls / {r242["fix_turn"]["tool_calls"]} tools (agent work is derived)', 19, MUTED, width=1440)
+    card.rect((52, 664, 1548, 902), outline=BORDER)
+    for x, text in ((76, 'RUN'), (400, 'COLD PREFILL'), (700, 'CACHED TTFT'), (1000, 'WARM FIX TTFT'), (1300, 'FIX TURN')):
+        card.text(x, 682, text, 20, MUTED)
+    for i, key in enumerate(order):
+        run = runs[key]
+        y = 726 + i*42
+        color = GREEN if key == 'ub256-242k' else WHITE
+        tt = [f['ttft_s'] for f in run['followups']]
+        vals = (label[key], f'{run["cold_prefill"]["seconds"]:.1f} s', f'{min(tt):.2f}-{max(tt):.2f} s',
+                f'{run["fix_turn"]["median_warm_ttft_s"]:.2f} s', f'{run["fix_turn"]["seconds"]:.0f} s')
+        for x, value in zip((76, 400, 700, 1000, 1300), vals):
+            card.text(x, y, value, 21, color, key == 'ub256-242k')
+    card.footer(['Cold: first request, empty prefix cache, the whole snapshot is processed once. Warm: later steps reuse it.',
+                 f'Cold start at 242K is a one-time {cold/60:.1f} minute cost; cached follow-ups answer in about a second.',
+                 'A cache eviction or server restart brings the cold cost back. One session per size.'])
+    card.save('inkling-turing-cache.png')
+
+
 if __name__ == '__main__':
     ASSETS.mkdir(parents=True, exist_ok=True)
     coder_card()
@@ -933,3 +1157,5 @@ if __name__ == '__main__':
         swift_qwen_cards()
     if (ROOT / 'docs/results/swift-2080ti-overview-20261119.json').is_file():
         swift_2080ti_cards()
+    if (ROOT / 'docs/results/inkling-turing-20261122.json').is_file():
+        inkling_turing_cards()

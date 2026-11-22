@@ -1,0 +1,31 @@
+From afeadd0ed9dcfc7fcb7c13d02ce3aa64444efc41 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 22:08:40 +0100
+Subject: [PATCH 10/17] mmvq: make single-token MoE-kernel routing opt-in
+ (GGML_CUDA_INK_T_MOE1=3); default decode is bit-exact
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ggml/src/ggml-cuda/mmvq.cu | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmvq.cu b/ggml/src/ggml-cuda/mmvq.cu
+index e4a1e28..24a445f 100644
+--- a/ggml/src/ggml-cuda/mmvq.cu
++++ b/ggml/src/ggml-cuda/mmvq.cu
+@@ -1288,10 +1288,10 @@ static void mul_mat_vec_q_switch_ncols_dst(
+     // Measured on an RTX 2080 Ti with Inkling 2 Mini: the IQ gate/up banks run 19% faster this way (IQ3_XXS 102 -> 82 us,
+     // Nsight Compute), the NVFP4 down banks do not (44.5 -> 47.7 us: without the barrier they are latency bound, a
+     // K = 1152 row is ~650 bytes). GGML_CUDA_INK_T_MOE1: 0 = stock, 1 = down-bank types, 2 = all types,
+-    // 3 = i-quant types (default).
++    // 3 = i-quant types (opt-in: faster, not bit-exact). Default 0: bit-exact decode.
+     static const int moe1 = [] {
+         const char * env = getenv("GGML_CUDA_INK_T_MOE1");
+-        return env ? atoi(env) : 3;
++        return env ? atoi(env) : 0;
+     }();
+     const bool is_iq = type == GGML_TYPE_IQ2_XXS || type == GGML_TYPE_IQ2_XS || type == GGML_TYPE_IQ2_S ||
+                        type == GGML_TYPE_IQ3_XXS || type == GGML_TYPE_IQ3_S;
+-- 
+2.53.0
+

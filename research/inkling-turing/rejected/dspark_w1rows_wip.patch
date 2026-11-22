@@ -1,0 +1,16 @@
+diff --git a/src/models/dspark.cpp b/src/models/dspark.cpp
+index b92c897..d076f62 100644
+--- a/src/models/dspark.cpp
++++ b/src/models/dspark.cpp
+@@ -80,8 +80,10 @@ void llama_model_dflash::load_tensors_dspark(int64_t n_vocab_draft) {
+     LLAMA_LOAD_LOCALS;
+ 
+     const int64_t dspark_markov_rank = ml->get_tensor_meta("markov_w1.weight")->ne[0];
++    // inkling-turing: the Inkling 2 Mini drafter stores markov_w1 for the full 201024-row embedding vocab while its tokenizer reports 200058
++    const int64_t dspark_markov_w1_rows = ml->get_tensor_meta("markov_w1.weight")->ne[1];
+ 
+-    dspark_markov_w1   = create_tensor(tn(LLM_TENSOR_DSPARK_MARKOV_W1, "weight"), { dspark_markov_rank, n_vocab }, 0);
++    dspark_markov_w1   = create_tensor(tn(LLM_TENSOR_DSPARK_MARKOV_W1, "weight"), { dspark_markov_rank, dspark_markov_w1_rows }, 0);
+     dspark_markov_w2   = create_tensor(tn(LLM_TENSOR_DSPARK_MARKOV_W2, "weight"), { dspark_markov_rank, n_vocab_draft }, 0);
+     dspark_markov_w2_s = create_tensor(tn(LLM_TENSOR_DSPARK_MARKOV_W2, "scale"),  { 1 }, TENSOR_NOT_REQUIRED);
+ 

@@ -1,0 +1,140 @@
+From 0cd7f412c27f9795c903ca8caef8d1a03fb3bb12 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 20:17:59 +0100
+Subject: [PATCH 02/17] mmvq-iq v2 (experiment: no gain, instruction/LDS bound)
+
+---
+ ggml/src/ggml-cuda/mmvq-iq.cuh | 75 ++++++++++++++++++++--------------
+ 1 file changed, 45 insertions(+), 30 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/mmvq-iq.cuh b/ggml/src/ggml-cuda/mmvq-iq.cuh
+index c11038c..87ab86b 100644
+--- a/ggml/src/ggml-cuda/mmvq-iq.cuh
++++ b/ggml/src/ggml-cuda/mmvq-iq.cuh
+@@ -22,30 +22,33 @@ static __device__ __forceinline__ uint32_t mmvq_iq_ld16x2(const void * p, const
+     return (uint32_t) q[0] | ((uint32_t) q[1] << 16);
+ }
+ 
+-// one 32-weight sub-block of IQ3_XXS against one q8_1 block (same math as vec_dot_iq3_xxs_q8_1)
++// One 32-weight sub-block of IQ3_XXS against one q8_1 block, same result as vec_dot_iq3_xxs_q8_1 but with far fewer
++// instructions (the stock sign handling, __vcmpne4 + __vsub4, is emulated on Turing):
++//   * the 7-bit sign field (the 8th sign is its parity) indexes a 128-entry shared table that returns the byte masks
++//     of both 4-weight halves (0xFF where the sign is negative),
++//   * -x == ~x + 1 per byte, so  sum(y * +-x) = dp4a(x ^ m, y) + dp4a(m & 0x01010101, y)  runs on the native dp4a.
+ static __device__ __forceinline__ float mmvq_iq3_xxs_subblock(
+-        const block_iq3_xxs * __restrict__ bq3, const int ib32, const int * __restrict__ y_qs, const float y_d,
+-        const uint32_t * __restrict__ grid_s) {
+-    const uint32_t q_lo = mmvq_iq_ld16x2(bq3->qs, 8*ib32 + 0);
+-    const uint32_t q_hi = mmvq_iq_ld16x2(bq3->qs, 8*ib32 + 4);
++        const block_iq3_xxs * __restrict__ bq3, const int ib32, const int * __restrict__ y_q, const float y_d,
++        const uint32_t * __restrict__ grid_s, const uint2 * __restrict__ sgn_s) {
++    const uint32_t q_lo  = mmvq_iq_ld16x2(bq3->qs, 8*ib32 + 0);
++    const uint32_t q_hi  = mmvq_iq_ld16x2(bq3->qs, 8*ib32 + 4);
+     const uint32_t aux32 = mmvq_iq_ld16x2(bq3->qs, QK_K/4 + 4*ib32);
+-    const uint8_t * q3 = (const uint8_t *) &q_lo;
+-    const uint8_t * q3h = (const uint8_t *) &q_hi;
++    const int4 ya = *(const int4 *) (y_q + 0);
++    const int4 yb = *(const int4 *) (y_q + 4);
++    const int y[8] = {ya.x, ya.y, ya.z, ya.w, yb.x, yb.y, yb.z, yb.w};
+ 
+     int sumi = 0;
+ #pragma unroll
+-    for (int l0 = 0; l0 < 8; l0 += 2) {
+-        const uint32_t g0 = grid_s[l0 < 4 ? q3[l0 + 0] : q3h[l0 - 4 + 0]];
+-        const uint32_t g1 = grid_s[l0 < 4 ? q3[l0 + 1] : q3h[l0 - 4 + 1]];
+-        const uint32_t signs = unpack_ksigns(aux32 >> (7*l0/2));
+-
+-        const int signs0 = __vcmpne4(signs & 0x08040201, 0);
+-        const int grid_l = __vsub4(g0 ^ signs0, signs0);
+-        const int signs1 = __vcmpne4(signs & 0x80402010, 0);
+-        const int grid_h = __vsub4(g1 ^ signs1, signs1);
+-
+-        sumi = ggml_cuda_dp4a(grid_l, y_qs[l0 + 0], sumi);
+-        sumi = ggml_cuda_dp4a(grid_h, y_qs[l0 + 1], sumi);
++    for (int l = 0; l < 4; ++l) {
++        const uint32_t qq = l < 2 ? q_lo : q_hi;
++        const int sh = ((2*l) & 3) * 8;
++        const uint32_t g0 = grid_s[(qq >> sh) & 0xFF];
++        const uint32_t g1 = grid_s[(qq >> (sh + 8)) & 0xFF];
++        const uint2 m = sgn_s[(aux32 >> (7*l)) & 127];
++        sumi = ggml_cuda_dp4a(g0 ^ m.x, y[2*l + 0], sumi);
++        sumi = ggml_cuda_dp4a(m.x & 0x01010101, y[2*l + 0], sumi);
++        sumi = ggml_cuda_dp4a(g1 ^ m.y, y[2*l + 1], sumi);
++        sumi = ggml_cuda_dp4a(m.y & 0x01010101, y[2*l + 1], sumi);
+     }
+     const int ls = aux32 >> 28;
+     sumi = (ls*sumi + sumi/2)/2;
+@@ -60,8 +63,9 @@ static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 4) mul_mat_vec_q_iq_w
+         const uint3 channel_ratio, const uint3 sample_ratio,
+         const uint32_t stride_sample_x, const uint32_t stride_sample_y, const uint32_t stride_sample_dst) {
+     static_assert(type == GGML_TYPE_IQ3_XXS, "extend the sub-block helper to add types");
+-    extern __shared__ int mmvq_iq_smem[];            // [q8_1 blocks of the activation vector]
++    extern __shared__ __align__(16) int mmvq_iq_smem[];   // [nsub*8 activation ints][nsub scales]
+     __shared__ uint32_t grid_s[256];
++    __shared__ uint2    sgn_s[128];
+ 
+     const int tid  = threadIdx.y*32 + threadIdx.x;
+     const int lane = threadIdx.x;
+@@ -75,16 +79,29 @@ static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 4) mul_mat_vec_q_iq_w
+     const uint32_t sample_x    = fastdiv(sample_dst, sample_ratio);
+     const uint32_t sample_y    = sample_dst;
+ 
+-    // stage the quantized activation (36 B q8_1 blocks, as 32-bit words) and the grid table
+-    const int nsub   = ncols_x / 32;                      // 32-weight sub-blocks per row == q8_1 blocks
+-    const int nwords = nsub * (int) (sizeof(block_q8_1)/4);
+-    const int * yg = (const int *) ((const block_q8_1 *) vy_ptr + sample_y*stride_sample_y + channel_y*stride_channel_y);
+-    for (int i = tid; i < nwords; i += MMVQ_IQ_WARPS*32) {
+-        mmvq_iq_smem[i] = yg[i];
++    const int nsub = ncols_x / 32;                         // 32-weight sub-blocks per row == q8_1 blocks
++    const block_q8_1 * yg = (const block_q8_1 *) vy_ptr + sample_y*stride_sample_y + channel_y*stride_channel_y;
++    int   * ys_q = mmvq_iq_smem;
++    float * ys_d = (float *) (mmvq_iq_smem + nsub*8);
++    for (int i = tid; i < nsub*8; i += MMVQ_IQ_WARPS*32) {
++        ys_q[i] = ((const int *) yg[i >> 3].qs)[i & 7];
++    }
++    for (int i = tid; i < nsub; i += MMVQ_IQ_WARPS*32) {
++        ys_d[i] = __low2float(yg[i].ds);
+     }
+     for (int i = tid; i < 256; i += MMVQ_IQ_WARPS*32) {
+         grid_s[i] = iq3xxs_grid[i];
+     }
++    for (int v = tid; v < 128; v += MMVQ_IQ_WARPS*32) {
++        const uint32_t sb = v | (((uint32_t) __popc(v) & 1) << 7);   // the 8th sign is the parity of the 7 stored bits
++        uint32_t lo = 0, hi = 0;
++#pragma unroll
++        for (int i = 0; i < 4; ++i) {
++            lo |= ((sb >> i)       & 1u ? 0xFFu : 0u) << (8*i);
++            hi |= ((sb >> (4 + i)) & 1u ? 0xFFu : 0u) << (8*i);
++        }
++        sgn_s[v] = make_uint2(lo, hi);
++    }
+     __syncthreads();
+ 
+     if (row >= nrows_x) {
+@@ -92,13 +109,11 @@ static __global__ void __launch_bounds__(MMVQ_IQ_WARPS*32, 4) mul_mat_vec_q_iq_w
+     }
+ 
+     const block_iq3_xxs * bx = (const block_iq3_xxs *) vx_ptr + (sample_x*stride_sample_x + channel_x*stride_channel_x + (uint32_t) row*stride_row_x);
+-    const block_q8_1 * ys = (const block_q8_1 *) mmvq_iq_smem;
+ 
+     float acc = 0.0f;
+ #pragma unroll 3
+     for (int s = lane; s < nsub; s += 32) {
+-        const block_q8_1 * yb = ys + s;
+-        acc += mmvq_iq3_xxs_subblock(bx + (s >> 3), s & 7, (const int *) yb->qs, __low2float(yb->ds), grid_s);
++        acc += mmvq_iq3_xxs_subblock(bx + (s >> 3), s & 7, ys_q + 8*s, ys_d[s], grid_s, sgn_s);
+     }
+     acc = warp_reduce_sum<32>(acc);
+     if (lane == 0) {
+@@ -121,7 +136,7 @@ static void mul_mat_vec_q_iq_warp_launch(
+         const int nchannels_dst, const int nsamples_dst, cudaStream_t stream) {
+     const dim3 block_nums((nrows_x + MMVQ_IQ_WARPS - 1)/MMVQ_IQ_WARPS, nchannels_dst, nsamples_dst);
+     const dim3 block_dims(32, MMVQ_IQ_WARPS, 1);
+-    const int  nbytes_shared = (ncols_x/32) * (int) sizeof(block_q8_1);
++    const int  nbytes_shared = (ncols_x/32) * (8*4 + 4);
+     if (nbytes_shared > 48*1024) {
+         GGML_ABORT("mmvq-iq: K too large for the shared activation stage");
+     }
+-- 
+2.53.0
+

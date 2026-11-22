@@ -1,0 +1,160 @@
+From 52ad8372c087ba1531f16c57359d499b75bd1a06 Mon Sep 17 00:00:00 2001
+From: kernel-experiments <kernel-experiments@localhost>
+Date: Sat, 21 Nov 2026 21:11:52 +0100
+Subject: [PATCH 08/17] cuda: reuse the q8_1 copy of a mat-vec input within one
+ graph evaluation
+
+Mat-vecs that read the same activation (Inkling 2: Q, gate and relative-bias projections; all five projections
+of a SWA visit) quantized it once each. A small per-context cache keyed on the source tensor, invalidated at the
+start of every graph evaluation and disabled under multi-stream concurrency, keeps the first copy.
+Decode: quantize_q8_1 launches 385 -> 249 per token, tokens/logprobs identical.
+Cumulative (fusions 1-4) vs same-session control: tg128 0K 56.97 -> 62.00, 8K 52.86 -> 55.60.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ggml/src/ggml-cuda/common.cuh   | 21 ++++++++++++++++
+ ggml/src/ggml-cuda/ggml-cuda.cu | 43 +++++++++++++++++++++++++++++++++
+ ggml/src/ggml-cuda/mmvq.cu      | 12 ++++++---
+ 3 files changed, 72 insertions(+), 4 deletions(-)
+
+diff --git a/ggml/src/ggml-cuda/common.cuh b/ggml/src/ggml-cuda/common.cuh
+index 8cd2366..b3c195a 100644
+--- a/ggml/src/ggml-cuda/common.cuh
++++ b/ggml/src/ggml-cuda/common.cuh
+@@ -1395,7 +1395,24 @@ struct ggml_tensor_extra_gpu {
+ struct ggml_cuda_graph;
+ struct ggml_cuda_stream_context;
+ 
++// turing-iq3-opt: q8_1 copies of mat-vec inputs, reused by later mat-vecs of the same graph evaluation that read the
++// same tensor (the unfused graph quantizes the same activation once per consumer)
++struct ggml_cuda_q8_1_cache_entry {
++    const struct ggml_tensor * t    = nullptr;
++    const void *               data = nullptr;
++    int64_t                    ne[4] = {0, 0, 0, 0};
++    size_t                     nb[4] = {0, 0, 0, 0};
++    uint32_t                   gen  = 0;
++    char *                     buf  = nullptr;
++};
++#define GGML_CUDA_Q8_1_CACHE_SLOTS 8
++#define GGML_CUDA_Q8_1_CACHE_BYTES (64*1024)
++
+ struct ggml_backend_cuda_context {
++    ggml_cuda_q8_1_cache_entry q8_1_cache[GGML_CUDA_Q8_1_CACHE_SLOTS];
++    int      q8_1_cache_next = 0;
++    uint32_t q8_1_cache_gen  = 1;
++
+     int device;
+     std::string name;
+     cudaEvent_t copy_event = nullptr;
+@@ -1589,3 +1606,7 @@ static __inline__ void ggml_cuda_kernel_launch(Kernel kernel, const ggml_cuda_ke
+     kernel<<<launch_params.block_nums, launch_params.block_dims, launch_params.shmem, launch_params.stream>>>(std::forward<Args>(args)... );
+     CUDA_CHECK(cudaGetLastError());
+ }
++
++// returns the slot buffer for the q8_1 copy of src1 (hit = already quantized in this graph evaluation),
++// or nullptr if the cache cannot be used (size, concurrency, buffers not allocated during a capture)
++char * ggml_cuda_q8_1_cache(ggml_backend_cuda_context & ctx, const ggml_tensor * src1, size_t size, bool & hit);
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index d99eb14..30ae90e 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -989,6 +989,12 @@ static std::condition_variable ggml_cuda_lock_cv;
+ static std::atomic<int> ggml_cuda_lock_counter;
+ 
+ ggml_backend_cuda_context::~ggml_backend_cuda_context() {
++    for (auto & e : q8_1_cache) {
++        if (e.buf) {
++            CUDA_CHECK(cudaFree(e.buf));
++            e.buf = nullptr;
++        }
++    }
+     std::unique_lock<std::mutex> lock(ggml_cuda_lock);
+     ggml_cuda_lock_cv.wait(lock, []{ return ggml_cuda_lock_counter.load(std::memory_order_relaxed) == 0; });
+ 
+@@ -5319,6 +5325,42 @@ static int ggml_cuda_try_fuse(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph
+     return 0;
+ }
+ 
++
++char * ggml_cuda_q8_1_cache(ggml_backend_cuda_context & ctx, const ggml_tensor * src1, size_t size, bool & hit) {
++    static const bool disabled = [] {
++        const char * env = getenv("GGML_CUDA_INK_T_DISABLE");
++        return env != nullptr && (atoi(env) & 8) != 0;
++    }();
++    hit = false;
++    if (disabled || size > GGML_CUDA_Q8_1_CACHE_BYTES || !ctx.stream_context().concurrent_events.empty()) {
++        return nullptr;
++    }
++    for (auto & e : ctx.q8_1_cache) {
++        if (e.buf && e.gen == ctx.q8_1_cache_gen && e.t == src1 && e.data == src1->data &&
++                memcmp(e.ne, src1->ne, sizeof(e.ne)) == 0 && memcmp(e.nb, src1->nb, sizeof(e.nb)) == 0) {
++            hit = true;
++            return e.buf;
++        }
++    }
++    auto & e = ctx.q8_1_cache[ctx.q8_1_cache_next];
++    if (!e.buf) {
++        cudaStreamCaptureStatus st = cudaStreamCaptureStatusNone;
++        CUDA_CHECK(cudaStreamIsCapturing(ctx.stream(), &st));
++        if (st != cudaStreamCaptureStatusNone) {
++            return nullptr; // no allocation inside a capture: fall back to the pool for this call
++        }
++        ggml_cuda_set_device(ctx.device);
++        CUDA_CHECK(cudaMalloc((void **) &e.buf, GGML_CUDA_Q8_1_CACHE_BYTES));
++    }
++    ctx.q8_1_cache_next = (ctx.q8_1_cache_next + 1) % GGML_CUDA_Q8_1_CACHE_SLOTS;
++    e.t    = src1;
++    e.data = src1->data;
++    memcpy(e.ne, src1->ne, sizeof(e.ne));
++    memcpy(e.nb, src1->nb, sizeof(e.nb));
++    e.gen  = ctx.q8_1_cache_gen;
++    return e.buf;
++}
++
+ // debug aid (kernel work): GGML_CUDA_DUMP_GRAPH=<file> writes the nodes of the 3rd evaluated graph with their fusion status
+ static FILE * ggml_cuda_dump_graph_file(const ggml_cgraph * cgraph) {
+     static const char * path = getenv("GGML_CUDA_DUMP_GRAPH");
+@@ -5341,6 +5383,7 @@ static void ggml_cuda_dump_node(FILE * f, int i, const ggml_tensor * t, const ch
+ 
+ static void ggml_cuda_graph_evaluate_and_capture(ggml_backend_cuda_context * cuda_ctx, ggml_cgraph * cgraph, const bool use_cuda_graph, const bool cuda_graph_update_required, const void * graph_key) {
+     FILE * dump_f = ggml_cuda_dump_graph_file(cgraph);
++    cuda_ctx->q8_1_cache_gen++;
+ 
+     bool graph_evaluated_or_captured = false;
+ 
+diff --git a/ggml/src/ggml-cuda/mmvq.cu b/ggml/src/ggml-cuda/mmvq.cu
+index 32cd18f..59161a4 100644
+--- a/ggml/src/ggml-cuda/mmvq.cu
++++ b/ggml/src/ggml-cuda/mmvq.cu
+@@ -1635,12 +1635,16 @@ void ggml_cuda_mul_mat_vec_q(
+     }
+ 
+     const int64_t ne10_padded = GGML_PAD(ne10, MATRIX_ROW_PADDING);
+-    ggml_cuda_pool_alloc<char> src1_q8_1(ctx.pool(), ne13*ne12 * ne11*ne10_padded * sizeof(block_q8_1)/QK8_1);
+-    {
++    const size_t q8_1_size = ne13*ne12 * ne11*ne10_padded * sizeof(block_q8_1)/QK8_1;
++    bool q8_1_hit = false;
++    char * q8_1_slot = ggml_cuda_q8_1_cache(ctx, src1, q8_1_size, q8_1_hit);
++    ggml_cuda_pool_alloc<char> src1_q8_1_pool(ctx.pool());
++    char * src1_q8_1_d = q8_1_slot ? q8_1_slot : src1_q8_1_pool.alloc(q8_1_size);
++    if (!q8_1_hit) {
+         const int64_t s11 = src1->nb[1] / ts_src1;
+         const int64_t s12 = src1->nb[2] / ts_src1;
+         const int64_t s13 = src1->nb[3] / ts_src1;
+-        quantize_row_q8_1_cuda(src1_d, src1_q8_1.get(), ne10, s11, s12, s13, ne10_padded, ne11, ne12, ne13, stream);
++        quantize_row_q8_1_cuda(src1_d, src1_q8_1_d, ne10, s11, s12, s13, ne10_padded, ne11, ne12, ne13, stream);
+     }
+ 
+     const int64_t s01 = src0->nb[1] / ts_src0;
+@@ -1666,7 +1670,7 @@ void ggml_cuda_mul_mat_vec_q(
+     const int64_t ids_stride = ids ? ids->nb[1] / ggml_type_size(ids->type) : 0;
+ 
+     mul_mat_vec_q_switch_type(
+-        src0->data, src0->type, src1_q8_1.get(), ids_d, fusion_local, dst_d, ne00,
++        src0->data, src0->type, src1_q8_1_d, ids_d, fusion_local, dst_d, ne00,
+         ne01,              ncols_dst,     s01, stride_col_y,     stride_col_dst,
+         ne02, nchannels_y, nchannels_dst, s02, stride_channel_y, stride_channel_dst,
+         ne03,              ne3,           s03, s13,              s3,               ids_stride, stream);
+-- 
+2.53.0
+
