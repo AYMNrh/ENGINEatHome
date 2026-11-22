@@ -184,3 +184,6 @@ Baseline unchanged: **7d3e5b1** (branch relpos-gpu); fallbacks e4a7ea6 (relbias-
 | 127,671 | 167.9 s | 767 | 7/7 | ok | 3/3 | 1.44 s | 0.85-0.91 s | 35.8 | 20,542 / 20,570 MiB |
 | 185,099 | 285.7 s | 652 | pass | ok | 3/3 | 1.85 s | 1.04-1.15 s | 30.5 | 20,542 / 20,572 MiB |
 No model error, no harness failure, 0 scheduler re-plans, no CUDA errors in the server log. GPU time about 11 of 30 minutes.
+
+### v0.6b (2026-11-22): 256K qualification (ctx 262144, ub 256, q8_0, 7d3e5b1) - QUALIFIED with caveats
+242,134 actual input tokens (246.7K occupied of 262,144), fresh randomized needles/decoys (seed 4242): cold prefill 556 s (437 tok/s), fix turn 641 s total, hidden tests 7/7, rules ok, retrieval/recall/rules 3/3, warm TTFT 2.49 s, cached follow-up 1.24-1.34 s, decode 26.8 tok/s, loaded 19,824 MiB / peak 19,846 MiB, 0 scheduler re-plans, no errors. 128K at ub 256: cold 220 s (584 tok/s, +31 % vs ub 512), decode unchanged. ub 512 does not load at 262144 (7.57 GiB compute buffer OOM). GPU time 16.6 of 30 min; Swift restored, /healthz and a real inference verified. Full report: LONGCTX_READINESS.md (v06-longctx/).
