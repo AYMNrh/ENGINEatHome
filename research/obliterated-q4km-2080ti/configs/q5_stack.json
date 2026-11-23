@@ -1,0 +1,156 @@
+[
+ {
+  "name": "w1_ctl_mtp2_52k",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "2",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64"
+  ],
+  "runs": [
+   {
+    "label": "long52k",
+    "start": 52000,
+    "turns": 4,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "w2_stack_f16_52k",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--spec-draft-p-min",
+   "0.6",
+   "--ubatch-size",
+   "512",
+   "--batch-size",
+   "2048",
+   "--cache-ram",
+   "8192",
+   "--cache-type-k",
+   "f16",
+   "--cache-type-v",
+   "f16"
+  ],
+  "runs": [
+   {
+    "label": "long52k",
+    "start": 52000,
+    "turns": 4,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "w3_stack_q8_52k",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--spec-draft-p-min",
+   "0.6",
+   "--ubatch-size",
+   "512",
+   "--batch-size",
+   "2048",
+   "--cache-ram",
+   "8192",
+   "--cache-type-k",
+   "q8_0",
+   "--cache-type-v",
+   "q8_0"
+  ],
+  "runs": [
+   {
+    "label": "long52k",
+    "start": 52000,
+    "turns": 4,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "w4_ctl_mtp2_52k_b",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "2",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64"
+  ],
+  "runs": [
+   {
+    "label": "long52k",
+    "start": 52000,
+    "turns": 4,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "w5_stack_f16_needle65k",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--spec-draft-p-min",
+   "0.6",
+   "--ubatch-size",
+   "512",
+   "--batch-size",
+   "2048",
+   "--cache-ram",
+   "8192",
+   "--cache-type-k",
+   "f16",
+   "--cache-type-v",
+   "f16"
+  ],
+  "runs": [
+   {
+    "label": "needle65k",
+    "kind": "needle",
+    "start": 65000
+   }
+  ]
+ }
+]
