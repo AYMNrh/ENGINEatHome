@@ -1,0 +1,350 @@
+[
+ {
+  "name": "p1_base_prod",
+  "server": [],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "p2_mtp3_prod",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "p3_mtp2_prod",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "2",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "p4_mtp1_prod",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "1",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "c1_side_cram0",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64"
+  ],
+  "runs": [
+   {
+    "label": "side16k",
+    "kind": "side",
+    "start": 16000
+   }
+  ]
+ },
+ {
+  "name": "c2_side_cram8g",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--cache-ram",
+   "8192"
+  ],
+  "runs": [
+   {
+    "label": "side16k",
+    "kind": "side",
+    "start": 16000
+   }
+  ]
+ },
+ {
+  "name": "c3_side_np2",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--parallel",
+   "2",
+   "--kv-unified"
+  ],
+  "runs": [
+   {
+    "label": "side16k",
+    "kind": "side",
+    "start": 16000
+   }
+  ]
+ },
+ {
+  "name": "l1_kv_q8",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--cache-type-k",
+   "q8_0",
+   "--cache-type-v",
+   "q8_0"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "greedy"
+   }
+  ]
+ },
+ {
+  "name": "l2_kv_f16",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--cache-type-k",
+   "f16",
+   "--cache-type-v",
+   "f16"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "greedy"
+   }
+  ]
+ },
+ {
+  "name": "l3_fa_off_f16",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--flash-attn",
+   "off",
+   "--cache-type-k",
+   "f16",
+   "--cache-type-v",
+   "f16"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "greedy"
+   }
+  ]
+ },
+ {
+  "name": "l4_ub256_b1024",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--ubatch-size",
+   "256",
+   "--batch-size",
+   "1024"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "greedy"
+   }
+  ]
+ },
+ {
+  "name": "l5_ub512_b2048",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--ubatch-size",
+   "512",
+   "--batch-size",
+   "2048"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "greedy"
+   }
+  ]
+ },
+ {
+  "name": "l6_mtp4_pmin06",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "4",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--spec-draft-p-min",
+   "0.6"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "greedy"
+   }
+  ]
+ },
+ {
+  "name": "l7_mtp3_ctl3",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "greedy"
+   }
+  ]
+ }
+]

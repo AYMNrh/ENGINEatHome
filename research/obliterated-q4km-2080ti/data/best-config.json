@@ -1,0 +1,12 @@
+{
+  "status": "CANDIDATE - measured, NOT qualified (no soak, one 65K needle, not applied to production)",
+  "baseline_reproducible": "configs/s1_base_ctl1.json, configs/s2_mtp2_ctl1.json, configs/w1_ctl_mtp2_52k.json",
+  "launch_extra_args_over_swift_flags": [
+    "--spec-type", "draft-mtp", "--spec-draft-n-max", "3", "--spec-draft-p-min", "0.6",
+    "--spec-draft-type-k", "q4_0", "--spec-draft-type-v", "q4_0", "--spec-draft-n-ubatch", "64",
+    "--cache-type-k", "f16", "--cache-type-v", "f16",
+    "--ubatch-size", "512", "--batch-size", "2048", "--cache-ram", "8192"
+  ],
+  "fallback_if_vram_margin_too_small": "replace f16 KV with q8_0 (+7.3% at 52K instead of +19.7%, 18.7 GiB)",
+  "see": "configs/w2_stack_f16_52k.json for the exact command line that was measured"
+}

@@ -1,0 +1,218 @@
+[
+ {
+  "name": "y1_mtp4_pmin06_prod",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "4",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--spec-draft-p-min",
+   "0.6"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "y2_mtp4_pmin075_prod",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "4",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--spec-draft-p-min",
+   "0.75"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "y3_mtp3_pmin06_prod",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--spec-draft-p-min",
+   "0.6"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "y4_mtp2_prod_ctl",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "2",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "l3b_fa_off_f16",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "3",
+   "--spec-draft-type-k",
+   "f16",
+   "--spec-draft-type-v",
+   "f16",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--flash-attn",
+   "off",
+   "--cache-type-k",
+   "f16",
+   "--cache-type-v",
+   "f16"
+  ],
+  "runs": [
+   {
+    "label": "screen16k",
+    "start": 16000,
+    "turns": 6,
+    "gen": 640,
+    "sampling": "greedy"
+   }
+  ]
+ },
+ {
+  "name": "z1_mtp2_kvf16_prod_52k",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "2",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--cache-type-k",
+   "f16",
+   "--cache-type-v",
+   "f16"
+  ],
+  "runs": [
+   {
+    "label": "long52k",
+    "start": 52000,
+    "turns": 4,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "z2_mtp2_kvq8_prod_52k",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "2",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--cache-type-k",
+   "q8_0",
+   "--cache-type-v",
+   "q8_0"
+  ],
+  "runs": [
+   {
+    "label": "long52k",
+    "start": 52000,
+    "turns": 4,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ },
+ {
+  "name": "z3_mtp2_ub512_prod_52k",
+  "server": [
+   "--spec-type",
+   "draft-mtp",
+   "--spec-draft-n-max",
+   "2",
+   "--spec-draft-type-k",
+   "q4_0",
+   "--spec-draft-type-v",
+   "q4_0",
+   "--spec-draft-n-ubatch",
+   "64",
+   "--ubatch-size",
+   "512",
+   "--batch-size",
+   "2048"
+  ],
+  "runs": [
+   {
+    "label": "long52k",
+    "start": 52000,
+    "turns": 4,
+    "gen": 640,
+    "sampling": "prod"
+   }
+  ]
+ }
+]
