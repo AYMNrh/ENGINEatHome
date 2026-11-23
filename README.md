@@ -11,6 +11,7 @@ Local inference benchmarking and private serving with Strata and llama.cpp. The 
 | Model / experiment | Headline measurement | Role | Report |
 |---|---|---|---|
 | **Swift 1.5 Qwen3.8-27B IQ3_S MTP3** (2080 Ti) | 260,096 actual input in a 262,144 window, 19.31 tok/s decode, 4-task coding set 3/4 (4/4 on RTX 5070 Ti) | **Production** | [report](docs/swift-2080ti-20261119.md) |
+| **Qwen3.8-27B-OBLITERATED Q4_K_M, MTP3** (2080 Ti, 64K) | 37.8 tok/s decode and 408.5 tok/s prefill at 63,591 tokens, MTP acceptance 90%, cached follow-up 0.51 s vs 158 s cold, 0/400 cross-client leaks | Selectable profile (Swift stays default) | [report](docs/obliterated-profile-and-ram-cache.md) |
 | **Inkling-Turing** (Inkling 2 Mini IQ3_XXS, 2080 Ti) | 242,134 actual input in a 262,144 window, cold prefill 556 s, 26.8 tok/s decode, 7/7 hidden tests, 3/3 follow-up checks | Research engine | [report](docs/inkling-turing-20261122.md) |
 | SenseNova-Loop-9B Q4_K_M | 256K retrieval 6/6, multi-hop 1/4 content, 0/4 strict JSON | Evaluated | [report](docs/sensenova-loop-9b.md) |
 | Qwen3.8-Flash-Next IQ3_S, Strata 0.1.60 | 128K: 4K prefill chunks give 2.33x the cold prefill throughput of 1K chunks | Evaluated | [report](docs/strata-iq3s-128k-prefill-20261117.md) |
@@ -64,6 +65,21 @@ Retrieval 6/6 at every capacity (cold and cached). Source: [measurements JSON](d
 [Swift inference card](docs/assets/swift-qwen-inference.png) · [Benchmark report](docs/swift-qwen-20261118.md) · [Measurements JSON](docs/results/swift-qwen-20261118.json)
 
 </details>
+
+</details>
+
+<details open>
+<summary><b>Qwen3.8-27B-OBLITERATED Q4_K_M and RAM prompt cache</b> · 37.8 tok/s at 64K · cached follow-up 0.51 s</summary>
+
+[![Obliterated Q4_K_M 64K profile: F16 versus Q8_0 KV decode, prefill and VRAM](docs/assets/obliterated-profile.png)](docs/obliterated-profile-and-ram-cache.md)
+
+[![RAM prompt cache: cold versus cached restore times for Obliterated and Swift](docs/assets/obliterated-ram-cache.png)](docs/obliterated-profile-and-ram-cache.md)
+
+[![Qualification: 0 of 400 contaminated responses, OpenCode task, recovery and switching](docs/assets/obliterated-qualification.png)](docs/obliterated-profile-and-ram-cache.md)
+
+Selectable in Home Assistant (select never switches, Apply is explicit); Swift remains the default and Obliterated never auto-starts. 65,536 context only, F16 KV, Q8_0 validated fallback. Swift now runs `--cache-ram 8192 --no-cache-idle-slots`. The upstream isolation bug (llama.cpp #27148) is unfixed: 0 of 400 is evidence, not proof, and the Inkling profiles are unchanged.
+
+[Report](docs/obliterated-profile-and-ram-cache.md) · [Measurements JSON](docs/results/obliterated-20261123.json) · [Research evidence](research/obliterated-q4km-2080ti/README.md)
 
 </details>
 

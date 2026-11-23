@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-23",
+  "hardware": "RTX 2080 Ti 22GB, 175 W, llama.cpp build 12519 (98d67c8d5)",
+  "model": "Qwen3.8-27B-OBLITERATED Q4_K_M, native MTP (blk.64), depth 3, p-min 0.6",
+  "context": 65536,
+  "kv_comparison_63591_tokens": {
+    "f16": {"prefill_tps": 408.5, "decode_tps": 37.8, "peak_vram_mib": 20876, "free_vram_mib": 1680, "soak_requests": 141, "soak_errors": 0, "soak_vram_drift_mib": 26},
+    "q8_0": {"prefill_tps": 403.8, "decode_tps": 33.5, "peak_vram_mib": 19174, "free_vram_mib": 3378, "soak_requests": 100, "soak_errors": 0}
+  },
+  "mtp_acceptance": {"4k_to_6k_percent": [72, 73], "at_63591_percent": 90, "drafted_accepted_at_63591": "47/52"},
+  "cache_ram_mib": 8192,
+  "cache_seconds": {
+    "obliterated_63591": {"cold": 158, "cached_followup": 0.51},
+    "obliterated_12600_first_turn": {"cold": 22.3, "cached_range": [1.2, 1.4]},
+    "obliterated_restore_after_unrelated": 0.2,
+    "swift_13k_to_20k": {"cold_range": [25, 41], "resume_range": [0.2, 0.5]}
+  },
+  "overhead": {"swift_rss_gb_for_52k_cached_tokens": 2.1, "obliterated_rss_gb_steady": [4.4, 4.6], "obliterated_rss_gb_peak": 9.6, "host_available_gb_min": 20, "host_ram_gb": 31},
+  "isolation": {"requests": 400, "contaminated": 0, "upstream_issue": "llama.cpp #27148 open; fix PR #27624 unmerged", "mitigation": "--no-cache-idle-slots"},
+  "opencode": {"version": "1.18.16", "production_none_s": 32.4, "production_default_s": 30.8, "tools": ["read", "read", "edit", "bash"]},
+  "tests_passing": 42
+}
