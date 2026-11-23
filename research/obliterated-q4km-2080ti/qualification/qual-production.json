@@ -1,0 +1,153 @@
+{
+ "environment": {
+  "kv": "f16",
+  "gpu": {
+   "used_mib": 20850,
+   "total_mib": 22528,
+   "power_w": 62.87,
+   "power_limit_w": 175.0,
+   "temp_c": 37
+  },
+  "ram": {
+   "MemTotal": 30987,
+   "MemAvailable": 27701
+  },
+  "profiles": [
+   "swift",
+   "inkling-balanced",
+   "inkling-maximum",
+   "obliterated"
+  ]
+ },
+ "12_switching": {
+  "obliterated_first_cached": 0,
+  "obliterated_repeat_cached": 6382,
+  "to_swift": {
+   "status": 200,
+   "seconds": 6.0,
+   "processes": 1,
+   "gpu": {
+    "used_mib": 19614,
+    "total_mib": 22528,
+    "power_w": 157.83,
+    "power_limit_w": 175.0,
+    "temp_c": 40
+   }
+  },
+  "swift_first_cached": 0,
+  "swift_repeat_cached": 6422,
+  "back_to_obliterated": {
+   "status": 200,
+   "seconds": 16.6,
+   "first_cached": 0,
+   "processes": 1
+  },
+  "wrong_model_request": "model_not_active",
+  "cache_never_crosses_models": true,
+  "_seconds": 59.1,
+  "_resources": {
+   "vram_peak_mib": 20850,
+   "rss_peak_mib": 14879,
+   "host_available_min_mib": 26737,
+   "samples": 29
+  }
+ },
+ "13_swift_cache": {
+  "apply_swift": {
+   "status": 200,
+   "seconds": 3.7
+  },
+  "rss_after_load_mib": 873,
+  "cold": {
+   "A": {
+    "prompt_tokens": 19754,
+    "cached": 0,
+    "prompt_ms": 40892,
+    "own_marker": true
+   },
+   "B": {
+    "prompt_tokens": 19312,
+    "cached": 0,
+    "prompt_ms": 39927,
+    "own_marker": true
+   },
+   "C": {
+    "prompt_tokens": 12688,
+    "cached": 0,
+    "prompt_ms": 25231,
+    "own_marker": true
+   }
+  },
+  "rss_after_three_conversations_mib": 2992,
+  "host_after": {
+   "MemTotal": 30987,
+   "MemAvailable": 26729
+  },
+  "resumed": {
+   "A": [
+    {
+     "prompt_tokens": 19786,
+     "cached": 19766,
+     "prompt_ms": 495,
+     "own_marker": true,
+     "foreign_marker": false
+    },
+    {
+     "prompt_tokens": 19786,
+     "cached": 19782,
+     "prompt_ms": 215,
+     "own_marker": true,
+     "foreign_marker": false
+    }
+   ],
+   "B": [
+    {
+     "prompt_tokens": 19344,
+     "cached": 19324,
+     "prompt_ms": 504,
+     "own_marker": true,
+     "foreign_marker": false
+    }
+   ],
+   "C": [
+    {
+     "prompt_tokens": 12718,
+     "cached": 12698,
+     "prompt_ms": 476,
+     "own_marker": true,
+     "foreign_marker": false
+    }
+   ]
+  },
+  "all_restored": true,
+  "no_foreign_marker": true,
+  "rss_peak_mib": 3459,
+  "vram": {
+   "used_mib": 19672,
+   "total_mib": 22528,
+   "power_w": 148.49,
+   "power_limit_w": 175.0,
+   "temp_c": 44
+  },
+  "_seconds": 116.4,
+  "_resources": {
+   "vram_peak_mib": 20832,
+   "rss_peak_mib": 11872,
+   "host_available_min_mib": 26075,
+   "samples": 58
+  }
+ },
+ "final": {
+  "state": "ready",
+  "active": "swift",
+  "applied": "swift",
+  "gpu": {
+   "used_mib": 19672,
+   "total_mib": 22528,
+   "power_w": 163.85,
+   "power_limit_w": 175.0,
+   "temp_c": 44
+  },
+  "llama_processes": 1
+ }
+}

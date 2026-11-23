@@ -1,0 +1,2 @@
+gateway before: active
+{"gateway": "ok"}gateway before isolation tests: active 2026-11-23T04:06:25+01:00

@@ -23,6 +23,13 @@ SHORT_FLAGS = {'m': 'model', 'c': 'ctx-size', 'ub': 'ubatch-size', 'b': 'batch-s
 SWIFT_REASONING = dict(parameter='reasoning_effort', levels=['none', 'low', 'medium', 'xhigh'], default='xhigh', aliases={},
                        numeric=None, none_disables_thinking=True, request_override=True,
                        note='none turns thinking off (enable_thinking=false). low, medium and xhigh are the template levels.')
+# Qwen3.8-27B-OBLITERATED uses the Qwen3.5-style template taken from the Swift GGUF (the model's own embedded template is a
+# minimal ChatML without tool support). That template accepts enable_thinking and the same three effort levels as Swift.
+# The default is `none` because every speed measurement of this profile was taken with thinking off.
+OBLITERATED_REASONING = dict(parameter='reasoning_effort', levels=['none', 'low', 'medium', 'xhigh'], default='none', aliases={},
+                             numeric=None, none_disables_thinking=True, request_override=True,
+                             note=('none turns thinking off (enable_thinking=false) and is the default: speed was measured with thinking off. '
+                                   'low, medium and xhigh are the levels of the shared Qwen template; their effect on this model was not measured.'))
 INKLING_REASONING = dict(parameter='reasoning_effort', levels=['none', 'minimal', 'low', 'medium', 'high', 'xhigh'], default='high',
                          aliases={'max': 'xhigh'}, numeric=[0.0, 0.99], none_disables_thinking=False, request_override=True,
                          note='Template values none 0, minimal 0.1, low 0.2, medium 0.7, high 0.9, xhigh 0.99. max is an alias of xhigh.')
@@ -71,13 +78,46 @@ def launch_facts(argv):
             ('Flash attention', v.get('flash-attn', 'unknown')),
             ('KV cache', (kv_k if kv_k == kv_v else f'{kv_k} / {kv_v}') if kv_k else 'unknown'),
             ('Batch / microbatch', f"{v.get('batch-size', 'default')} / {v.get('ubatch-size', 'default')}")]
-    if v.get('spec-type'):rows.append(('Speculative decoding', f"{v['spec-type']}, up to {v.get('spec-draft-n-max', '?')} draft tokens"))
+    if v.get('spec-type'):
+        threshold = f", acceptance threshold {v['spec-draft-p-min']}" if v.get('spec-draft-p-min') else ''
+        rows.append(('Speculative decoding', f"{v['spec-type']}, up to {v.get('spec-draft-n-max', '?')} draft tokens{threshold}"))
     if v.get('reasoning'):rows.append(('Reasoning', f"{v['reasoning']}, effort {v.get('reasoning-effort', '?')}, budget {v.get('reasoning-budget', '?')}"))
-    rows.append(('Prompt cache in RAM', v.get('cache-ram', 'runtime default')))
+    rows.append(('Prompt cache in RAM', cache_ram_label(v)))
     if 'ctx-checkpoints' in v:rows.append(('Context checkpoints', v['ctx-checkpoints']))
     rows.append(('Context shifting', 'off' if 'no-context-shift' in v else 'runtime default'))
-    rows.append(('Chat template', 'model-embedded (jinja)' if 'jinja' in v else 'runtime default'))
+    template = v.get('chat-template-file')
+    rows.append(('Chat template', f'file {Path(template).name}' if template else 'model-embedded (jinja)' if 'jinja' in v else 'runtime default'))
     return rows
+
+
+RUNTIME_DEFAULT_CACHE_RAM_MIB = 8192   # `--cache-ram` default of the stock build and of the Inkling fork (checked with --help, 2026-11-23)
+
+
+def cache_ram_mib(argv):
+    """RAM prompt-cache size in MiB from the launch arguments: 0 = off, None = the runtime default (8192 MiB in llama.cpp)."""
+    value = parse_argv(argv or []).get('cache-ram')
+    return int(value) if value is not None and re.fullmatch(r'-?\d+', value) else None
+
+
+def cache_ram_label(values):
+    value = values.get('cache-ram')
+    flags = ' (idle slots not cached)' if 'no-cache-idle-slots' in values else ''
+    if value is None:return 'runtime default (8,192 MiB)'
+    if value == '0':return 'off' + flags
+    return ('unlimited' if value == '-1' else f'{int(value):,} MiB') + flags if re.fullmatch(r'-?\d+', value) else value
+
+
+def mtp_facts(argv):
+    v = parse_argv(argv or [])
+    enabled = v.get('spec-type') == 'draft-mtp'
+    return dict(enabled=enabled, draft_n_max=int(v['spec-draft-n-max']) if enabled and v.get('spec-draft-n-max', '').isdigit() else None,
+                draft_p_min=float(v['spec-draft-p-min']) if enabled and v.get('spec-draft-p-min') else None)
+
+
+def quantization_of(model):
+    """Quantization label from a GGUF file name (informational; profiles may state it explicitly)."""
+    match = re.search(r'(UD-)?(IQ\d_[A-Z]+|Q\d_K_[A-Z]|Q\d_K|Q\d_\d|Q\d|F16|BF16)', Path(model or '').name)
+    return match.group(0) if match else None
 
 
 def _kv(argv):
@@ -131,9 +171,13 @@ def model_index(config):
 def public_profile(key, p):
     """Profile description for the API and dashboard. No executable, model path, argv or checksum paths."""
     r = p['reasoning']
+    ram = cache_ram_mib(p.get('argv'))
+    if ram is None:ram = RUNTIME_DEFAULT_CACHE_RAM_MIB   # no --cache-ram flag: llama.cpp enables its 8,192 MiB default
     return dict(key=key, display_name=p['display_name'], model_id=p['model_id'], family=p['family'], context=p.get('context'),
                 kv_cache=p.get('kv') or _kv(p.get('argv')), microbatch=p.get('microbatch'), prefix_cache=bool(p.get('prefix_cache', True)),
                 description=p.get('description', ''), notes=p.get('notes', ''), qualification=p.get('qualification', ''),
+                qualification_status=p.get('qualification_status', 'qualified'), quantization=p.get('quantization') or quantization_of(p.get('model')),
+                mtp=mtp_facts(p.get('argv')), ram_cache=dict(enabled=bool(ram), mib=ram if ram else 0, label=cache_ram_label(parse_argv(p.get('argv') or []))),
                 expected_vram_mib=p.get('vram_loaded_mib'),
                 reasoning=dict(parameter=r['parameter'], levels=list(r['levels']), default=r['default'], aliases=dict(r.get('aliases', {})),
                                numeric=r.get('numeric'), request_override=bool(r.get('request_override', True)), note=r.get('note', '')),
@@ -201,3 +245,30 @@ def inkling_profiles(executable, model, model_stat, sha256, port, measured):
                  qualification=m['qualification'], notes=m.get('notes', ''))
         out[key] = p
     return out
+
+
+def obliterated_argv(executable, model, context, kv, port, alias, template_file, cache_ram=8192):
+    """The measured launch line (research/obliterated-q4km-2080ti, run w2/w3) plus what the gateway needs: loopback host/port, alias,
+    quiet, and the tool-capable chat template. Swift's flags are untouched; nothing else is guessed."""
+    return [str(executable), '--model', str(model), '--ctx-size', str(context), '--host', '127.0.0.1', '--port', str(port),
+            '--alias', alias, '--parallel', '1', '--n-gpu-layers', '99', '--flash-attn', 'on', '--cache-type-k', kv, '--cache-type-v', kv,
+            '--batch-size', '2048', '--ubatch-size', '512', '--threads', '8', '--fit', 'off', '--no-context-shift',
+            '--cache-ram', str(cache_ram), '--ctx-checkpoints', '4', '--no-webui', '--jinja', '--chat-template-file', str(template_file),
+            '--no-warmup', '--spec-type', 'draft-mtp', '--spec-draft-n-max', '3', '--spec-draft-p-min', '0.6',
+            '--spec-draft-type-k', 'q4_0', '--spec-draft-type-v', 'q4_0', '--spec-draft-n-ubatch', '64', '--log-disable'] + (
+                ['--no-cache-idle-slots'] if cache_ram > 0 else [])   # llama.cpp #27148 hardening, see docs/obliterated-profile-and-ram-cache.md
+
+
+def obliterated_profile(executable, model, model_stat, sha256, port, template_file, template_sha256, kv, measured, cache_ram=8192, context=65536):
+    """measured: loaded_mib, peak_mib, process_floor_mib, qualification, qualification_status, notes (from the qualification run)."""
+    return dict(
+        display_name='Qwen3.8-27B-OBLITERATED Optimized', model_id='qwen3.8-27b-obliterated', family='obliterated', executable=str(executable),
+        model=str(model), model_stat=model_stat, checkpoint_sha256=sha256, quantization='Q4_K_M', kv=kv, context=context, microbatch=512,
+        argv=obliterated_argv(executable, model, context, kv, port, 'qwen3.8-27b-obliterated', template_file, cache_ram),
+        chat_template_file=str(template_file), chat_template_sha256=template_sha256,
+        sampling={}, request_defaults={}, reasoning=copy.deepcopy(OBLITERATED_REASONING), prefix_cache=cache_ram > 0, load_timeout=300,
+        vram_loaded_mib=measured['loaded_mib'], minimum_load_free_bytes=(measured['peak_mib'] + 768) * 2 ** 20,
+        minimum_process_device_bytes=int(measured['process_floor_mib']) * 2 ** 20,
+        qualification=measured['qualification'], qualification_status=measured.get('qualification_status', 'experimental'), notes=measured.get('notes', ''),
+        description=('Qwen3.8-27B-OBLITERATED Q4_K_M (Pliny, OBLITERATUS) with its embedded MTP head: native MTP draft depth 3, acceptance threshold 0.6, '
+                     '65,536 context, 175 W.'))

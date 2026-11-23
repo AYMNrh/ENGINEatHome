@@ -1,0 +1,19 @@
+{
+ "model": "qwen3.8-27b-obliterated",
+ "variant": "xhigh",
+ "seconds": 31.5,
+ "timed_out": false,
+ "return_code": 0,
+ "events": 13,
+ "tool_calls": [
+  "read",
+  "read",
+  "edit",
+  "bash"
+ ],
+ "tests_failed_before": true,
+ "tests_pass_after": true,
+ "test_output_after": "ALL TESTS PASSED\n",
+ "diff_len_chars": 6,
+ "stderr_tail": ""
+}

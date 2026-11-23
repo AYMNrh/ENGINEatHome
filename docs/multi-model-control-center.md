@@ -1,6 +1,6 @@
 # Multi-model inference control center
 
-Deployed 2026-11-22. One RTX 2080 Ti (22 GB, 175 W) serves **one model at a time** through the existing private gateway; Swift stays the default, and Inkling 2 Mini is available in two validated configurations. Models are selected, applied and tuned from the Home Assistant dashboard ([serving-dashboard.md](serving-dashboard.md)). No CUDA kernel, benchmark configuration or Swift inference setting changed.
+Deployed 2026-11-22. One RTX 2080 Ti (22 GB, 175 W) serves **one model at a time** through the existing private gateway; Swift stays the default, and Inkling 2 Mini is available in two validated configurations. **Update 2026-11-23:** a fourth profile, Qwen3.8-27B-OBLITERATED (`qwen3.8-27b-obliterated`, 65,536 context, native MTP), was added and Swift's RAM prompt cache was enabled; see [obliterated-profile-and-ram-cache.md](obliterated-profile-and-ram-cache.md). The table below describes the three profiles as deployed on 2026-11-22, except that Swift now runs `--cache-ram 8192 --no-cache-idle-slots` instead of `--cache-ram 0`. Models are selected, applied and tuned from the Home Assistant dashboard ([serving-dashboard.md](serving-dashboard.md)). No CUDA kernel, benchmark configuration or Swift inference setting changed.
 
 ## Profiles (verified against the homelab, not assumed)
 
@@ -12,7 +12,7 @@ Deployed 2026-11-22. One RTX 2080 Ti (22 GB, 175 W) serves **one model at a time
 | Context (configured) | 262,144 | 204,800 | 262,144 |
 | KV cache | Q4_0 | Q8_0 | Q8_0 |
 | Microbatch | 128 (batch 512) | 512 | 256 |
-| Other | MTP3, FA, 99 GPU layers, `--cache-ram 0` | FA, `-ngl 99`, one sequence, `--jinja`, prefix cache on | same |
+| Other | MTP3, FA, 99 GPU layers, `--cache-ram 8192 --no-cache-idle-slots` (was `--cache-ram 0` until 2026-11-23) | FA, `-ngl 99`, one sequence, `--jinja`, prefix cache on | same |
 | Loaded VRAM | ~19.0 GiB expected (observed 19,614 MiB) | ~20.1 GiB (observed 20,558 MiB) | ~19.4 GiB (observed 19,840 MiB) |
 | Thinking | `none, low, medium, xhigh`; default `xhigh` | `none, minimal, low, medium, high, xhigh`; default `high` | same as Balanced |
 

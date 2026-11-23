@@ -63,3 +63,7 @@ sudo docker restart homeassistant           # package changes need a restart
 Rollback: copy the files from `engineathome/backup-<stamp>/` back over `engineathome/`, remove `themes/engineathome.yaml`, restart Home Assistant.
 
 Offline tests: `python -m unittest test_serving test_ha_dashboard` in `serving/` (needs `aiohttp`, `pyyaml`, `jinja2`). Against real Home Assistant: copy a generated candidate into the container and run `validate_ha_history.py <dir>`.
+
+## Model details and cache cards (2026-11-23)
+
+The Overview gained a **Model details** card for the served model (quantization, KV precision, MTP depth and threshold, RAM-prompt-cache setting, VRAM now and expected, recent prefill and decode speed, cache hit rate over the last 20 requests, cached follow-up versus cold TTFT, model-process and host RAM, qualification status), and four Key-metric tiles (cache hit rate, cached follow-up TTFT, cold prompt TTFT, model-process RAM). The target-model comparison and the model/launch tables show quantization, MTP, RAM cache and qualification status for every profile. They read the new `sensor.engineathome_cache` sensor (`cache` block of `GET /admin/status`) and the per-profile fields `quantization`, `mtp`, `ram_cache` and `qualification_status`. Details and verification: [obliterated-profile-and-ram-cache.md](obliterated-profile-and-ram-cache.md).

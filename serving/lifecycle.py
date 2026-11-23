@@ -16,6 +16,20 @@ from qah.telemetry import gpu_sample
 import profiles as registry
 
 
+def host_memory(pid=None):
+    """Host RAM (MiB) and, when a pid is given, that process's resident set. Never raises: telemetry must not break status."""
+    info = {}
+    try:
+        for line in Path('/proc/meminfo').read_text().splitlines():
+            name, _, rest = line.partition(':')
+            if name in ('MemTotal', 'MemAvailable'):info[name] = int(rest.split()[0]) // 1024
+        if pid:
+            for line in Path(f'/proc/{pid}/status').read_text().splitlines():
+                if line.startswith('VmRSS:'):info['rss'] = int(line.split()[1]) // 1024
+    except (OSError, ValueError, IndexError):pass
+    return dict(host_total_mib=info.get('MemTotal'), host_available_mib=info.get('MemAvailable'), process_rss_mib=info.get('rss'))
+
+
 class Busy(RuntimeError):pass
 class Unavailable(RuntimeError):pass
 
@@ -110,6 +124,12 @@ class Lifecycle:
         except OSError:raise Unavailable('model_file_missing') from None
         if dict(bytes=stat.st_size, mtime_ns=stat.st_mtime_ns) != p['model_stat']:raise Unavailable('model_file_changed_reverification_required')
         if not p.get('executable') or not os.access(p['executable'], os.X_OK):raise Unavailable('runtime_executable_missing')
+        if p.get('qualification_status') == 'blocked':raise Unavailable('profile_blocked')
+        template = p.get('chat_template_file')
+        if template:
+            try:
+                if registry.sha256_file(template) != p.get('chat_template_sha256'):raise Unavailable('chat_template_changed_reverification_required')
+            except OSError:raise Unavailable('chat_template_missing') from None
 
     async def _compute_apps(self, fields):
         probe = await asyncio.create_subprocess_exec('nvidia-smi', '--query-compute-apps=' + fields, '--format=csv,noheader,nounits',
@@ -351,6 +371,9 @@ class Lifecycle:
         key = self.active_key or self.applied
         p = self.profiles[key]
         chosen = await asyncio.to_thread(self.reasoning_default, self.applied)
+        recent = await asyncio.to_thread(self.store.cache_summary, key)
+        memory = await asyncio.to_thread(host_memory, self.process.pid if self._running() else None)
+        public = self.public[key]
         return dict(
             model=dict(state=self.state, model_id=p['model_id'], active_model_id=self.profiles[self.active_key]['model_id'] if self.active_key else None,
                        api_base_url=self.config['api_base_url'], context_capacity=p.get('context'), active_requests=self.active,
@@ -363,6 +386,9 @@ class Lifecycle:
             reasoning=dict(profile=self.applied, **{k: v for k, v in self.public[self.applied]['reasoning'].items()},
                            configured_default=chosen or self.public[self.applied]['reasoning']['default'],
                            default_source='dashboard' if chosen else 'profile'),
+            cache=dict(profile=key, enabled=public['ram_cache']['enabled'], ram_limit_mib=public['ram_cache']['mib'], label=public['ram_cache']['label'],
+                       recent=recent, **memory,
+                       note='Measured on the requests this profile actually served; the RAM cache lives in the model process and is discarded on every switch, unload or restart.'),
             gateway=dict(uptime_seconds=time.monotonic() - self.started, accepting=self.accepting),
             gpu=self.gpu, gpu_sample_at=self.gpu_at, auto_unload=self.auto_unload, idle_seconds=self.idle_seconds,
             timezone=self.config.get('timezone', 'Europe/Paris'))
