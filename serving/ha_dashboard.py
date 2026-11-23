@@ -255,7 +255,9 @@ Mean prefill **{{ d(pre | sum / pre | length) }}** tok/s · mean decode **{{ d(d
 {% endif %}'''.replace('@PREFILL@', FRESH).replace('@DECODE@', OUTPUT).replace('@MUTED@', MUTED)
 
 
-PROFILES = "{% set profiles = state_attr('sensor.engineathome_profiles', 'profiles') or [] %}"
+PROFILES = ("{% set profiles = state_attr('sensor.engineathome_profiles', 'profiles') or [] %}"
+            "{%- macro mtp_text(q) -%}{%- if q.mtp.enabled -%}on, up to {{ q.mtp.draft_n_max }} draft tokens"
+            "{%- if q.mtp.draft_p_min %}, threshold {{ q.mtp.draft_p_min }}{%- endif -%}{%- else -%}off{%- endif -%}{%- endmacro -%}")
 
 
 def profile_lookup(var, key_expr):
@@ -276,7 +278,10 @@ Model details unavailable.
 | Context | {{ n(p.context) }} tokens | {{ (n(a.context) ~ ' tokens') if a else '—' }} |
 | Microbatch | {{ p.microbatch }} | {{ a.microbatch if a else '—' }} |
 | KV cache | {{ p.kv_cache }} | {{ a.kv_cache if a else '—' }} |
-| Prefix cache | {{ 'enabled' if p.prefix_cache else 'off' }} | {{ ('enabled' if a.prefix_cache else 'off') if a else '—' }} |
+| Quantization | {{ p.quantization or '—' }} | {{ (a.quantization or '—') if a else '—' }} |
+| MTP | {{ mtp_text(p) }} | {{ mtp_text(a) if a else '—' }} |
+| RAM prompt cache | {{ p.ram_cache.label }} | {{ a.ram_cache.label if a else '—' }} |
+| Qualification | {{ p.qualification_status }} | {{ a.qualification_status if a else '—' }} |
 | Expected VRAM | {{ ('%.1f' | format(p.expected_vram_mib / 1024) ~ ' GiB') if p.expected_vram_mib else '—' }} | {{ ('%.1f' | format(a.expected_vram_mib / 1024) ~ ' GiB') if a and a.expected_vram_mib else '—' }} |
 | Default thinking | {{ p.reasoning.default }} | {{ a.reasoning.default if a else '—' }} |
 
@@ -295,6 +300,34 @@ Model details unavailable.
 
 No model is loaded. Applying loads this one.
 {% endif %}
+{% endif %}'''
+
+INSIGHT = NUM + PROFILES + '''
+{% set loaded = states('sensor.engineathome_active_profile_key') not in ['none', 'unknown', 'unavailable'] %}
+{% set key = states('sensor.engineathome_active_profile_key') if loaded else states('sensor.engineathome_applied_profile') %}
+''' + profile_lookup('p', 'key') + '''
+{% set c = state_attr('sensor.engineathome_cache', 'recent') or {} %}
+{% if p is none %}
+Model details unavailable.
+{% else %}
+**{{ p.display_name }}** · `{{ p.model_id }}` · {{ 'loaded' if loaded else 'not loaded' }} · qualification **{{ p.qualification_status }}**
+
+| | |
+| :-- | :-- |
+| Context capacity | {{ n(p.context) }} tokens |
+| Quantization | {{ p.quantization or '—' }} |
+| KV cache | {{ p.kv_cache }} |
+| MTP | {{ mtp_text(p) }} |
+| RAM prompt cache | {{ p.ram_cache.label }} |
+| VRAM | {{ states('sensor.engineathome_gpu_vram_used') }} GiB used now · {{ ('%.1f' | format(p.expected_vram_mib / 1024) ~ ' GiB expected when loaded') if p.expected_vram_mib else 'expected —' }} |
+| Prefill / decode (recent) | {{ d(c.get('prefill_tps')) }} / {{ d(c.get('decode_tps')) }} tokens/s |
+| Cache reuse | {{ d(c.get('hit_rate_pct')) }} % of prompt tokens over the last {{ n(c.get('requests')) }} requests · last request {{ n(c.get('last_cached_tokens')) }} of {{ n(c.get('last_input_tokens')) }} cached |
+| Follow-up TTFT | cached {{ d(c.get('cached_ttft_s'), 2) }} s ({{ n(c.get('cached_requests')) }} requests) vs cold {{ d(c.get('cold_ttft_s'), 2) }} s ({{ n(c.get('cold_requests')) }} requests) |
+| Runtime RAM | {{ n(state_attr('sensor.engineathome_cache', 'process_rss_mib')) }} MiB resident · host {{ n(state_attr('sensor.engineathome_cache', 'host_available_mib')) }} MiB available |
+
+{% if p.qualification %}<sub>{{ p.qualification }}</sub>{% endif %}
+
+<sub>Speeds and cache figures are measured on the requests this model actually served (streamed requests only for TTFT). The RAM prompt cache lives inside the model process and is discarded on every switch, unload and restart.</sub>
 {% endif %}'''
 
 THINKING = PROFILES + '''
@@ -380,10 +413,10 @@ MODELS_TABLE = NUM + PROFILES + '''
 {% if not profiles %}
 Model list unavailable.
 {% else %}
-| Profile | Model ID | Context | KV | Microbatch | Loaded VRAM | Thinking default |
-| :-- | :-- | --: | :-- | --: | --: | :-- |
+| Profile | Model ID | Context | Quant | KV | MTP | RAM cache | Loaded VRAM | Thinking default | Status |
+| :-- | :-- | --: | :-- | :-- | :-- | :-- | --: | :-- | :-- |
 {% for p in profiles -%}
-| {{ p.display_name }}{% if p.key == states('sensor.engineathome_default_profile_key') %} (default){% endif %} | `{{ p.model_id }}` | {{ n(p.context) }} | {{ p.kv_cache }} | {{ p.microbatch }} | {{ ('%.1f' | format(p.expected_vram_mib / 1024) ~ ' GiB') if p.expected_vram_mib else '—' }} | {{ p.reasoning.default }} |
+| {{ p.display_name }}{% if p.key == states('sensor.engineathome_default_profile_key') %} (default){% endif %} | `{{ p.model_id }}` | {{ n(p.context) }} | {{ p.quantization or '—' }} | {{ p.kv_cache }} | {{ mtp_text(p) }} | {{ p.ram_cache.label }} | {{ ('%.1f' | format(p.expected_vram_mib / 1024) ~ ' GiB') if p.expected_vram_mib else '—' }} | {{ p.reasoning.default }} | {{ p.qualification_status }} |
 {% endfor %}
 
 {% for p in profiles -%}
@@ -573,7 +606,13 @@ def dashboard(address, catalog, default_key):
                              heading('Connect', 'mdi:connection'),
                              md(CONNECT_SHORT)], 2))
 
+    overview.append(section([heading('Model details', 'mdi:information-outline'), md(INSIGHT)], 2))
+
     kpis = [heading('Key metrics', 'mdi:view-dashboard-outline'),
+            tile('sensor.engineathome_recent_cache_hit_rate', 'Prompt cache hit rate (recent)', 'mdi:cached', None, 3),
+            tile('sensor.engineathome_cached_follow_up_ttft', 'Cached follow-up TTFT', 'mdi:timer-play-outline', None, 3),
+            tile('sensor.engineathome_cold_prompt_ttft', 'Cold prompt TTFT', 'mdi:timer-sand', None, 3),
+            tile('sensor.engineathome_runtime_ram_used', 'Model process RAM', 'mdi:memory', None, 3),
             tile('sensor.engineathome_gpu_vram_used', 'VRAM used', 'mdi:memory', None, 3),
             tile('sensor.engineathome_gpu_vram_free', 'VRAM free', 'mdi:memory', None, 3),
             tile('sensor.engineathome_gpu_utilization', 'GPU utilization', 'mdi:gauge', None, 3),

@@ -1,0 +1,397 @@
+{
+ "environment": {
+  "kv": "f16",
+  "gpu": {
+   "used_mib": 1,
+   "total_mib": 22528,
+   "power_w": 29.93,
+   "power_limit_w": 175.0,
+   "temp_c": 29
+  },
+  "ram": {
+   "MemTotal": 30987,
+   "MemAvailable": 29632
+  },
+  "profiles": [
+   "swift",
+   "inkling-balanced",
+   "inkling-maximum",
+   "obliterated",
+   "selftest-oom"
+  ]
+ },
+ "1_apply_and_mtp": {
+  "apply_status": 200,
+  "apply_seconds": 23.3,
+  "state": "ready",
+  "active": "obliterated",
+  "model_id": "qwen3.8-27b-obliterated",
+  "context": 65536,
+  "gpu_after": {
+   "used_mib": 20820,
+   "total_mib": 22528,
+   "power_w": 153.35,
+   "power_limit_w": 175.0,
+   "temp_c": 33
+  },
+  "llama_processes": 1,
+  "rss_mib": 1424,
+  "host": {
+   "MemTotal": 30987,
+   "MemAvailable": 28923
+  },
+  "models_endpoint": [
+   [
+    "qwen3.8-27b-obliterated",
+    true
+   ]
+  ],
+  "first_request": {
+   "status": 200,
+   "seconds": 0.29,
+   "finish": "stop",
+   "prompt_tokens": 19,
+   "completion_tokens": 2,
+   "cached": 15,
+   "prompt_ms": 174,
+   "prefill_tps": 23.0,
+   "decode_tps": 10.93,
+   "draft_n": 3,
+   "draft_accepted": 0,
+   "reasoning_chars": 0,
+   "content": "ok",
+   "full": "ok",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "none"
+  },
+  "_seconds": 23.6,
+  "_resources": {
+   "vram_peak_mib": 15500,
+   "rss_peak_mib": 15842,
+   "host_available_min_mib": 29308,
+   "samples": 12
+  }
+ },
+ "2_short_answers": {
+  "math_none": {
+   "status": 200,
+   "seconds": 0.42,
+   "finish": "stop",
+   "prompt_tokens": 26,
+   "completion_tokens": 3,
+   "cached": 0,
+   "prompt_ms": 212,
+   "prefill_tps": 122.9,
+   "decode_tps": 21.17,
+   "draft_n": 3,
+   "draft_accepted": 1,
+   "reasoning_chars": 0,
+   "content": "51",
+   "full": "51",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "none",
+   "correct": true
+  },
+  "math_low": {
+   "status": 200,
+   "seconds": 1.36,
+   "finish": "stop",
+   "prompt_tokens": 54,
+   "completion_tokens": 34,
+   "cached": 0,
+   "prompt_ms": 378,
+   "prefill_tps": 142.9,
+   "decode_tps": 37.61,
+   "draft_n": 31,
+   "draft_accepted": 22,
+   "reasoning_chars": 80,
+   "content": "51",
+   "full": "51",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "low",
+   "correct": true
+  },
+  "capital_none": {
+   "status": 200,
+   "seconds": 0.4,
+   "finish": "stop",
+   "prompt_tokens": 22,
+   "completion_tokens": 2,
+   "cached": 0,
+   "prompt_ms": 212,
+   "prefill_tps": 103.7,
+   "decode_tps": 11.97,
+   "draft_n": 3,
+   "draft_accepted": 0,
+   "reasoning_chars": 0,
+   "content": "Paris",
+   "full": "Paris",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "none",
+   "correct": true
+  },
+  "capital_low": {
+   "status": 200,
+   "seconds": 1.19,
+   "finish": "stop",
+   "prompt_tokens": 50,
+   "completion_tokens": 26,
+   "cached": 30,
+   "prompt_ms": 325,
+   "prefill_tps": 61.5,
+   "decode_tps": 33.82,
+   "draft_n": 23,
+   "draft_accepted": 16,
+   "reasoning_chars": 95,
+   "content": "Paris",
+   "full": "Paris",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "low",
+   "correct": true
+  },
+  "code_none": {
+   "status": 200,
+   "seconds": 2.16,
+   "finish": "stop",
+   "prompt_tokens": 23,
+   "completion_tokens": 91,
+   "cached": 0,
+   "prompt_ms": 210,
+   "prefill_tps": 109.4,
+   "decode_tps": 48.79,
+   "draft_n": 68,
+   "draft_accepted": 68,
+   "reasoning_chars": 0,
+   "content": "```python\ndef is_prime(n):\n    if n < 2:\n        return False\n    if n == 2:\n        return True\n    if n % 2 == 0:\n        return False\n    for i in range(3, int(n**0.5) + 1, 2):\n        if n % i == 0:\n            return False\n    return True\n```",
+   "full": "```python\ndef is_prime(n):\n    if n < 2:\n        return False\n    if n == 2:\n        return True\n    if n % 2 == 0:\n        return False\n    for i in range(3, int(n**0.5) + 1, 2):\n        if n % i == 0:\n            return False\n    return True\n```",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "none",
+   "correct": true
+  },
+  "code_low": {
+   "status": 200,
+   "seconds": 3.58,
+   "finish": "stop",
+   "prompt_tokens": 51,
+   "completion_tokens": 144,
+   "cached": 30,
+   "prompt_ms": 321,
+   "prefill_tps": 65.5,
+   "decode_tps": 45.69,
+   "draft_n": 110,
+   "draft_accepted": 103,
+   "reasoning_chars": 206,
+   "content": "```python\ndef is_prime(n):\n    if n < 2:\n        return False\n    if n == 2:\n        return True\n    if n % 2 == 0:\n        return False\n    for i in range(3, int(n**0.5) + 1, 2):\n        if n % i == 0:\n            return False\n    return True\n```",
+   "full": "```python\ndef is_prime(n):\n    if n < 2:\n        return False\n    if n == 2:\n        return True\n    if n % 2 == 0:\n        return False\n    for i in range(3, int(n**0.5) + 1, 2):\n        if n % i == 0:\n            return False\n    return True\n```",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "low",
+   "correct": true
+  },
+  "_seconds": 9.1,
+  "_resources": {
+   "vram_peak_mib": 20838,
+   "rss_peak_mib": 2805,
+   "host_available_min_mib": 27548,
+   "samples": 5
+  }
+ },
+ "3_mtp_acceptance": {
+  "runs": [
+   {
+    "status": 200,
+    "seconds": 11.37,
+    "finish": "stop",
+    "prompt_tokens": 4331,
+    "completion_tokens": 116,
+    "cached": 0,
+    "prompt_ms": 7412,
+    "prefill_tps": 584.4,
+    "decode_tps": 29.95,
+    "draft_n": 88,
+    "draft_accepted": 56,
+    "reasoning_chars": 0,
+    "content": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles max and average pooling with specific kernel configurations for different data types and dimensions. The `unary` section defines and applies numerous mathematical operations",
+    "full": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles max and average pooling with specific kernel configurations for different data types and dimensions. The `unary` section defines and applies numerous mathematical operations including absolute value, sign, negation, step function, GELU variants, SiLU, tanh, ReLU, sigmoid, and other standard functions, with support for different data types and memory layouts. These operations are executed on GPU with appropriate thread block configurations.\n\nACC-653159",
+    "tool_calls": null,
+    "profile": "obliterated",
+    "effort": "none",
+    "needle_ok": true
+   },
+   {
+    "status": 200,
+    "seconds": 13.16,
+    "finish": "stop",
+    "prompt_tokens": 4938,
+    "completion_tokens": 158,
+    "cached": 0,
+    "prompt_ms": 8448,
+    "prefill_tps": 584.5,
+    "decode_tps": 35.29,
+    "draft_n": 132,
+    "draft_accepted": 96,
+    "reasoning_chars": 0,
+    "content": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles max and average pooling with specific kernel configurations for different data types and dimensions. The `unary` section defines and applies numerous mathematical operations",
+    "full": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles max and average pooling with specific kernel configurations for different data types and dimensions. The `unary` section defines and applies numerous mathematical operations including absolute value, sign, negation, step, GELU variants, SiLU, tanh, ReLU, sigmoid, hardsigmoid, hardswish, exponential, square, square root, trigonometric functions, logarithm, ELU, floor, ceiling, round, truncation, expm1, and softplus. These operations support float, half-precision, and bfloat16 data types, with both contiguous and strided memory access patterns.\n\nACC-267853",
+    "tool_calls": null,
+    "profile": "obliterated",
+    "effort": "none",
+    "needle_ok": true
+   },
+   {
+    "status": 200,
+    "seconds": 14.69,
+    "finish": "stop",
+    "prompt_tokens": 5579,
+    "completion_tokens": 174,
+    "cached": 0,
+    "prompt_ms": 9627,
+    "prefill_tps": 579.5,
+    "decode_tps": 36.3,
+    "draft_n": 133,
+    "draft_accepted": 107,
+    "reasoning_chars": 0,
+    "content": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles max and average pooling with specific kernel optimizations for row-wise reductions. The `unary` section defines and applies a wide range of element-wise operations, includin",
+    "full": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles max and average pooling with specific kernel optimizations for row-wise reductions. The `unary` section defines and applies a wide range of element-wise operations, including absolute value, sign, negation, step, GELU variants, SiLU, tanh, ReLU, sigmoid, hardsigmoid, hardswish, exponential, square, square root, trigonometric functions, logarithm, exponential minus one, softplus, ELU, floor, ceiling, round, truncation, and softplus. It also includes gated operations. The code supports different data types (float, half, bfloat16) and handles both contiguous and strided memory layouts.\n\nThe release passphrase is ACC-777820.",
+    "tool_calls": null,
+    "profile": "obliterated",
+    "effort": "none",
+    "needle_ok": true
+   }
+  ],
+  "drafted": 353,
+  "accepted": 259,
+  "acceptance": 0.734,
+  "mtp_active": true,
+  "_seconds": 39.2,
+  "_resources": {
+   "vram_peak_mib": 20850,
+   "rss_peak_mib": 4781,
+   "host_available_min_mib": 25588,
+   "samples": 20
+  }
+ },
+ "4_coding_16k": {
+  "status": 200,
+  "seconds": 39.4,
+  "finish": "stop",
+  "prompt_tokens": 18645,
+  "completion_tokens": 157,
+  "cached": 0,
+  "prompt_ms": 34799,
+  "prefill_tps": 535.8,
+  "decode_tps": 36.49,
+  "draft_n": 123,
+  "draft_accepted": 101,
+  "reasoning_chars": 0,
+  "content": "Question 1: The release passphrase is Q16-375951.\n\nQuestion 2:\n1. `ggml_cuda_op_pool1d`: This function handles 1D pooling operations (average or max) on the input tensor, dispatching to different CUDA kernels based on the operation type and tensor properties.\n2. `ggml_cuda_op_unary`: This function a",
+  "full": "Question 1: The release passphrase is Q16-375951.\n\nQuestion 2:\n1. `ggml_cuda_op_pool1d`: This function handles 1D pooling operations (average or max) on the input tensor, dispatching to different CUDA kernels based on the operation type and tensor properties.\n2. `ggml_cuda_op_unary`: This function applies various unary mathematical operations (such as absolute value, sign, negation, step, GELU, SiLU, tanh, ReLU, sigmoid, etc.) to the input tensor.\n3. `ggml_cuda_op_scale`: This function applies scaling and bias to the input tensor, supporting both float32 and bfloat16 data types.",
+  "tool_calls": null,
+  "profile": "obliterated",
+  "effort": "none",
+  "needle_ok": true,
+  "_seconds": 39.4,
+  "_resources": {
+   "vram_peak_mib": 20850,
+   "rss_peak_mib": 5599,
+   "host_available_min_mib": 24788,
+   "samples": 20
+  }
+ },
+ "5_multi_turn_cache": {
+  "turns": [
+   {
+    "prompt_tokens": 14495,
+    "cached": 0,
+    "prompt_ms": 26345,
+    "decode_tps": 31.48,
+    "draft_n": 38,
+    "draft_accepted": 28,
+    "seconds": 28.77,
+    "status": 200
+   },
+   {
+    "prompt_tokens": 14951,
+    "cached": 14546,
+    "prompt_ms": 1224,
+    "decode_tps": 31.99,
+    "draft_n": 122,
+    "draft_accepted": 89,
+    "seconds": 6.24,
+    "status": 200
+   },
+   {
+    "prompt_tokens": 15442,
+    "cached": 14947,
+    "prompt_ms": 1457,
+    "decode_tps": 37.08,
+    "draft_n": 12,
+    "draft_accepted": 9,
+    "seconds": 1.85,
+    "status": 200
+   },
+   {
+    "prompt_tokens": 15887,
+    "cached": 15455,
+    "prompt_ms": 1308,
+    "decode_tps": 33.96,
+    "draft_n": 37,
+    "draft_accepted": 30,
+    "seconds": 2.76,
+    "status": 200
+   }
+  ],
+  "followups_reuse_prefix": true,
+  "_seconds": 39.6,
+  "_resources": {
+   "vram_peak_mib": 20850,
+   "rss_peak_mib": 7544,
+   "host_available_min_mib": 22632,
+   "samples": 20
+  }
+ },
+ "6_interleaved_clients": {
+  "before_cached": 15936,
+  "before_ttft_ms": 507,
+  "side": {
+   "cached": 0,
+   "ms": 382
+  },
+  "unrelated": {
+   "cached": 0,
+   "prompt_tokens": 11041,
+   "ms": 19635
+  },
+  "after_cached": 0,
+  "after_prompt_tokens": 15966,
+  "after_prompt_ms": 29725,
+  "restored": false,
+  "no_foreign_marker": true,
+  "_seconds": 52.0,
+  "_resources": {
+   "vram_peak_mib": 20850,
+   "rss_peak_mib": 9038,
+   "host_available_min_mib": 21349,
+   "samples": 26
+  }
+ },
+ "final": {
+  "state": "ready",
+  "active": "swift",
+  "applied": "swift",
+  "gpu": {
+   "used_mib": 19630,
+   "total_mib": 22528,
+   "power_w": 169.93,
+   "power_limit_w": 175.0,
+   "temp_c": 40
+  },
+  "llama_processes": 1
+ }
+}

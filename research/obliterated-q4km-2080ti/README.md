@@ -73,3 +73,13 @@ Ranked next steps:
 2. (config) `--spec-draft-n-max 3 --spec-draft-p-min 0.6`, `-ub 512 -b 2048`, KV f16 if the 1.6 GiB VRAM margin is acceptable, else q8_0 (+7 %).
 3. (profiling, no kernel edits) get a per-kernel decode/verify breakdown at 16K/52K with ncu windowed capture or a newer nsys; decide among: draft-step latency (15 ms vs 2.4 ms ideal), q4_0 flash-attn dequant, SSM state copies in verify.
 4. (kernel) only then: Turing-specific fused draft step / q4_0 attention path.
+
+## Follow-up: production integration evidence (2026-11-23)
+
+The optimisation study above was turned into a production profile; the evidence is in:
+
+- `isolation/`: client-isolation matrix for llama.cpp issue #27148 (light and 12K-token scale, per configuration), the cache-restore probes with the server's own cache decisions, and `pool-consumption-evidence.log` (why a prompt sharing a long prefix consumes a cached conversation).
+- `qualification/`: staging-gateway qualification (F16 and Q8_0 KV), the production switching/Swift-cache run, and the deliberately oversized replay that reproduced the pool-consumption case.
+- `opencode/`: real OpenCode 1.18.16 runs against the staging and production gateway.
+
+Write-up: [docs/obliterated-profile-and-ram-cache.md](../../docs/obliterated-profile-and-ram-cache.md).

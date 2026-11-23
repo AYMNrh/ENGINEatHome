@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import time
 
 import profiles as registry
@@ -33,6 +34,90 @@ MEASURED = dict(
                  qualification=('Qualified with 242,134 actual input tokens (246.7K occupied). 262,144 is configured capacity, not a demonstrated '
                                 'maximum input: nothing above 246.7K was tested. Cold prefill of 242K takes about 9.3 minutes.'),
                  notes='Q8_0 K/V. Microbatch 512 does not allocate at this context (7.40 GiB compute buffer fails), so it is not offered.'))
+
+
+# Qwen3.8-27B-OBLITERATED (Q4_K_M) was downloaded once from OBLITERATUS/Qwen3.8-27B-OBLITERATED; the checksum is the Hugging Face LFS oid.
+OBLITERATED_MODEL = HOME / 'models/Qwen3.8-27B-OBLITERATED-Q4_K_M.gguf'
+OBLITERATED_SHA256 = '1f74330b211a8253c96f1bf586cba6eb56d37117c97ed9e6eec18c198a4e7fe5'
+OBLITERATED_BYTES = 16810705952
+STOCK_RUNTIME = HOME / 'llama.cpp/build/bin/llama-server'          # the same stock build (98d67c8d5) Swift runs and the research measured
+TEMPLATE_SOURCE = HOME / 'models/Swift-1.5-Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf'
+TEMPLATE_FILE = Path(__file__).resolve().parent / 'templates/qwen35-tools.jinja'
+
+
+def gguf_metadata_string(path, wanted):
+    """Read one string metadata value from a GGUF header without loading tensors (no numpy/gguf dependency)."""
+    with open(path, 'rb') as f:
+        read = lambda fmt: struct.unpack('<' + fmt, f.read(struct.calcsize(fmt)))
+        text = lambda: f.read(read('Q')[0]).decode('utf8')
+
+        def value(kind):
+            if kind in (0, 1, 7):return f.read(1)
+            if kind in (2, 3):return f.read(2)
+            if kind in (4, 5, 6):return f.read(4)
+            if kind in (10, 11, 12):return f.read(8)
+            if kind == 8:return text()
+            if kind == 9:
+                inner, count = read('I')[0], read('Q')[0]
+                return [value(inner) for _ in range(count)]
+            raise ValueError('unknown GGUF value type')
+        if f.read(4) != b'GGUF':raise ValueError('not a GGUF file')
+        read('I');read('Q');keys = read('Q')[0]
+        for _ in range(keys):
+            name = text();found = value(read('I')[0])
+            if name == wanted:return found
+    raise KeyError(wanted)
+
+
+def install_template():
+    """The Obliterated GGUF embeds a minimal ChatML with no tool support; the Qwen-style template in the Swift GGUF handles tools and thinking."""
+    TEMPLATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    template = gguf_metadata_string(TEMPLATE_SOURCE, 'tokenizer.chat_template')
+    if 'tool' not in template or 'enable_thinking' not in template:raise RuntimeError('unexpected template in the Swift GGUF')
+    TEMPLATE_FILE.write_text(template, encoding='utf-8')
+    return registry.sha256_file(TEMPLATE_FILE)
+
+
+def verify_obliterated():
+    if not OBLITERATED_MODEL.exists():raise RuntimeError('Obliterated checkpoint not found; it is not downloaded again by this script')
+    stat = OBLITERATED_MODEL.stat()
+    if stat.st_size != OBLITERATED_BYTES:raise RuntimeError('Obliterated checkpoint size differs from the Hugging Face file')
+    if registry.sha256_file(OBLITERATED_MODEL) != OBLITERATED_SHA256:raise RuntimeError('Obliterated checkpoint checksum mismatch')
+    head = gguf_metadata_string(OBLITERATED_MODEL, 'general.architecture')
+    if head != 'qwen35':raise RuntimeError('unexpected architecture ' + head)
+    return dict(bytes=stat.st_size, mtime_ns=stat.st_mtime_ns)
+
+
+def set_flag(argv, flag, value):
+    """Return a copy of an argument vector with `flag value` replaced (or appended); nothing else is touched."""
+    argv = list(argv)
+    if flag in argv:
+        argv[argv.index(flag) + 1] = str(value)
+    else:
+        argv += [flag, str(value)]
+    return argv
+
+
+def apply_swift_cache(config, mib):
+    """Change only the prompt-cache flags of the Swift profile (and the legacy top-level argv that mirrors it).
+
+    mib > 0 sets `--cache-ram mib` and adds `--no-cache-idle-slots` (llama.cpp issue #27148 hardening: idle slots are not proactively
+    published into the shared RAM cache); mib == 0 restores `--cache-ram 0` and removes that flag again. Nothing else is touched.
+    """
+    def change(argv):
+        argv = set_flag(argv, '--cache-ram', mib)
+        if mib > 0 and '--no-cache-idle-slots' not in argv:argv = argv + ['--no-cache-idle-slots']
+        if mib == 0:argv = [a for a in argv if a != '--no-cache-idle-slots']
+        return argv
+    swift = config['profiles']['swift']
+    swift['argv'] = change(swift['argv'])
+    swift['prefix_cache'] = mib > 0
+    if mib > 0:
+        swift['notes'] = (f'RAM prompt cache {mib:,} MiB with --no-cache-idle-slots, enabled after the client-isolation qualification '
+                          '(docs/obliterated-profile-and-ram-cache.md). Inference, KV, batch and MTP settings are unchanged.')
+    else:
+        swift.pop('notes', None)
+    if config.get('argv'):config['argv'] = change(config['argv'])
 
 
 def install_runtime():
@@ -72,7 +157,8 @@ def install_model():
     return dict(bytes=stat.st_size, mtime_ns=stat.st_mtime_ns)
 
 
-def merge(config_path, dry_run=False):
+def merge(config_path, dry_run=False, obliterated=None, swift_cache_ram=None):
+    """obliterated: None, or dict(kv='f16'|'q8_0', measured={...}) from the qualification run; swift_cache_ram: None (unchanged) or MiB."""
     config_path = Path(config_path)
     config = json.loads(config_path.read_text())
     existing = dict(config.get('profiles') or {})
@@ -89,6 +175,13 @@ def merge(config_path, dry_run=False):
     swift.setdefault('qualification', 'Production configuration validated 2026-11-19 (262,144 context, Q4_0 KV, MTP3, 175 W).')
     config['profiles'] = profiles
     config.setdefault('default_profile', 'swift')
+    if swift_cache_ram is not None:apply_swift_cache(config, swift_cache_ram)
+    if obliterated:
+        template_sha = install_template() if not dry_run else '0' * 64
+        obl_stat = verify_obliterated() if not dry_run else dict(bytes=OBLITERATED_BYTES, mtime_ns=0)
+        profiles['obliterated'] = registry.obliterated_profile(STOCK_RUNTIME, OBLITERATED_MODEL, obl_stat, OBLITERATED_SHA256, config['backend_port'],
+                                                               TEMPLATE_FILE, template_sha, obliterated['kv'], obliterated['measured'],
+                                                               cache_ram=obliterated.get('cache_ram', 8192))
     registry.normalize(config)   # validates before anything is written
     if dry_run:
         print(json.dumps({k: dict(model_id=p['model_id'], context=p['context'], kv=p['kv'], microbatch=p['microbatch']) for k, p in profiles.items()}, indent=1))
@@ -104,5 +197,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default=str(Path(__file__).resolve().parent / 'config.json'))
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--obliterated-kv', choices=('f16', 'q8_0'), help='add/refresh the Obliterated profile with this KV precision')
+    parser.add_argument('--obliterated-measured', help='JSON from the qualification run: loaded_mib, peak_mib, process_floor_mib, qualification, qualification_status')
+    parser.add_argument('--obliterated-cache-ram', type=int, default=8192)
+    parser.add_argument('--swift-cache-ram', type=int, help='set --cache-ram (MiB) on Swift only after the client-isolation qualification passed')
     args = parser.parse_args()
-    merge(args.config, args.dry_run)
+    obl = None
+    if args.obliterated_kv:
+        if not args.obliterated_measured:parser.error('--obliterated-kv needs --obliterated-measured')
+        obl = dict(kv=args.obliterated_kv, measured=json.loads(Path(args.obliterated_measured).read_text()), cache_ram=args.obliterated_cache_ram)
+    merge(args.config, args.dry_run, obl, args.swift_cache_ram)

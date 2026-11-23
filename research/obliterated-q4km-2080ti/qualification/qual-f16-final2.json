@@ -1,0 +1,299 @@
+{
+ "environment": {
+  "kv": "f16",
+  "gpu": {
+   "used_mib": 19674,
+   "total_mib": 22528,
+   "power_w": 29.59,
+   "power_limit_w": 175.0,
+   "temp_c": 27
+  },
+  "ram": {
+   "MemTotal": 30987,
+   "MemAvailable": 26504
+  },
+  "profiles": [
+   "swift",
+   "inkling-balanced",
+   "inkling-maximum",
+   "obliterated",
+   "selftest-oom"
+  ]
+ },
+ "1_apply_and_mtp": {
+  "apply_status": 200,
+  "apply_seconds": 15.1,
+  "state": "ready",
+  "active": "obliterated",
+  "model_id": "qwen3.8-27b-obliterated",
+  "context": 65536,
+  "gpu_after": {
+   "used_mib": 20820,
+   "total_mib": 22528,
+   "power_w": 155.66,
+   "power_limit_w": 175.0,
+   "temp_c": 31
+  },
+  "llama_processes": 1,
+  "rss_mib": 1426,
+  "host": {
+   "MemTotal": 30987,
+   "MemAvailable": 28930
+  },
+  "models_endpoint": [
+   [
+    "qwen3.8-27b-obliterated",
+    true
+   ]
+  ],
+  "first_request": {
+   "status": 200,
+   "seconds": 0.29,
+   "finish": "stop",
+   "prompt_tokens": 19,
+   "completion_tokens": 2,
+   "cached": 15,
+   "prompt_ms": 168,
+   "prefill_tps": 23.8,
+   "decode_tps": 10.32,
+   "draft_n": 3,
+   "draft_accepted": 0,
+   "reasoning_chars": 0,
+   "content": "ok",
+   "full": "ok",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "none"
+  },
+  "_seconds": 15.5,
+  "_resources": {
+   "vram_peak_mib": 19674,
+   "rss_peak_mib": 11340,
+   "host_available_min_mib": 26508,
+   "samples": 8
+  }
+ },
+ "5_multi_turn_cache": {
+  "turns": [
+   {
+    "prompt_tokens": 12584,
+    "cached": 0,
+    "prompt_ms": 22328,
+    "decode_tps": 31.92,
+    "draft_n": 26,
+    "draft_accepted": 22,
+    "seconds": 23.8,
+    "status": 200
+   },
+   {
+    "prompt_tokens": 13032,
+    "cached": 12627,
+    "prompt_ms": 1192,
+    "decode_tps": 30.58,
+    "draft_n": 123,
+    "draft_accepted": 79,
+    "seconds": 6.04,
+    "status": 200
+   },
+   {
+    "prompt_tokens": 13521,
+    "cached": 13028,
+    "prompt_ms": 1411,
+    "decode_tps": 37.39,
+    "draft_n": 12,
+    "draft_accepted": 9,
+    "seconds": 1.8,
+    "status": 200
+   },
+   {
+    "prompt_tokens": 13966,
+    "cached": 13534,
+    "prompt_ms": 1270,
+    "decode_tps": 35.49,
+    "draft_n": 33,
+    "draft_accepted": 30,
+    "seconds": 2.66,
+    "status": 200
+   }
+  ],
+  "followups_reuse_prefix": true,
+  "_seconds": 34.3,
+  "_resources": {
+   "vram_peak_mib": 20848,
+   "rss_peak_mib": 2210,
+   "host_available_min_mib": 28135,
+   "samples": 17
+  }
+ },
+ "6_interleaved_clients": {
+  "before_cached": 14015,
+  "before_ttft_ms": 498,
+  "side": {
+   "cached": 0,
+   "ms": 395
+  },
+  "unrelated": {
+   "cached": 0,
+   "prompt_tokens": 6753,
+   "ms": 11662
+  },
+  "after_cached": 14041,
+  "after_prompt_tokens": 14045,
+  "after_prompt_ms": 199,
+  "restored": true,
+  "no_foreign_marker": true,
+  "_seconds": 15.6,
+  "_resources": {
+   "vram_peak_mib": 20848,
+   "rss_peak_mib": 3998,
+   "host_available_min_mib": 26248,
+   "samples": 8
+  }
+ },
+ "7_coding_65k": {
+  "cold": {
+   "status": 200,
+   "seconds": 158.07,
+   "finish": "stop",
+   "prompt_tokens": 63591,
+   "completion_tokens": 66,
+   "cached": 0,
+   "prompt_ms": 155656,
+   "prefill_tps": 408.5,
+   "decode_tps": 37.81,
+   "draft_n": 52,
+   "draft_accepted": 47,
+   "reasoning_chars": 0,
+   "content": "Question 1: The release passphrase is Q65-777820.\n\nQuestion 2: Three functions in the code above are:\n1. `ggml_cuda_op_pool1d`\n2. `ggml_cuda_op_unary`\n3. `ggml_cuda_op_scale`",
+   "full": "Question 1: The release passphrase is Q65-777820.\n\nQuestion 2: Three functions in the code above are:\n1. `ggml_cuda_op_pool1d`\n2. `ggml_cuda_op_unary`\n3. `ggml_cuda_op_scale`",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "none",
+   "needle_ok": true
+  },
+  "follow_up": {
+   "cached": 63656,
+   "prompt_tokens": 63681,
+   "prompt_ms": 513,
+   "content": "Q65-777820"
+  },
+  "gpu_free_mib": 1680,
+  "gpu": {
+   "used_mib": 20848,
+   "total_mib": 22528,
+   "power_w": 167.08,
+   "power_limit_w": 175.0,
+   "temp_c": 45
+  },
+  "rss_mib": 4896,
+  "host": {
+   "MemTotal": 30987,
+   "MemAvailable": 25462
+  },
+  "_seconds": 159.0,
+  "_resources": {
+   "vram_peak_mib": 20848,
+   "rss_peak_mib": 4597,
+   "host_available_min_mib": 25774,
+   "samples": 78
+  }
+ },
+ "13_swift_cache": {
+  "apply_swift": {
+   "status": 200,
+   "seconds": 10.5
+  },
+  "rss_after_load_mib": 873,
+  "cold": {
+   "A": {
+    "prompt_tokens": 19754,
+    "cached": 0,
+    "prompt_ms": 40976,
+    "own_marker": true
+   },
+   "B": {
+    "prompt_tokens": 19312,
+    "cached": 0,
+    "prompt_ms": 39969,
+    "own_marker": true
+   },
+   "C": {
+    "prompt_tokens": 12688,
+    "cached": 0,
+    "prompt_ms": 25242,
+    "own_marker": true
+   }
+  },
+  "rss_after_three_conversations_mib": 2995,
+  "host_after": {
+   "MemTotal": 30987,
+   "MemAvailable": 26626
+  },
+  "resumed": {
+   "A": [
+    {
+     "prompt_tokens": 19786,
+     "cached": 19766,
+     "prompt_ms": 478,
+     "own_marker": true,
+     "foreign_marker": false
+    },
+    {
+     "prompt_tokens": 19786,
+     "cached": 19782,
+     "prompt_ms": 215,
+     "own_marker": true,
+     "foreign_marker": false
+    }
+   ],
+   "B": [
+    {
+     "prompt_tokens": 19344,
+     "cached": 19324,
+     "prompt_ms": 508,
+     "own_marker": true,
+     "foreign_marker": false
+    }
+   ],
+   "C": [
+    {
+     "prompt_tokens": 12718,
+     "cached": 12698,
+     "prompt_ms": 489,
+     "own_marker": true,
+     "foreign_marker": false
+    }
+   ]
+  },
+  "all_restored": true,
+  "no_foreign_marker": true,
+  "rss_peak_mib": 3462,
+  "vram": {
+   "used_mib": 19672,
+   "total_mib": 22528,
+   "power_w": 172.28,
+   "power_limit_w": 175.0,
+   "temp_c": 45
+  },
+  "_seconds": 123.1,
+  "_resources": {
+   "vram_peak_mib": 20848,
+   "rss_peak_mib": 11510,
+   "host_available_min_mib": 25446,
+   "samples": 61
+  }
+ },
+ "final": {
+  "state": "ready",
+  "active": "swift",
+  "applied": "swift",
+  "gpu": {
+   "used_mib": 19672,
+   "total_mib": 22528,
+   "power_w": 166.5,
+   "power_limit_w": 175.0,
+   "temp_c": 45
+  },
+  "llama_processes": 1
+ }
+}
