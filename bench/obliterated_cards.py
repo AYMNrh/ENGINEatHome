@@ -61,5 +61,27 @@ def render():
               'Production Home Assistant UI was validated via an isolated instance, not clicked by hand.'])
     c.save('obliterated-qualification.png')
 
+    b=d['before_after'];d65=b['decode_65k_greedy_tps'];d52=b['decode_52k_prod_tps'];tt=b['ttft_after_side_request_s']
+    c=Card('OBLITERATED / BEFORE AND AFTER OPTIMISATION','Same card, same harness: stock launch versus MTP3 + F16 KV + ub512/b2048 + RAM cache','04','23 NOV 2026')
+    c.metric(0,'DECODE AT 65K',f'+{(d65["stack"]/d65["no_mtp"]-1)*100:.0f}%',f'{d65["no_mtp"]:.1f} to {d65["stack"]:.1f} tok/s',GREEN)
+    c.metric(1,'DECODE AT 52K',f'+{(d52["stack"]/d52["no_mtp"]-1)*100:.0f}%',f'{d52["no_mtp"]:.2f} to {d52["stack"]:.2f} tok/s',GREEN)
+    c.metric(2,'STALL AFTER SIDE CALL','4.3 s','vs 44.1 s at ~20K tokens',CYAN)
+    c.metric(3,'PEAK VRAM',f'{b["peak_vram_gib"]["after"]} GiB',f'from {b["peak_vram_gib"]["before"]} GiB, of 22',AMBER)
+    c.text(70,375,'DECODE / tok/s',25,WHITE,True)
+    groups=[('65K / greedy / same prompt',[('No MTP',d65['no_mtp'],MUTED),('MTP d2, q4_0 KV',d65['mtp_d2_q4kv'],CYAN),('Optimised stack',d65['stack'],GREEN)]),
+            ('52K / production sampling',[('No MTP',d52['no_mtp'],MUTED),('MTP d2, q4_0 KV',d52['mtp_d2_q4kv_control'],CYAN),('Optimised stack',d52['stack'],GREEN)])]
+    for g,(title,bars) in enumerate(groups):
+        x=70+g*760;c.text(x,415,title,22,MUTED,width=700)
+        for i,(label,v,color) in enumerate(bars):
+            c.bar(x,490+i*85,700,v,40,color,f'{label}  {v:.2f}')
+    c.text(70,745,'TIME TO FIRST TOKEN AFTER A SIDE REQUEST / s',25,WHITE,True)
+    for i,(label,v,color,mx) in enumerate([('~20K  no RAM cache',tt['20k_before_cram0'],AMBER,140),('~20K  --cache-ram 8192',tt['20k_after_cram8192'],GREEN,140)]):
+        c.bar(70+i*760,815,700,v,mx,color,f'{label}  {v:.1f} s')
+    c.text(70,870,f'At 52K a cold re-read is {tt["52k_cold"]:.0f} s; with the cache the next turn took {tt["52k_after_cram8192"]:.1f} s. Prefill 387 to 404 tok/s at 65K (+10% from ub512/b2048).',20,GREEN,width=1480)
+    c.footer(['Study harness numbers (growing agent conversation), not the production-gateway runs on the other cards.',
+              'Greedy 65K: 29.50 tok/s at 76.6% MTP acceptance. Production sampling at 16K favoured depth 2 before p-min 0.6.',
+              'Throughput gains cost VRAM: 3 GiB more than the 17.4 GiB baseline, 1.6 GiB free at 65K.'])
+    c.save('obliterated-before-after.png')
+
 
 if __name__=='__main__':render()

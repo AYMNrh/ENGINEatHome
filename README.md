@@ -75,6 +75,8 @@ Retrieval 6/6 at every capacity (cold and cached). Source: [measurements JSON](d
 
 [![RAM prompt cache: cold versus cached restore times for Obliterated and Swift](docs/assets/obliterated-ram-cache.png)](docs/obliterated-profile-and-ram-cache.md)
 
+[![Obliterated before and after optimisation: decode 16.0 to 29.5 tok/s at 65K, side-request stall 44.1 s to 4.3 s](docs/assets/obliterated-before-after.png)](research/obliterated-q4km-2080ti/README.md)
+
 [![Qualification: 0 of 400 contaminated responses, OpenCode task, recovery and switching](docs/assets/obliterated-qualification.png)](docs/obliterated-profile-and-ram-cache.md)
 
 Selectable in Home Assistant (select never switches, Apply is explicit); Swift remains the default and Obliterated never auto-starts. 65,536 context only, F16 KV, Q8_0 validated fallback. Swift now runs `--cache-ram 8192 --no-cache-idle-slots`. The upstream isolation bug (llama.cpp #27148) is unfixed: 0 of 400 is evidence, not proof, and the Inkling profiles are unchanged.
