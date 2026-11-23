@@ -1,0 +1,302 @@
+{
+ "environment": {
+  "kv": "f16",
+  "gpu": {
+   "used_mib": 1,
+   "total_mib": 22528,
+   "power_w": 30.06,
+   "power_limit_w": 175.0,
+   "temp_c": 29
+  },
+  "ram": {
+   "MemTotal": 30987,
+   "MemAvailable": 29629
+  },
+  "profiles": [
+   "swift",
+   "inkling-balanced",
+   "inkling-maximum",
+   "obliterated",
+   "selftest-oom"
+  ]
+ },
+ "1_apply_and_mtp": {
+  "apply_status": 200,
+  "apply_seconds": 9.5,
+  "state": "ready",
+  "active": "obliterated",
+  "model_id": "qwen3.8-27b-obliterated",
+  "context": 65536,
+  "gpu_after": {
+   "used_mib": 20820,
+   "total_mib": 22528,
+   "power_w": 139.01,
+   "power_limit_w": 175.0,
+   "temp_c": 33
+  },
+  "llama_processes": 1,
+  "rss_mib": 1426,
+  "host": {
+   "MemTotal": 30987,
+   "MemAvailable": 28980
+  },
+  "models_endpoint": [
+   [
+    "qwen3.8-27b-obliterated",
+    true
+   ]
+  ],
+  "first_request": {
+   "status": 200,
+   "seconds": 0.29,
+   "finish": "stop",
+   "prompt_tokens": 19,
+   "completion_tokens": 2,
+   "cached": 15,
+   "prompt_ms": 178,
+   "prefill_tps": 22.5,
+   "decode_tps": 11.86,
+   "draft_n": 3,
+   "draft_accepted": 0,
+   "reasoning_chars": 0,
+   "content": "ok",
+   "full": "ok",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "none"
+  },
+  "_seconds": 9.8,
+  "_resources": {
+   "vram_peak_mib": 15500,
+   "rss_peak_mib": 16347,
+   "host_available_min_mib": 29334,
+   "samples": 5
+  }
+ },
+ "3_mtp_acceptance": {
+  "runs": [
+   {
+    "status": 200,
+    "seconds": 10.81,
+    "finish": "stop",
+    "prompt_tokens": 3728,
+    "completion_tokens": 145,
+    "cached": 0,
+    "prompt_ms": 6363,
+    "prefill_tps": 585.9,
+    "decode_tps": 33.2,
+    "draft_n": 109,
+    "draft_accepted": 81,
+    "reasoning_chars": 0,
+    "content": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles average and max pooling with specific kernel configurations for different data types and dimensions. The `unary` section defines numerous element-wise operations including a",
+    "full": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles average and max pooling with specific kernel configurations for different data types and dimensions. The `unary` section defines numerous element-wise operations including absolute value, sign, negation, step function, GELU variants, SiLU, tanh, ReLU, sigmoid, hard sigmoid, hard swish, exponential, square, ReLU square, square root, sine, cosine, logarithm, exponential minus one, softplus, ELU, floor, ceiling, round, and truncation. Each operation is implemented with appropriate device functions and kernel launches.\n\nACC-653159",
+    "tool_calls": null,
+    "profile": "obliterated",
+    "effort": "none",
+    "needle_ok": true
+   },
+   {
+    "status": 200,
+    "seconds": 11.32,
+    "finish": "stop",
+    "prompt_tokens": 4258,
+    "completion_tokens": 116,
+    "cached": 0,
+    "prompt_ms": 7270,
+    "prefill_tps": 585.7,
+    "decode_tps": 30.53,
+    "draft_n": 90,
+    "draft_accepted": 58,
+    "reasoning_chars": 0,
+    "content": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles max and average pooling with specific kernel configurations for different data types and dimensions. The `unary` section defines and applies numerous mathematical operations",
+    "full": "The provided CUDA code implements 1D pooling operations and various unary mathematical functions. The `pool1d` section handles max and average pooling with specific kernel configurations for different data types and dimensions. The `unary` section defines and applies numerous mathematical operations including absolute value, sign, negation, step function, GELU variants, SiLU, tanh, ReLU, sigmoid, and other standard functions, with support for different data types and memory layouts. These operations are executed on GPU with appropriate thread block configurations.\n\nACC-267853",
+    "tool_calls": null,
+    "profile": "obliterated",
+    "effort": "none",
+    "needle_ok": true
+   },
+   {
+    "status": 200,
+    "seconds": 13.4,
+    "finish": "stop",
+    "prompt_tokens": 4773,
+    "completion_tokens": 177,
+    "cached": 0,
+    "prompt_ms": 8196,
+    "prefill_tps": 582.4,
+    "decode_tps": 35.55,
+    "draft_n": 143,
+    "draft_accepted": 108,
+    "reasoning_chars": 0,
+    "content": "The provided code consists of CUDA kernel implementations for 1D pooling operations and various unary mathematical functions. The `pool1d` section defines kernels for average and max pooling, utilizing specific memory access patterns and block-level reductions. The `unary` section implements a wide ",
+    "full": "The provided code consists of CUDA kernel implementations for 1D pooling operations and various unary mathematical functions. The `pool1d` section defines kernels for average and max pooling, utilizing specific memory access patterns and block-level reductions. The `unary` section implements a wide range of element-wise operations, including absolute value, sign, negation, step function, GELU variants, SiLU, tanh, ReLU, sigmoid, hardsigmoid, hardswish, exponential, square, square root, trigonometric functions, logarithm, exponential minus one, softplus, ELU, floor, ceiling, round, and truncation. These functions are dispatched based on the input data type (float, half, or bfloat16) and memory layout (contiguous or strided).\n\nThe release passphrase is ACC-777820.",
+    "tool_calls": null,
+    "profile": "obliterated",
+    "effort": "none",
+    "needle_ok": true
+   }
+  ],
+  "drafted": 342,
+  "accepted": 247,
+  "acceptance": 0.722,
+  "mtp_active": true,
+  "_seconds": 35.5,
+  "_resources": {
+   "vram_peak_mib": 20850,
+   "rss_peak_mib": 3331,
+   "host_available_min_mib": 26950,
+   "samples": 18
+  }
+ },
+ "6_interleaved_clients": {
+  "exception": "KeyError('multiturn')",
+  "_seconds": 0.0,
+  "_resources": {}
+ },
+ "7_coding_65k": {
+  "cold": {
+   "status": 200,
+   "seconds": 141.48,
+   "finish": "stop",
+   "prompt_tokens": 58552,
+   "completion_tokens": 66,
+   "cached": 0,
+   "prompt_ms": 139415,
+   "prefill_tps": 420.0,
+   "decode_tps": 38.17,
+   "draft_n": 52,
+   "draft_accepted": 47,
+   "reasoning_chars": 0,
+   "content": "Question 1: The release passphrase is Q65-375951.\n\nQuestion 2: Three functions in the code above are:\n1. `ggml_cuda_op_pool1d`\n2. `ggml_cuda_op_unary`\n3. `ggml_cuda_op_scale`",
+   "full": "Question 1: The release passphrase is Q65-375951.\n\nQuestion 2: Three functions in the code above are:\n1. `ggml_cuda_op_pool1d`\n2. `ggml_cuda_op_unary`\n3. `ggml_cuda_op_scale`",
+   "tool_calls": null,
+   "profile": "obliterated",
+   "effort": "none",
+   "needle_ok": true
+  },
+  "follow_up": {
+   "cached": 58617,
+   "prompt_tokens": 58642,
+   "prompt_ms": 518,
+   "content": "Q65-375951"
+  },
+  "gpu_free_mib": 1678,
+  "gpu": {
+   "used_mib": 20850,
+   "total_mib": 22528,
+   "power_w": 173.05,
+   "power_limit_w": 175.0,
+   "temp_c": 45
+  },
+  "rss_mib": 4411,
+  "host": {
+   "MemTotal": 30987,
+   "MemAvailable": 25920
+  },
+  "_seconds": 142.4,
+  "_resources": {
+   "vram_peak_mib": 20850,
+   "rss_peak_mib": 4112,
+   "host_available_min_mib": 26153,
+   "samples": 70
+  }
+ },
+ "13_swift_cache": {
+  "apply_swift": {
+   "status": 200,
+   "seconds": 8.1
+  },
+  "rss_after_load_mib": 873,
+  "cold": {
+   "A": {
+    "prompt_tokens": 19794,
+    "cached": 0,
+    "prompt_ms": 41337,
+    "own_marker": false
+   },
+   "B": {
+    "prompt_tokens": 19352,
+    "cached": 42,
+    "prompt_ms": 40202,
+    "own_marker": false
+   },
+   "C": {
+    "prompt_tokens": 15325,
+    "cached": 42,
+    "prompt_ms": 31122,
+    "own_marker": false
+   }
+  },
+  "rss_after_three_conversations_mib": 2486,
+  "host_after": {
+   "MemTotal": 30987,
+   "MemAvailable": 27176
+  },
+  "resumed": {
+   "A": [
+    {
+     "prompt_tokens": 19814,
+     "cached": 19790,
+     "prompt_ms": 578,
+     "own_marker": false,
+     "foreign_marker": false
+    },
+    {
+     "prompt_tokens": 19814,
+     "cached": 19810,
+     "prompt_ms": 214,
+     "own_marker": false,
+     "foreign_marker": false
+    }
+   ],
+   "B": [
+    {
+     "prompt_tokens": 19372,
+     "cached": 15193,
+     "prompt_ms": 9968,
+     "own_marker": false,
+     "foreign_marker": false
+    }
+   ],
+   "C": [
+    {
+     "prompt_tokens": 15345,
+     "cached": 15193,
+     "prompt_ms": 854,
+     "own_marker": false,
+     "foreign_marker": false
+    }
+   ]
+  },
+  "all_restored": false,
+  "no_foreign_marker": true,
+  "rss_peak_mib": 2404,
+  "vram": {
+   "used_mib": 19674,
+   "total_mib": 22528,
+   "power_w": 166.3,
+   "power_limit_w": 175.0,
+   "temp_c": 45
+  },
+  "_seconds": 141.2,
+  "_resources": {
+   "vram_peak_mib": 20850,
+   "rss_peak_mib": 11873,
+   "host_available_min_mib": 25911,
+   "samples": 70
+  }
+ },
+ "final": {
+  "state": "ready",
+  "active": "swift",
+  "applied": "swift",
+  "gpu": {
+   "used_mib": 19674,
+   "total_mib": 22528,
+   "power_w": 164.69,
+   "power_limit_w": 175.0,
+   "temp_c": 45
+  },
+  "llama_processes": 1
+ }
+}

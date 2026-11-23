@@ -1,0 +1,68 @@
+0.12.857.269 I srv    load_model: prompt cache is enabled, size limit: 8192 MiB
+0.12.857.269 I srv    load_model: use `--cache-ram 0` to disable the prompt cache
+0.13.985.716 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 0, t_last = -1
+0.13.985.719 I srv  update_promp: updating prompt cache
+0.13.985.729 I srv        update:  - cache state: 0 prompts, 0.000 MiB (limits: 8192.000 MiB, 65536 tokens, 8589934592 est)
+0.13.985.729 I srv  update_promp: prompt cache update took 0.01 ms
+0.22.125.103 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 4451, t_last = 130166391642
+0.22.125.104 I srv  update_promp: updating prompt cache
+0.22.125.525 I srv   prompt_save:  - saving prompt with length 4451, total state size = 432.908 MiB (draft: 4.992 MiB)
+0.22.350.280 I srv        update:  - cache state: 1 prompts, 732.199 MiB (limits: 8192.000 MiB, 65536 tokens, 65536 est)
+0.22.350.282 I srv  update_promp: prompt cache update took 225.18 ms
+0.31.637.488 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 5149, t_last = 130175902466
+0.31.637.489 I srv  update_promp: updating prompt cache
+0.31.637.924 I srv   prompt_save:  - saving prompt with length 5149, total state size = 477.332 MiB (draft: 5.775 MiB)
+0.31.884.210 I srv        update:  - cache state: 2 prompts, 1508.822 MiB (limits: 8192.000 MiB, 65536 tokens, 65536 est)
+0.31.884.213 I srv  update_promp: prompt cache update took 246.72 ms
+0.41.247.064 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 5281, t_last = 130185495042
+0.41.247.065 I srv  update_promp: updating prompt cache
+0.41.247.563 I srv   prompt_save:  - saving prompt with length 5281, total state size = 485.733 MiB (draft: 5.923 MiB)
+0.41.519.325 I srv        update:  - cache state: 3 prompts, 2293.846 MiB (limits: 8192.000 MiB, 65536 tokens, 65536 est)
+0.41.519.329 I srv  update_promp: prompt cache update took 272.26 ms
+1.11.057.439 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 15954, t_last = 130215312764
+1.11.057.440 I srv  update_promp: updating prompt cache
+1.11.058.369 I srv   prompt_save:  - saving prompt with length 15954, total state size = 1165.009 MiB (draft: 17.893 MiB)
+1.11.683.815 I srv        update:  - cache state: 4 prompts, 3758.147 MiB (limits: 8192.000 MiB, 65536 tokens, 67214 est)
+1.11.683.822 I srv  update_promp: prompt cache update took 626.38 ms
+1.35.229.641 I slot       select: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 0.998 (> 0.100 thold), f_keep = 1.000
+1.35.349.405 I slot create_check: id  0 | task 58 | erasing context checkpoint too close to an earlier one (pos_min = 12881, pos_max = 12881, n_tokens = 12882, size = 149.646 MiB)
+1.35.932.606 I slot       select: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 0.111 (> 0.100 thold), f_keep = 0.000
+1.35.932.607 I srv  update_promp: updating prompt cache
+1.35.933.408 I srv   prompt_save:  - saving prompt with length 12932, total state size = 972.676 MiB (draft: 14.504 MiB)
+1.36.494.132 I srv        update:  - cache state: 5 prompts, 5329.406 MiB (limits: 8192.000 MiB, 65536 tokens, 67275 est)
+1.36.494.141 I srv  update_promp: prompt cache update took 561.53 ms
+1.36.822.361 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 31, t_last = 130241076607
+1.36.822.362 I srv  update_promp: updating prompt cache
+1.36.822.528 I srv   prompt_save:  - saving prompt with length 31, total state size = 151.600 MiB (draft: 0.035 MiB)
+1.37.080.005 I srv        update:  - cache state: 5 prompts, 4059.392 MiB (limits: 8192.000 MiB, 65536 tokens, 65536 est)
+1.37.080.014 I srv  update_promp: prompt cache update took 257.65 ms
+1.37.092.728 I slot   operator(): id  0 | task 69 | restored context checkpoint (pos_min = 12918, pos_max = 12918, n_tokens = 12919, n_past = 12919, size = 149.646 MiB)
+1.37.094.243 I slot create_check: id  0 | task 69 | erasing context checkpoint too close to an earlier one (pos_min = 12898, pos_max = 12898, n_tokens = 12899, size = 149.646 MiB)
+1.37.107.784 I slot create_check: id  0 | task 69 | erasing context checkpoint too close to an earlier one (pos_min = 12900, pos_max = 12900, n_tokens = 12901, size = 149.646 MiB)
+1.37.558.922 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 12932, t_last = 130241817320
+1.37.558.923 I srv  update_promp: updating prompt cache
+1.37.559.824 I srv   prompt_save:  - saving prompt with length 12932, total state size = 972.676 MiB (draft: 14.504 MiB)
+1.38.111.292 I srv        update:  - cache state: 6 prompts, 5331.360 MiB (limits: 8192.000 MiB, 65536 tokens, 67298 est)
+1.38.111.297 I srv  update_promp: prompt cache update took 552.37 ms
+1.55.213.973 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 9530, t_last = 130259468108
+1.55.213.974 I srv  update_promp: updating prompt cache
+1.55.214.662 I srv   prompt_save:  - saving prompt with length 9530, total state size = 756.158 MiB (draft: 10.688 MiB)
+1.55.864.215 I srv        update:  - cache state: 6 prompts, 5114.841 MiB (limits: 8192.000 MiB, 65536 tokens, 65536 est)
+1.55.864.225 I srv  update_promp: prompt cache update took 650.25 ms
+1.55.880.154 I slot   operator(): id  0 | task 85 | restored context checkpoint (pos_min = 12918, pos_max = 12918, n_tokens = 12919, n_past = 12919, size = 149.646 MiB)
+1.56.307.051 I slot       select: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 0.125 (> 0.100 thold), f_keep = 0.000
+1.56.307.052 I srv  update_promp: updating prompt cache
+1.56.307.897 I srv   prompt_save:  - saving prompt with length 12932, total state size = 972.676 MiB (draft: 14.504 MiB)
+1.56.893.247 I srv        update:  - cache state: 6 prompts, 6085.563 MiB (limits: 8192.000 MiB, 65536 tokens, 71745 est)
+1.56.893.257 I srv  update_promp: prompt cache update took 586.21 ms
+1.57.286.580 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 26, t_last = 130261543009
+1.57.286.581 I srv  update_promp: updating prompt cache
+1.57.286.803 I srv   prompt_save:  - saving prompt with length 26, total state size = 151.281 MiB (draft: 0.029 MiB)
+1.57.370.586 I srv        update:  - cache state: 7 prompts, 6386.490 MiB (limits: 8192.000 MiB, 65536 tokens, 68397 est)
+1.57.370.601 I srv  update_promp: prompt cache update took 84.02 ms
+2.13.579.813 I slot       select: id  0 | task -1 | selected slot by LRU, n_tokens = 9011, t_last = 130277834789
+2.13.579.814 I srv  update_promp: updating prompt cache
+2.13.580.401 I srv   prompt_save:  - saving prompt with length 9011, total state size = 723.126 MiB (draft: 10.106 MiB)
+2.14.153.145 I srv        update:  - cache state: 7 prompts, 6136.941 MiB (limits: 8192.000 MiB, 65536 tokens, 65945 est)
+2.14.153.155 I srv  update_promp: prompt cache update took 573.34 ms
+2.14.165.992 I slot   operator(): id  0 | task 107 | restored context checkpoint (pos_min = 12918, pos_max = 12918, n_tokens = 12919, n_past = 12919, size = 149.646 MiB)

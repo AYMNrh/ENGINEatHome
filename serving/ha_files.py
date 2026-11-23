@@ -411,6 +411,15 @@ METRICS = [
     ('Last Request Latency', 'value_json.last_inference.latency_s | round(1)', 's', None),
     ('Last Request Status', 'value_json.last_inference.status', None, None),
     ('Last Request Time', "value_json.last_inference.finished | timestamp_custom('%Y-%m-%dT%H:%M:%S+00:00', false)", None, 'timestamp'),
+    ('Last Cached Tokens', 'value_json.last_inference.cached_tokens', 'tokens', None),
+    ('Prompt Cache Limit', 'value_json.cache.ram_limit_mib', 'MiB', None),
+    ('Runtime RAM Used', 'value_json.cache.process_rss_mib', 'MiB', None),
+    ('Host RAM Available', 'value_json.cache.host_available_mib', 'MiB', None),
+    ('Recent Cache Hit Rate', 'value_json.cache.recent.hit_rate_pct', '%', None),
+    ('Cached Follow-up TTFT', 'value_json.cache.recent.cached_ttft_s', 's', None),
+    ('Cold Prompt TTFT', 'value_json.cache.recent.cold_ttft_s', 's', None),
+    ('Recent Prefill Speed', 'value_json.cache.recent.prefill_tps', 'tokens/s', None),
+    ('Recent Decode Speed', 'value_json.cache.recent.decode_tps', 'tokens/s', None),
 ]
 
 
@@ -454,6 +463,20 @@ def rest_package():
           - numeric
           - request_override
           - note
+      - name: ENGINEatHome Cache
+        unique_id: engineathome_cache
+        value_template: "{{ 'on' if value_json.cache.enabled else 'off' }}"
+        json_attributes_path: "$.cache"
+        json_attributes:
+          - profile
+          - enabled
+          - ram_limit_mib
+          - label
+          - recent
+          - host_total_mib
+          - host_available_mib
+          - process_rss_mib
+          - note
       - name: ENGINEatHome Profiles
         unique_id: engineathome_profiles
         value_template: "{{ value_json.profiles | count }}"
@@ -464,6 +487,7 @@ def rest_package():
         package += f'      - name: ENGINEatHome {name}\n        unique_id: engineathome_{name.lower().replace(" ", "_")}\n'
         if 'value_json.gpu.' in expression:package += '        availability: "{{ value_json.gpu is not none }}"\n'
         base = expression.split(' |')[0]
+        if 'value_json.cache.' in expression:package += '        availability: "{{ value_json.cache is not none and ' + base + ' is not none }}"\n'
         if 'last_inference' in expression and 'profile' not in expression:
             package += '        availability: "{{ value_json.last_inference is not none and ' + base + ' is not none }}"\n'
         for field in ('value_json.model.load_seconds', 'value_json.model.uptime_seconds', 'value_json.gpu_sample_at'):

@@ -125,6 +125,26 @@ class Store:
     def clients(self):
         with self.connect() as db:return [row[0] for row in db.execute('SELECT DISTINCT client FROM requests ORDER BY client')]
 
+    def cache_summary(self,profile,limit=20):
+        """What prompt caching and speed looked like on the last `limit` completed requests of one profile (metadata only)."""
+        with self.connect() as db:
+            rows=[dict(r) for r in db.execute("SELECT input_tokens,cached_tokens,ttft_s,prefill_tps,decode_tps FROM requests WHERE profile=? AND status='complete' "
+                                              "AND input_tokens IS NOT NULL ORDER BY started DESC LIMIT ?",(profile,limit))]
+        def median(values):
+            values=sorted(v for v in values if v is not None);n=len(values)
+            return None if not n else round(values[n//2] if n%2 else (values[n//2-1]+values[n//2])/2,2)
+        known=[r for r in rows if r['cached_tokens'] is not None]
+        total=sum(r['input_tokens'] for r in known)
+        follow=[r['ttft_s'] for r in known if r['input_tokens'] and r['cached_tokens']>=0.5*r['input_tokens']]
+        cold=[r['ttft_s'] for r in known if r['input_tokens']>=2000 and r['cached_tokens']<0.1*r['input_tokens']]
+        last=rows[0] if rows else None
+        return dict(requests=len(rows),hit_rate_pct=round(100*sum(r['cached_tokens'] for r in known)/total,1) if total else None,
+                    cached_ttft_s=median(follow),cached_requests=len(follow),cold_ttft_s=median(cold),cold_requests=len(cold),
+                    last_input_tokens=last['input_tokens'] if last else None,last_cached_tokens=last['cached_tokens'] if last else None,
+                    prefill_tps=median(r['prefill_tps'] for r in rows if (r['input_tokens'] or 0)-(r['cached_tokens'] or 0)>=512),
+                    decode_tps=median(r['decode_tps'] for r in rows),
+                    window=f'last {len(rows)} completed requests (cached TTFT: >=50% of the prompt cached; cold TTFT: >=2,000 tokens, <10% cached; streamed requests only)')
+
     def latest(self):
         with self.connect() as db:
             row=db.execute("SELECT * FROM requests WHERE status!='running' ORDER BY started DESC LIMIT 1").fetchone()

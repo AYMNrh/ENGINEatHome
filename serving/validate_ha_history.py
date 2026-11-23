@@ -78,6 +78,14 @@ async def main(folder_name):
                 assert state(name) and state(name).state not in ('unknown', 'unavailable'), name
             profiles = state('profiles').attributes['profiles']
             assert {p['key'] for p in profiles} >= {'swift'}, profiles
+            # cache / runtime sensors and the per-profile facts the dashboard shows (quantization, MTP, RAM cache, qualification status)
+            assert state('cache') and state('cache').state in ('on', 'off'), state('cache')
+            for attribute in ('ram_limit_mib', 'label', 'recent', 'host_available_mib'):
+                assert attribute in state('cache').attributes, attribute
+            for p in profiles:
+                for field in ('quantization', 'mtp', 'ram_cache', 'qualification_status', 'kv_cache', 'context'):
+                    assert field in p, (p['key'], field)
+            result['cache_sensor_and_profile_facts'] = dict(cache=state('cache').state, label=state('cache').attributes['label'], profiles=len(profiles))
             names = {p['display_name'] for p in profiles}
             assert set(package['input_select']['engineathome_target_profile']['options']) == names, (names, package['input_select']['engineathome_target_profile']['options'])
             assert state('selected_profile_name').state in names
