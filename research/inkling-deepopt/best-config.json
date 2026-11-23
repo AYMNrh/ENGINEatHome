@@ -1,0 +1,4 @@
+{"production_unchanged": true,
+ "runtime": "inkling-7d3e5b1-bin-rp2 (relpos-gpu 7d3e5b1)",
+ "flags": "-ngl 99 -fa on -ctk q8_0 -ctv q8_0 -ub 512 (Balanced) / -ub 256 (Maximum)",
+ "candidate_opt_in": {"env": {"GGML_CUDA_INK_T_FAGQA": "2"}, "gain": {"64K": "+3.0%", "128K": "+4.8%"}, "status": "NOT qualified: not bit-exact, logprob delta 0.16 on 2 prompts"}}
