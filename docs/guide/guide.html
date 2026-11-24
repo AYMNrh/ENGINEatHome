@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ENGINEatHome, explained from the top of the pyramid down</title>
+<style>
+@page { size: A4; margin: 20mm 18mm 20mm 18mm;
+  @bottom-center { content: counter(page); font: 9pt "Segoe UI", sans-serif; color: #9ca3af; }
+  @bottom-left { content: "ENGINEatHome explained"; font: 8pt "Segoe UI", sans-serif; color: #9ca3af; } }
+@page :first { @bottom-center { content: ""; } @bottom-left { content: ""; } }
+:root { --ink:#1f2328; --mute:#6b7280; --l1:#f59e0b; --l2:#0d9488; --l3:#2563eb; --l4:#7c3aed; --line:#e5e7eb; }
+* { box-sizing: border-box; }
+html { font-size: 10.6pt; }
+body { font-family: Georgia, "Times New Roman", serif; color: var(--ink); line-height: 1.62; margin: 0; }
+h1, h2, h3, .sans { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+h1 { font-size: 27pt; line-height: 1.15; margin: 0 0 6mm; letter-spacing: -0.5px; }
+h2 { font-size: 16.5pt; margin: 9mm 0 3mm; line-height: 1.25; break-after: avoid; }
+h3 { font-size: 12pt; margin: 6mm 0 2mm; break-after: avoid; }
+p { margin: 0 0 3.4mm; orphans: 3; widows: 3; }
+a { color: inherit; }
+code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 0.86em; background: #f3f4f6; padding: 0.4px 4px; border-radius: 3px; }
+.cover { height: 250mm; display: flex; flex-direction: column; justify-content: space-between; break-after: page; }
+.cover .kicker { font: 600 10pt "Segoe UI", sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--l3); }
+.cover h1 { font-size: 40pt; margin-top: 10mm; }
+.cover .sub { font-size: 15pt; color: var(--mute); max-width: 140mm; }
+.cover img { width: 118mm; display: block; margin: 0 auto; }
+.cover .meta { font: 9.5pt "Segoe UI", sans-serif; color: var(--mute); border-top: 1px solid var(--line); padding-top: 4mm; }
+.levelhead { break-before: page; border-left: 7px solid var(--c); padding: 3mm 0 3mm 6mm; margin-bottom: 7mm; }
+.levelhead .tag { font: 700 9.5pt "Segoe UI", sans-serif; letter-spacing: 2px; text-transform: uppercase; color: var(--c); }
+.levelhead h1 { margin: 1mm 0 2mm; font-size: 25pt; }
+.levelhead p { color: var(--mute); margin: 0; font-size: 11.5pt; }
+.l1 { --c: var(--l1); } .l2 { --c: var(--l2); } .l3 { --c: var(--l3); } .l4 { --c: var(--l4); } .l5 { --c: #db2777; }
+figure { margin: 5mm 0; break-inside: avoid; text-align: center; }
+figure img { max-width: 100%; }
+figcaption { font: 8.8pt "Segoe UI", sans-serif; color: var(--mute); margin-top: 1.5mm; text-align: left; }
+.box { border-radius: 4px; padding: 3.5mm 5mm; margin: 5mm 0; break-inside: avoid; font-size: 0.97em; }
+.box .t { font: 700 8.8pt "Segoe UI", sans-serif; letter-spacing: 1.4px; text-transform: uppercase; display: block; margin-bottom: 1mm; }
+.plain { background: #fffbeb; border-left: 4px solid var(--l1); } .plain .t { color: #b45309; }
+.deep { background: #f5f3ff; border-left: 4px solid var(--l4); } .deep .t { color: var(--l4); }
+.ex { background: #ecfdf5; border-left: 4px solid #10b981; } .ex .t { color: #047857; }
+.warn { background: #fef2f2; border-left: 4px solid #ef4444; } .warn .t { color: #b91c1c; }
+blockquote { font: italic 15pt/1.4 Georgia, serif; border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); padding: 4mm 2mm; margin: 6mm 8mm; text-align: center; break-inside: avoid; }
+table { border-collapse: collapse; width: 100%; font: 9pt "Segoe UI", sans-serif; margin: 4mm 0; break-inside: avoid; }
+th { text-align: left; background: #f3f4f6; padding: 1.6mm 2.4mm; border-bottom: 2px solid var(--line); }
+td { padding: 1.5mm 2.4mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.toc { font-family: "Segoe UI", sans-serif; }
+.toc .row { display: flex; gap: 4mm; padding: 2.4mm 0; border-bottom: 1px solid var(--line); }
+.toc .badge { flex: 0 0 18mm; font-weight: 700; color: white; text-align: center; border-radius: 3px; padding: 1mm 0; font-size: 9pt; }
+.toc .d { color: var(--mute); font-size: 9.5pt; }
+.eq { font-family: Consolas, monospace; background: #f9fafb; border: 1px solid var(--line); padding: 3mm 4mm; margin: 4mm 0; font-size: 9.6pt; break-inside: avoid; }
+ul, ol { margin: 0 0 3.4mm 5mm; padding-left: 4mm; } li { margin-bottom: 1.2mm; }
+.small { font-size: 9pt; color: var(--mute); }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; } .cols > div { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<!-- ============================ COVER ============================ -->
+<section class="cover">
+  <div>
+    <div class="kicker">A guided tour of the ENGINEatHome repository</div>
+    <h1>Running giant AI models in a spare room</h1>
+    <div class="sub">Everything in this project explained from the easiest idea at the top of a pyramid down to the GPU kernels at the bottom, with graphs, worked examples and the real numbers we measured.</div>
+  </div>
+  <img src="fig/pyramid.png" alt="The four levels of the pyramid">
+  <div class="meta">Written from the repository state of 24 November 2026. All figures use numbers from <code>docs/</code>, <code>research/</code> and the 2026-11-24 baseline measured on the homelab RTX 2080 Ti (22 GB, 175 W). Where a number is computed rather than measured, the text says so.</div>
+</section>
+
+<!-- ============================ HOW TO READ ============================ -->
+<h1>How to read this</h1>
+<p>Most explanations of "running AI locally" either stay at a hand-wavy level or drown you in CUDA. This one is built as a <b>pyramid</b>. Each level repeats the idea of the level above, but with more detail, more numbers and more ways it can go wrong. You can stop at any level and still have a correct picture, just a blurrier one.</p>
+<div class="toc">
+  <div class="row"><div class="badge" style="background:var(--l1)">LEVEL 1</div><div><b>The gist.</b> What this project is, in five minutes, with no jargon.<div class="d">One analogy, one chart, one list of words.</div></div></div>
+  <div class="row"><div class="badge" style="background:var(--l2)">LEVEL 2</div><div><b>The core concepts.</b> Tokens, weights, quantization, memory, prefill versus decode, attention, the KV cache and the model families used here.<div class="d">Everything you need to read any benchmark card in the repo.</div></div></div>
+  <div class="row"><div class="badge" style="background:var(--l3)">LEVEL 3</div><div><b>How the speed is won.</b> The physical speed limit, speculative decoding, prompt caches, chunk sizes and how we measure honestly.<div class="d">The reasoning behind the headline numbers.</div></div></div>
+  <div class="row"><div class="badge" style="background:#db2777">SERVICE</div><div><b>Turning experiments into a service.</b> The gateway, profiles, leases, Home Assistant, safety rules, and how quality and agents are judged.<div class="d">The part that has to keep working while you sleep.</div></div></div>
+  <div class="row"><div class="badge" style="background:var(--l4)">LEVEL 4</div><div><b>Kernel-level engineering.</b> Why decode is thousands of tiny kernels, what we fused, what we rejected, and the newest profile.<div class="d">Where individual percent gains live, and where most ideas die.</div></div></div>
+  <div class="row"><div class="badge" style="background:#374151">APPENDIX</div><div><b>Repo map, glossary and how to reproduce.</b></div></div>
+</div>
+<div class="box plain"><span class="t">A promise about honesty</span>This repository has a habit that is rare and worth copying: it records failures next to successes. A failed stability gate, a rejected kernel that was 28% slower, and a cache-isolation bug that is still open are all written down. This guide keeps that habit. When a result is a single run, a different harness, or only an estimate, we say so.</div>
+
+<!-- ============================ LEVEL 1 ============================ -->
+<div class="levelhead l1"><div class="tag">Level 1 of 4</div><h1>The gist</h1><p>If you only read one page, read this one.</p></div>
+
+<h2>A very fast reader in a very small room</h2>
+<p>Imagine a brilliant assistant who has memorised a library. You hand them a stack of papers (your question and any documents), they read it all, and then they write the answer <b>one word at a time</b>. That is a large language model. The memorised library is called the <b>weights</b>. A modern useful model has tens of billions of them.</p>
+<p>Normally that assistant lives in a data centre. This project asks a different question: <b>how good an assistant can we keep at home, on one second-hand gaming graphics card, privately, for coding?</b> The card is an NVIDIA RTX 2080 Ti that was modified to carry 22 GB of memory and is capped at 175 watts. It is a 2018 design. Everything interesting in the repository comes from the gap between what the model wants and what that card has.</p>
+
+<blockquote>Two numbers explain almost everything: how many bytes the card can move per second, and how many bytes the model needs to read for every single word it writes.</blockquote>
+
+<h2>Three jobs, one repository</h2>
+<div class="cols">
+<div><h3>1. Measure</h3><p>Benchmarks that ask: how long is the wait, how many words per second, does it still find a needle in 240,000 tokens of text, can it actually fix a bug in a sandbox? Hundreds of cards and reports live under <code>docs/</code> and <code>bench/</code>.</p></div>
+<div><h3>2. Serve</h3><p>A private gateway on a home server so tools like OpenCode can use the models over a secure network. It protects the GPU, switches models safely and is controlled from Home Assistant. See <code>serving/</code>.</p></div>
+</div>
+<div class="cols">
+<div><h3>3. Speed up</h3><p>Careful experiments and some custom GPU code (CUDA kernels) to make the same model answer faster without changing what it says. See <code>research/</code>.</p></div>
+<div><h3>4. Stay honest</h3><p>A ledger of every experiment, including failures, with a rule: change one thing, repeat the measurement, never quote the best run.</p></div>
+</div>
+
+<h2>The headline results, in plain words</h2>
+<table>
+<tr><th>Model (role)</th><th>What it can do on the one 2080 Ti</th></tr>
+<tr><td><b>Swift 1.5, 27B</b> (production default)</td><td>Reads a 260,000-token input, answers at about 19 tokens per second, solves 3 of 4 held-out coding tasks.</td></tr>
+<tr><td><b>Inkling 2 Mini, 26B</b> (research engine)</td><td>Handles 242,134 real input tokens (about a thousand pages), 26.8 tokens per second at that size, 7 of 7 hidden tests passed.</td></tr>
+<tr><td><b>Qwen3.8-27B Obliterated</b> (selectable profile)</td><td>37.8 tokens per second at 64K context, and a follow-up question that starts after 0.51 s instead of 158 s thanks to a prompt cache.</td></tr>
+</table>
+<p class="small">These come from different harnesses and runtimes. Compare them only through the linked reports in the repository.</p>
+
+<div class="box plain"><span class="t">Plain English: tokens per second</span>A "token" is a chunk of text, usually a bit shorter than a word. 20 tokens per second is a comfortable reading speed. 50+ feels instant. Below 10 you start to wait.</div>
+
+<h2>Why this is hard, in one picture</h2>
+<p>The card has 22 GB. A 27-billion-parameter model written at normal 16-bit precision is about 54 GB. It simply does not fit. The first big idea of the whole field is to <b>squeeze</b> the numbers.</p>
+<figure><img src="fig/quant.png"><figcaption><b>Figure 1.</b> The same kind of model at four precisions. The F16 and Q8 sizes are computed (parameters times bits divided by 8); the Q4_K_M and IQ3_S bars are the real GGUF files in this project. The dashed line is the card.</figcaption></figure>
+<p>Squeezing the weights is only the start. The model also needs working memory for the conversation (the KV cache, Level 2), room for temporary buffers, and speed. The remaining 90 percent of this guide is about those three problems.</p>
+
+<h2>A vocabulary you will use for the rest of the guide</h2>
+<table>
+<tr><td><b>Token</b></td><td>A chunk of text the model reads or writes.</td></tr>
+<tr><td><b>Context window</b></td><td>How many tokens the model can keep in view at once (here up to 262,144).</td></tr>
+<tr><td><b>Weights / parameters</b></td><td>The memorised knowledge: billions of numbers.</td></tr>
+<tr><td><b>Quantization</b></td><td>Storing those numbers with fewer bits so they fit.</td></tr>
+<tr><td><b>VRAM</b></td><td>The graphics card's own memory (22 GB here).</td></tr>
+<tr><td><b>Prefill / decode</b></td><td>Reading your prompt (fast, parallel) versus writing the answer (slow, one token at a time).</td></tr>
+<tr><td><b>KV cache</b></td><td>The model's short-term memory of the conversation so far.</td></tr>
+<tr><td><b>TTFT</b></td><td>Time to first token: how long you wait before the answer starts.</td></tr>
+<tr><td><b>Kernel</b></td><td>One small program that runs on the GPU. A single token needs thousands.</td></tr>
+</table>
+
+<!-- ============================ LEVEL 2 ============================ -->
+<div class="levelhead l2"><div class="tag">Level 2 of 4</div><h1>The core concepts</h1><p>Enough to read any card in the repository and know what it is telling you.</p></div>
+
+<h2>2.1 Tokens and the context window</h2>
+<p>Models do not read letters or words. A tokenizer splits text into pieces from a fixed vocabulary (the Qwen models here have 248,320 entries). A common word is often one token, a rare word or a line of code might be several.</p>
+<div class="box ex"><span class="t">Example</span>The sentence <code>def quicksort(arr):</code> might become about 6 tokens: <code>def</code>, <code> quick</code>, <code>sort</code>, <code>(</code>, <code>arr</code>, <code>):</code>. The exact split depends on the tokenizer, which is why every benchmark in this repo counts tokens with the model's own tokenizer or the server's metrics, never by guessing from characters.</div>
+<p>The <b>context window</b> is the total number of tokens, prompt plus answer, the model can hold. "262,144" means 256 Ki tokens. A rough rule is three quarters of a word per token, so that is on the order of a few hundred thousand words, an entire codebase or several novels. Important honesty note from the repo: the number 262,144 is <i>capacity</i>. The largest actually qualified input for Inkling is 242,134 tokens. A window being declared in a model's metadata says nothing about whether it still finds things at the far end.</p>
+
+<h2>2.2 Weights and quantization</h2>
+<p>A model's weights are just a very long list of numbers. A "27B" model has about 27 billion of them. Each number can be stored in 16 bits (precise, large) or squeezed into 8, 4 or about 3 bits (smaller, slightly less precise). The file size is simple arithmetic:</p>
+<div class="eq">size (GB) = parameters (billions) x bits per weight / 8<br>27 x 16 / 8 = 54 GB   |   27 x 4.98 / 8 = 16.8 GB (Q4_K_M)   |   27 x 3.59 / 8 = 12.1 GB (IQ3_S)</div>
+<p>The names in the repo (Q4_K_M, IQ3_S, IQ3_XXS, NVFP4) are different <i>recipes</i> for squeezing. Many modern files are <b>mixed</b>: important tensors keep more bits. The audit in this repo discovered that one "IQ3" file contains some IQ1_M tensors, which is why the project's audit tool lists every tensor type instead of trusting a filename.</p>
+<div class="box warn"><span class="t">The trade-off</span>Quantization is lossy. Fewer bits means smaller and usually faster, but a little more error. The repo therefore never treats a quantization change as a free speed-up: it must be re-checked for quality (retrieval, coding tests) before it is called better.</div>
+
+<h2>2.3 Where the 22 GB goes</h2>
+<p>When a model is loaded, memory is spent on:</p>
+<ol>
+<li><b>Weights</b>, fixed, the biggest block.</li>
+<li><b>KV cache</b>, grows with the conversation (explained next).</li>
+<li><b>Recurrent state</b>, for the model layers that are not classic attention (a fixed size per sequence).</li>
+<li><b>Compute buffers</b>, temporary workspace. The size depends on the micro-batch ("ubatch") setting.</li>
+<li><b>A safety reserve</b>, the repo defaults to 1 GiB.</li>
+</ol>
+<p>The planning tool in <code>bench/audit.py</code> adds these up before a run. Its rule: if something is unknown (for example workspace), it is reported as <code>unknown_overheads</code>, and that never counts as "verified to fit".</p>
+
+<h2>2.4 Prefill versus decode</h2>
+<figure><img src="fig/phases.png"><figcaption><b>Figure 2.</b> Prefill handles all prompt tokens in parallel; decode is strictly serial because each new token depends on the one before it.</figcaption></figure>
+<p>These two phases behave so differently that the repo reports them separately.</p>
+<table>
+<tr><th>Phase</th><th>What happens</th><th>Limited by</th><th>Typical numbers here</th></tr>
+<tr><td><b>Prefill</b></td><td>The prompt is read in chunks. Hundreds of tokens at once.</td><td>Compute (arithmetic speed)</td><td>400 to 1,200 tok/s</td></tr>
+<tr><td><b>Decode</b></td><td>The answer is written one token at a time.</td><td>Memory bandwidth and latency</td><td>20 to 60 tok/s</td></tr>
+</table>
+<div class="box ex"><span class="t">Worked example: what a 242K prompt really costs</span>Cold prefill of 242,134 tokens took 556.1 seconds, that is 437 tokens per second, 9.3 minutes. Then writing a 500-token answer at 26.8 tok/s takes about 19 seconds. So for a huge prompt, <b>the wait is almost entirely prefill</b>. That is exactly why caching the prefill (Level 3) matters more than any decode trick for long sessions.</div>
+
+<h2>2.5 Attention and the KV cache</h2>
+<p>To write the next token the model has to look back at everything before it. This looking-back is called <b>attention</b>. For every earlier token and every attention layer, the model stored two small vectors during prefill, a <i>key</i> and a <i>value</i>. Storing them means it does not recompute the past for each new token. That store is the <b>KV cache</b>.</p>
+<p>The cost is memory that grows with the conversation. The repo's formula, for a model with 16 attention layers and 1024-wide K and V rows, is:</p>
+<div class="eq">KV bytes = context x attention_layers x (K_row_bytes + V_row_bytes)<br>q8_0 row = (1024/32) x 34 B = 1,088 B &nbsp;&nbsp;|&nbsp;&nbsp; K+V = 2,176 B<br>131,072 x 16 x 2,176 B = 4.25 GiB</div>
+<figure><img src="fig/kv.png"><figcaption><b>Figure 3.</b> KV cache size for the Qwen3.8-27B layout (from <code>docs/memory-model.md</code>). Halving the precision halves the cache, but quantized KV is explicitly lossy; f16 stays the reference.</figcaption></figure>
+<div class="box plain"><span class="t">Plain English</span>The KV cache is like the model's notepad of the conversation. Every extra thousand tokens adds a few lines to the notepad, and the model re-reads the whole notepad each time it writes a word. A longer notepad means more memory <i>and</i> slower writing.</div>
+
+<h2>2.6 Three model "shapes" used in this repo</h2>
+<h3>Dense</h3>
+<p>Every weight is used for every token. Simple, and the reference for everything else. Example: the dense Qwen3.8-27B IQ3_S used in the DFlash2 experiments.</p>
+<h3>Hybrid (attention plus recurrent)</h3>
+<p>The Qwen3.8-27B family (Swift, Obliterated) has 64 blocks, but only <b>16 are classic attention</b>. The other 48 are "recurrent" layers that carry a fixed-size state instead of a growing KV cache. One of the repo's earliest decisions (ADR 0001) is to respect this: treating all 64 layers as ordinary attention would overestimate the memory and misdescribe the model. Consequence: a recurrent state cannot simply be rewound by deleting tokens, which makes caching trickier (Level 3).</p>
+<h3>Mixture of experts and a loop (Inkling 2 Mini)</h3>
+<p>Inkling stores 128 small "expert" networks per layer, and a router picks only 8 for each token. It also reuses its middle layers three times (a loop), so 24 stored layers are executed as 48 visits, 8 of them full attention.</p>
+<figure><img src="fig/hybrid.png"><figcaption><b>Figure 4.</b> Top: the 64 blocks of the Qwen3.8-27B layout. Bottom: Inkling's 48 layer visits per token. The looped core makes the model behave like a deeper network without storing more weights.</figcaption></figure>
+<figure><img src="fig/moe.png"><figcaption><b>Figure 5.</b> Mixture of experts: only 8 of 128 expert banks are read per token, so a 26-billion-parameter model reads far fewer bytes than a dense one of the same size.</figcaption></figure>
+
+<!-- ============================ LEVEL 3 ============================ -->
+<div class="levelhead l3"><div class="tag">Level 3 of 4</div><h1>How the speed is won</h1><p>The physical limit, the clever tricks, and the discipline of measuring them.</p></div>
+
+<h2>3.1 The speed limit: bytes per token</h2>
+<p>Here is the single most useful piece of reasoning in the repository. To produce one token, the GPU must read essentially <b>all the weights that token uses</b> from memory. The GPU can read memory at a finite rate. So:</p>
+<div class="eq">max tokens/second = memory bandwidth / bytes read per token</div>
+<div class="box ex"><span class="t">Worked example: Inkling 2 Mini</span>The card's spec bandwidth is 616 GB/s, but we measured <b>546.8 GB/s</b> actually achievable (89%). Inkling reads about <b>3.216 GB</b> of weights per token (attention projections 40.5%, routed experts 40.4%, output head 9.9%, loop controllers 7.1%, the rest small). So the ceiling is 546.8 / 3.216 = <b>170 tokens per second</b> at zero context.</div>
+<p>As the conversation gets longer, every token also has to read the KV cache. At 128K context the eight full-attention visits read about 2.3 GB more, so the bytes per token jump from 3.3 GB to 5.6 GB and the ceiling falls to about 97 tok/s.</p>
+<figure><img src="fig/ceiling.png"><figcaption><b>Figure 6.</b> Measured decode (16K, 64K, 128K measured on 24 Nov 2026; 185K and 242K from the long-context qualification) against the bandwidth ceiling computed from bytes per token. The ceilings are our own estimates from the GGUF tensor sizes, not published numbers.</figcaption></figure>
+<p>Look at the gap. We reach about 37 percent of the ceiling at every depth. That is far from the 90 percent a perfectly streaming kernel would hit, and it tells you something precise: <b>decode here is limited by latency, not bandwidth.</b> The GPU is waiting on thousands of small, dependent steps rather than saturating its memory pipe. That observation drives Level 4. It was also confirmed on the other big model: while decoding Obliterated, the memory controller was only 40 to 48 percent busy while the shader units looked 97 percent busy.</p>
+<div class="box deep"><span class="t">Method: ceiling first</span>The project follows the <code>inference-optimisation</code> skill: compute the physical ceiling <i>before</i> optimizing, measure the real hardware (bandwidth, tensor-core throughput) at the actual 175 W limit rather than borrowing a spec sheet or another GPU's number, and only then decide where the gap is worth chasing. It also means a borrowed result, for example a throughput quoted for an RTX 5090, is never used as a ceiling for this card.</div>
+
+<h2>3.2 Speculative decoding: guess ahead, check in bulk</h2>
+<p>Decode is serial and wastes the GPU. The trick: a cheap <b>drafter</b> guesses the next several tokens, and the big model <b>checks all the guesses in one pass</b> (a pass that costs only slightly more than writing one token, because the weights are read once). Every guess that matches is accepted for free; the first wrong guess is replaced by the big model's own token. The output is the same as normal decoding.</p>
+<p>Names in the repo: <b>MTP</b> (multi-token prediction, a drafter built into the model), <b>DFlash2</b> (a separate, faster drafter used with the dense model), <b>DSpark</b> (Inkling's official drafter, currently parked, see Level 4).</p>
+<figure><img src="fig/spec.png"><figcaption><b>Figure 7.</b> Left: Obliterated 27B at 65K context. The full stack reached 29.5 tok/s (from 16.0). Right: DFlash2 depth sweep on filled 64K fixtures. Depth 7 beat depth 5; the best depth is found by measuring.</figcaption></figure>
+<h3>Three lessons the data teaches</h3>
+<ol>
+<li><b>Acceptance rate alone is not speed.</b> Drafting costs time too. In the Obliterated study each extra drafted token cost about 15 ms of step time, so a high acceptance rate with deep drafting can still lose.</li>
+<li><b>Measure with the sampler you will actually use.</b> With greedy decoding, depth 4 looked best. With the production sampler (temperature 1.0, top-p 0.95, top-k 20), depth 2 won at 16K, and "depth 3 plus a probability threshold (p-min 0.6)" won overall at 35.96 tok/s. A greedy sweep alone would have picked the wrong setting.</li>
+<li><b>The right depth changes with context.</b> A fixed depth 3 was 10 percent worse than depth 2 at 16K but 8 percent better at 52K.</li>
+</ol>
+<div class="box deep"><span class="t">Why the full stack is faster than drafting alone</span>The "full stack" bar in Figure 7 also changes the KV cache to f16, raises the micro-batch to 512 and adds a RAM prompt cache. Counter-intuitively, <b>f16 KV was faster than q4 KV</b> (+10.7% at 52K) even though it uses more memory: dequantizing the compact cache costs more arithmetic than the extra bytes cost bandwidth. The price is 20.4 GiB of VRAM instead of about 18.4. Smaller is not automatically faster.</div>
+
+<h2>3.3 Prompt caching: never read the same page twice</h2>
+<p>If your next request starts with the same text as the last one (as in every chat or coding session), the server can keep the KV cache and only process the new tokens. That turns a minutes-long prefill into a short one.</p>
+<figure><img src="fig/cache.png"><figcaption><b>Figure 8.</b> Time to first token with and without a cache hit (log scale). The side-request cases come from the Obliterated study; the 64K and 242K follow-ups from the qualification runs.</figcaption></figure>
+<h3>The side-request trap</h3>
+<p>A real client does not send a clean linear conversation. OpenCode, for instance, fires a short side request to generate a chat title. On a single-slot server with no cache, that tiny request overwrites the big cache, and the next real turn must re-read the whole 20,645-token history: <b>44.1 seconds</b> of waiting instead of 4.3. The fix was enabling a RAM-backed prompt cache (<code>--cache-ram 8192</code>, with <code>--no-cache-idle-slots</code>), and it is now also on for Swift. At 52K context the same turn took 5.9 s versus a 131.6 s cold prefill.</p>
+<div class="box deep"><span class="t">Why hybrid models make this harder</span>For a pure attention model you can truncate the cache to any earlier point. For the recurrent layers of the Qwen3.8 layout you cannot: the state is a summary, not a list. The repo observed that replaying a shorter version of a prompt after a longer one forced a full re-prefill, because rewinding would need a saved snapshot ("checkpoint") of the recurrent state. Checkpoints are not free either: they cost RAM, which is why the cache budget is a number you tune.</div>
+<div class="box warn"><span class="t">The security catch</span>A cache shared between users can leak one user's text to another. An upstream llama.cpp issue (#27148) about cache isolation is still unfixed. The repo does not claim to have fixed it. It ran a contamination test, 0 leaks in 400 cross-client responses, and states clearly that this is <i>evidence, not proof</i>. The rule for any new cache optimization: client identity and model identity are mandatory isolation boundaries, and it must pass multi-client contamination tests first.</div>
+
+<h2>3.4 Chunk sizes and other cheap knobs</h2>
+<p>Prefill processes the prompt in chunks. The size of those chunks changes the speed, and the best size depends on the runtime and the memory left.</p>
+<table>
+<tr><th>Observation</th><th>Result</th></tr>
+<tr><td>Strata runtime, 128K prompt, 4K chunks versus 1K chunks</td><td>2.33x the cold prefill throughput</td></tr>
+<tr><td>Inkling at 128K: micro-batch 512 versus 256</td><td>766.7 vs 583.7 tok/s prefill (512 is 31% faster)</td></tr>
+<tr><td>Inkling at 262,144 context</td><td>micro-batch 512 does <b>not load</b> (7.40 GiB compute buffer); 256 is the only option, and was the one qualified at 242K</td></tr>
+<tr><td>Obliterated: micro-batch 512 with batch 2048</td><td>+10% cold prefill, +8% on cached tails, decode unchanged</td></tr>
+</table>
+<p>The lesson: a "slower" setting is sometimes the only one that fits, so profiles in this repo record <i>which settings were qualified</i>, not just which were fastest.</p>
+
+<h2>3.5 How to measure without fooling yourself</h2>
+<p>Because the card's behaviour drifts (clocks, temperature, other processes), a single benchmark number is almost meaningless. The repo's rules, adopted from the optimisation skill:</p>
+<ol>
+<li><b>One change at a time.</b> If two things change, you cannot say which one helped.</li>
+<li><b>Control, candidate, control.</b> Run the baseline, then the candidate, then the baseline again, so a drift shows up as a mismatch between the two controls.</li>
+<li><b>Several samples, report the median and spread.</b> In the Obliterated work identical repeats differed by 0.1 to 0.2 percent, so a 1 percent effect counts as real <i>for that harness</i>.</li>
+<li><b>Never cherry-pick the best run.</b> A fast outlier is not a result.</li>
+<li><b>Keep a ledger.</b> Every experiment, including failures, is a line in <code>ledger.jsonl</code> with its hypothesis, result and verdict. A "rejected ledger" says what not to retry without a new reason.</li>
+<li><b>Compare like with like.</b> Different prompts, different quantizations and different sampling modes are not an A/B test.</li>
+<li><b>Stop when ideas run out.</b> After three consecutive candidates that fall within noise, the work stops.</li>
+</ol>
+<div class="box ex"><span class="t">Example from the newest session</span>The 64K comparison of two attention settings ran as control, candidate, control, candidate with four samples each: 45.71 and 45.48 tok/s for the control, 47.03 and 47.01 for the candidate. The two controls agree to 0.2 tok/s, so the +3.0 percent difference is real, and the result is still recorded as <i>unqualified</i> because correctness was not yet proven (Level 4).</div>
+
+<!-- ============================ SERVICE ============================ -->
+<div class="levelhead l5"><div class="tag">Beyond speed</div><h1>Turning experiments into a service</h1><p>A fast model nobody can safely use is a demo. This is the part that has to keep running.</p></div>
+
+<h2>The platform on one page</h2>
+<figure><img src="fig/platform.png"><figcaption><b>Figure 9.</b> One private gateway in front of one GPU. Clients and Home Assistant both talk to the gateway; the gateway is the only thing that talks to the model server.</figcaption></figure>
+<p>The key facts, all from <code>docs/production-serving.md</code> and <code>docs/multi-model-control-center.md</code>:</p>
+<ul>
+<li><b>One model at a time.</b> There is one GPU, so there are four <b>profiles</b> (Swift, Inkling Balanced, Inkling Maximum, Obliterated). Swift is the default and always the fallback.</li>
+<li><b>Select does not switch; Apply does.</b> Choosing a profile in Home Assistant changes nothing. Apply swaps the model only when no request or session lease is active, runs a <i>real inference probe</i>, and if that fails it restores the previous profile (or Swift).</li>
+<li><b>The request must name the served model.</b> Otherwise the gateway answers 409 <code>model_not_active</code>. This prevents a client from silently getting a different model than it asked for.</li>
+<li><b>Per-client keys and roles.</b> Separate keys for OpenCode, Hermes, Python scripts, an admin and Home Assistant. Usage logging stores metadata only, never prompt text.</li>
+<li><b>Private by design.</b> The model server listens on loopback only. The API is reachable only over Tailscale's encrypted network. Port 8081 belongs to another service and is left untouched.</li>
+<li><b>GPU guards.</b> Before any load: enough free VRAM (measured peak plus 512 MiB), the correct 175 W power limit, no other CUDA process, an unchanged model file, a free port.</li>
+</ul>
+<div class="box plain"><span class="t">Plain English</span>Think of the gateway as a bouncer and a traffic cop. It checks who you are, checks you are asking for the model that is actually running, makes sure nobody is cut off mid-sentence when the model is swapped, and always puts the house model back if something goes wrong.</div>
+
+<h2>The safety rules that never bend</h2>
+<table>
+<tr><td>No GPU firmware or VBIOS changes, no overclocking, no voltage changes, power limit stays at 175 W.</td></tr>
+<tr><td>Production binaries, model files and checkpoint hashes are never modified; experiments run in isolated copies.</td></tr>
+<tr><td>Never interrupt an active request or lease. If a GPU experiment cannot get exclusive access safely, it stops and reports a blocker instead of force-killing anything.</td></tr>
+<tr><td>Never use broad process killing; a staging gateway on another port, with a copy of the database, is used for risky profile tests.</td></tr>
+<tr><td>After any GPU test: restore Swift, check <code>/healthz</code>, and run one real inference.</td></tr>
+</table>
+<p>This is also how the experiments in Level 4 are run: a small wrapper takes exclusive GPU access only when the gateway is idle, runs a script, and always restores the service, even if the script crashes.</p>
+
+<h2>How quality is judged</h2>
+<p>Speed means nothing if the answers are wrong, so the repo scores several kinds of quality:</p>
+<ul>
+<li><b>Needle retrieval.</b> A random fact is hidden inside up to hundreds of thousands of tokens of filler and the model must find it, at different depths of the window.</li>
+<li><b>Held-out coding tasks.</b> The model edits a real repository in a sandbox, then hidden tests it never saw decide pass or fail ("strict pass").</li>
+<li><b>Agent behaviour.</b> Multi-turn tool use through OpenCode, including whether it loops, calls the right tools and survives a restart.</li>
+</ul>
+<figure><img src="fig/coding.png"><figcaption><b>Figure 10.</b> Strict coding pass counts across several experiments (different tasks and harnesses, so not directly comparable between rows). Failures are published too.</figcaption></figure>
+<h3>A failure kept on the record</h3>
+<p>The Strata coder campaign passed coding but <b>failed its stability gate</b> at 31.10 minutes of a planned hour: after a mid-session process restart, the model could no longer recall a random marker that had been planted earlier, even though all 452 stored messages were intact. The offline audit showed the later compaction summaries had already dropped the marker before the restart, so the cause was summary retention, not the restart itself. The campaign stopped there and the 128K agent runs were skipped. The honest part: the repo says what is proven and what is only an inference.</p>
+<h3>Case study: why an agent loops</h3>
+<p>While analysing an OpenCode session on the Obliterated profile, the model kept running <code>Write-Output "web search"</code> through a shell tool more than 20 times in a row. Every tool call was perfectly formed, so the chat template and tool parsing worked. The model wanted a web search tool that did not exist, invented a fake one, and repeated itself even after being told to stop. Contributing factors that were identified:</p>
+<ul>
+<li>The profile has <b>no sampler configured</b> (empty <code>sampling</code>), while Swift pins temperature 1.0, top-p 0.95 and top-k 20; weak sampling makes verbatim repetition more likely (a hypothesis, not yet tested).</li>
+<li>The picker offered a thinking level the model does not support (<code>high</code> returned 400; supported levels are none, low, medium, xhigh).</li>
+<li>A vague task with no tool that could fulfil it.</li>
+</ul>
+<p>It is a good example of what "agent quality" really is: not just correct tokens, but sensible behaviour when the right tool is missing.</p>
+
+<!-- ============================ LEVEL 4 ============================ -->
+<div class="levelhead l4"><div class="tag">Level 4 of 4</div><h1>Kernel-level engineering</h1><p>Where individual percent gains live, and where most ideas die.</p></div>
+
+<h2>4.1 Why decode is thousands of tiny kernels</h2>
+<p>A GPU does work by launching <b>kernels</b>. A big matrix multiply is one kernel and keeps the card busy. But Inkling's decode step is different: for each token it launches roughly <b>2,400 to 2,800 small kernels</b> (norms, convolutions, mixes, routing, top-k, small matrix-vector products), many of them depending on the previous one and finishing in under 8 microseconds. Each launch and each dependency wait costs time even when almost no data moves.</p>
+<div class="box ex"><span class="t">Where one token's 16 ms went (at 0 context)</span>Expert matrix-vector products: 5.7 ms at 42% of bandwidth. Zero-byte "glue" kernels: about 4.4 ms. Loop controllers: 1.2 ms. Idle time between kernels: about 1.6 ms. The glue and the idle time together are roughly as large as the whole expert computation.</div>
+<p>The remedy is <b>fusion</b>: merge neighbouring tiny kernels into one so there are fewer launches and fewer round trips to memory. Four fusions (QKV post-processing, the relative-bias transform, the routing tail, a cached quantized input) gave <b>+8.7 percent</b> and were <i>bit-exact</i>: the output is identical to before.</p>
+<figure><img src="fig/stairs.png"><figcaption><b>Figure 11.</b> The staircase. Left: decode at zero context from the old runtime, to a purpose-built fork, to the fused build; the red line is the ceiling of 170 tok/s. Right: prefill (pp512) over the same steps plus a later tile-shape change.</figcaption></figure>
+<div class="box deep"><span class="t">Fusion is not always a win</span>The skill's rule of thumb says that under CUDA graphs fusing small kernels rarely helps, because graphs already remove launch overhead. Here it did help, because the dependent chain (not the launch) was the cost. But a more aggressive fusion, merging all loop controllers into one kernel with an in-kernel grid barrier, was <b>slower</b> (27 to 31 us per launch versus 12.5 us for two separate ones). On this GPU at this size, <i>batching side by side beats chaining through a global barrier</i>.</div>
+
+<h2>4.2 The per-head bias that breaks a standard trick</h2>
+<p>Standard attention kernels save time for "grouped-query attention" by letting several query heads share one pass over the same keys and values. Inkling's relative-position bias is <b>different for every head</b> (the mask has 24 heads' worth of rows), so the stock code refuses to pack the heads. Result: for each of the 3 query heads per KV head, the cache is re-read and re-dequantized from L2, 3.7 times the DRAM traffic.</p>
+<p>A custom kernel was written that reads each KV head once, applies each head's own mask row, and keeps the same reduction order as the original. It is <b>bit-exact</b> and gave about +3.5% at 32K, and it is the reason long-context decode is as good as it is.</p>
+
+<h2>4.3 Prefill: quantized matrix multiplication (MMQ)</h2>
+<p>Prefill's time goes into multiplying the squeezed weights by the activations using integer tensor cores. The study found the expert multiplications reach only about 16 to 18 percent of the compute ceiling (about 7,600 tok/s at 50 percent of the INT8 peak). Findings that each yielded a measured step:</p>
+<ul>
+<li><b>Tile width.</b> A 48-wide tile beat 32 (+3%) because fewer half-empty second tiles meant less repeated dequantization.</li>
+<li><b>Table lookups in shared memory.</b> The IQ formats decode through lookup tables. Moving the tables into shared memory and applying signs arithmetically removed global-memory stalls: another +3% and +2.5%.</li>
+<li><b>Integer-to-float conversion.</b> On this architecture the conversion unit runs at a quarter of the rate of the FP32 pipe, and each partial sum needed one. Replacing it with an exact integer-add trick gave <b>+5%</b>.</li>
+<li><b>A halved K-tile for NVFP4.</b> It cut shared memory so two blocks fit per multiprocessor: pp512 1366 to 1401.</li>
+</ul>
+<p>Together these moved pp512 from 1,210 to 1,401 tok/s, and all were verified bit-exact against the previous build.</p>
+
+<h2>4.4 What did not work, and why that is valuable</h2>
+<figure><img src="fig/reject.png"><figcaption><b>Figure 12.</b> A sample of rejected experiments. Each was correct but did not beat its control, or lost outright. The patches are kept under <code>research/inkling-turing/rejected/</code>.</figcaption></figure>
+<p>The rejected ledger is a feature, not an embarrassment. Examples of the reasoning that went into it:</p>
+<ul>
+<li><b>Grouped-expert verification (&minus;28%).</b> Idea: when checking several drafted tokens, load each expert once for all tokens that chose it. In practice one warp serializing four tokens lost its latency hiding, and the dequantization was not shared automatically.</li>
+<li><b>Fragment-direct dequantization (&minus;13%).</b> Skip shared memory and decode straight into registers. Six redundant global loads per lane cost more than the saved round trip.</li>
+<li><b>Narrower flash-attention tiles (&minus;7% to &minus;12%).</b> Fewer columns per tile launched less work per block; the 32-column tile is the optimum.</li>
+<li><b>A relative bias fused into flash attention.</b> The unit tests were bit-exact, but model runs crashed or drifted. The graph audit found why: the fused variant made the <i>prefill</i> and <i>decode</i> graphs differ in the order of their operations, so the memory plan made for one did not fit the other. Lesson, now a regression gate: prefill and decode must have the same graph topology.</li>
+</ul>
+
+<h2>4.5 Memory engineering that made 256K fit</h2>
+<p>The relative bias was first built as a long chain of float intermediates that the allocator reserved for every query-by-key element: 199 bytes per element. Turning the chain into <b>one graph node</b> cut it to 55 bytes; computing the distances <b>on the GPU from positions</b> instead of building a matrix on the CPU and copying it removed the host-to-device upload:</p>
+<table>
+<tr><th>Per 32K-token prefill</th><th class="num">Before</th><th class="num">After</th></tr>
+<tr><td>Host upload</td><td class="num">2,333 MB</td><td class="num">13.2 MB</td></tr>
+<tr><td>CPU fill time</td><td class="num">1,288.5 ms</td><td class="num">2.0 ms</td></tr>
+<tr><td>Loaded VRAM at 256K, ubatch 256</td><td class="num">20,080 MiB</td><td class="num">19,824 MiB</td></tr>
+</table>
+<p>This is why a 262,144-token window loads at all, and why 242,134 real tokens were qualified at micro-batch 256.</p>
+
+<h2>4.6 Speculative decoding for Inkling: parked on economics</h2>
+<p>Inkling ships an official drafter (DSpark). Two facts stopped the work. First, it does not load in the fork, because it needs a recurrent "Markov head" port that is not implemented. Second, the economics are marginal: verifying 4 tokens in one pass costs <b>2.34x</b> a single token, so each step must accept at least about <b>2.6 tokens on average</b> to break even. Other engines report 1.5 to 2.6 on prose (a loss) and 2.3 to 2.9 on code (marginal), so it only clearly pays on edit-and-copy workloads. The conclusion is recorded, with the numbers, so nobody has to rediscover it.</p>
+
+<h2>4.7 The newest profile: attention at 128K</h2>
+<p>On 24 November 2026 a fresh baseline and a profile were taken on the production-equivalent runtime (its hashes match the production manifest):</p>
+<table>
+<tr><th>Depth</th><th class="num">Decode tok/s (median of 3)</th><th class="num">Spread</th><th class="num">Prefill tok/s</th></tr>
+<tr><td>16K</td><td class="num">55.88</td><td class="num">0.19</td><td class="num">1,159</td></tr>
+<tr><td>64K</td><td class="num">45.80</td><td class="num">0.07</td><td class="num">803</td></tr>
+<tr><td>128K</td><td class="num">36.81</td><td class="num">0.08</td><td class="num">569</td></tr>
+</table>
+<figure><img src="fig/profile.png"><figcaption><b>Figure 13.</b> GPU time per decoded token at 128K context (Nsight Systems). One attention kernel is a third of the total.</figcaption></figure>
+<p>That kernel runs 8 times per token and takes 1.14 ms per launch. It reads about 285 MB of KV each time, which is roughly 250 GB/s, or <b>46 percent of the 547 GB/s ceiling</b>. The kernel walks the context in 128-position tiles one after another with a shuffle reduction per row, uses 244 registers per thread, and keeps only a few warps resident, so it cannot keep enough memory requests in flight: it is latency-bound. Bringing it up to 90 percent of the ceiling would save about 4 ms per token at 128K, around 15 percent end to end. That is the biggest open lever.</p>
+<p>A configuration switch that retunes the split of the KV range (<code>GGML_CUDA_INK_T_FAGQA=2</code>) was tested against the default:</p>
+<figure><img src="fig/fagqa.png"><figcaption><b>Figure 14.</b> Control, candidate, control, candidate, four samples each. The gain is well outside noise, but this mode changes the order of floating-point additions, so it is <b>not bit-exact</b>.</figcaption></figure>
+<div class="box warn"><span class="t">Why this is not deployed</span>On two long prompts the greedy tokens were identical, but the largest log-probability difference before divergence was 0.16, too large to call parity on so little data. The status is "measured candidate, unqualified": it needs larger parity tests and 64K+ retrieval checks before it can replace the exact default. Production is unchanged.</div>
+
+<h2>4.8 What came from squid5090, and what did not</h2>
+<p>The squid5090 project (an engine for an RTX 5090) was studied as a reference: CUDA-graph capture of decode, expert-grouped verification, split-K attention, checkpointed prefix caches. The conclusion, backed by reading the sources and by measuring, is that <b>very little transfers to a 2018 Turing card</b>: its fastest kernels need Blackwell-only instructions and 4-bit floating-point hardware that sm_75 does not have, and the ideas that can be ported (expert grouping, attention tiling) were measured here and lost. The one durable takeaway is methodological: build from byte counts and ceilings, then check each idea against a control.</p>
+
+<h2>The big picture in one paragraph</h2>
+<p>A home GPU runs a 26 to 27 billion parameter model because the weights were squeezed to about 3 to 5 bits, the memory was budgeted down to the megabyte, and the speed was pushed from roughly 40 to over 60 tokens per second at short context through fusion and tile engineering. A prompt cache turns nine-minute waits into one-second ones, a drafter nearly doubles decode on the models where it pays, and a careful gateway keeps all of it safe and recoverable. The remaining gap, about 37 percent of the physical limit, is a latency problem that points at the attention kernel for long contexts. And along the way every idea that failed is on file so it does not get tried twice.</p>
+
+<!-- ============================ APPENDIX ============================ -->
+<div class="levelhead" style="--c:#374151"><div class="tag">Appendix</div><h1>Repo map, glossary and reproduction</h1><p>Where things live and how to check any claim yourself.</p></div>
+
+<h2>Repo map</h2>
+<table>
+<tr><th>Path</th><th>What it is</th></tr>
+<tr><td><code>README.md</code></td><td>Results table and collapsible sections with all benchmark cards.</td></tr>
+<tr><td><code>src/qah/</code></td><td>The first reference-backed executor: model audit, memory planning (<code>memory.py</code>), telemetry, run orchestration around llama.cpp.</td></tr>
+<tr><td><code>bench/</code></td><td>Benchmark harnesses and report/card generators (<code>audit.py</code>, <code>run.py</code>, agent harnesses, <code>render_cards.py</code>, results and evidence).</td></tr>
+<tr><td><code>serving/</code></td><td>The gateway, profile definitions, lifecycle and lease logic, Home Assistant integration, staging and live validation scripts, tests.</td></tr>
+<tr><td><code>docs/</code></td><td>Reports per experiment, the memory model, ADR 0001, architecture audit, production serving docs, and <code>docs/assets/</code> cards.</td></tr>
+<tr><td><code>research/inkling-turing/</code></td><td>The Inkling kernel research: THEORY, ledger, patches, rejected experiments, long-context qualification, graph audit.</td></tr>
+<tr><td><code>research/obliterated-q4km-2080ti/</code></td><td>The Obliterated optimisation study: plan, ledger, qualification, isolation tests.</td></tr>
+<tr><td><code>research/inkling-deepopt/</code></td><td>The 24 Nov 2026 baseline, 128K profile and attention candidate.</td></tr>
+<tr><td><code>configs/</code>, <code>tools/</code>, <code>tests/</code></td><td>Run configurations, helper scripts and unit tests.</td></tr>
+</table>
+
+<h2>Glossary (extended)</h2>
+<table>
+<tr><td><b>ADR</b></td><td>Architecture decision record; <code>docs/decisions/0001</code> says to preserve the model's native hybrid semantics.</td></tr>
+<tr><td><b>Bit-exact</b></td><td>An optimization whose outputs are identical bit for bit to the previous build. The default policy for kernels here; non-exact changes stay opt-in.</td></tr>
+<tr><td><b>CUDA graph</b></td><td>A recorded sequence of GPU work replayed with less launch overhead.</td></tr>
+<tr><td><b>Dense / MoE</b></td><td>All weights used per token / only selected expert sub-networks used per token.</td></tr>
+<tr><td><b>Decode ceiling</b></td><td>Bandwidth divided by bytes read per token; the physical maximum for decode.</td></tr>
+<tr><td><b>Flash Attention</b></td><td>A memory-efficient attention algorithm that avoids materializing the full score matrix.</td></tr>
+<tr><td><b>GGUF</b></td><td>The single-file format llama.cpp uses for quantized models.</td></tr>
+<tr><td><b>GQA</b></td><td>Grouped-query attention: several query heads share one key/value head to shrink the KV cache.</td></tr>
+<tr><td><b>Lease</b></td><td>A gateway-tracked session that prevents the model being swapped while someone is using it.</td></tr>
+<tr><td><b>llama.cpp</b></td><td>The open-source inference engine used as the reference and base for the fork.</td></tr>
+<tr><td><b>MMQ</b></td><td>Quantized matrix multiplication on integer tensor cores, the prefill workhorse.</td></tr>
+<tr><td><b>MTP / DFlash / DSpark</b></td><td>Speculative-decoding drafters (built-in head, separate fast drafter, Inkling's official drafter).</td></tr>
+<tr><td><b>Profile</b></td><td>A complete serving configuration: model, runtime, context, KV type, batch sizes, thinking levels.</td></tr>
+<tr><td><b>sm_75</b></td><td>The CUDA architecture of the RTX 2080 Ti (Turing).</td></tr>
+<tr><td><b>Strict pass</b></td><td>A coding attempt that passes the hidden held-out tests, not merely one that looks plausible.</td></tr>
+<tr><td><b>TTFT</b></td><td>Time to first token.</td></tr>
+<tr><td><b>ubatch</b></td><td>Micro-batch size: how many prompt tokens a single prefill step processes.</td></tr>
+</table>
+
+<h2>Reproduce a claim yourself</h2>
+<ol>
+<li>Pick a number in a card, open the report linked in <code>README.md</code>, and find the raw JSON under <code>docs/results/</code> or <code>research/*/results/</code>.</li>
+<li>Check the runtime identity: <code>MANIFEST.json</code> files pin binaries by SHA-256 (version strings can be misleading; the Inkling binary reports an older commit than the one it was built from).</li>
+<li>For decode speed, run <code>llama-bench -fa 1 -ctk q8_0 -ctv q8_0 -ub 512 -p 0 -n 128 -d &lt;depth&gt; -r 3</code> on the model, with the GPU at 175 W and no other CUDA process.</li>
+<li>For a kernel claim, read its entry in the relevant <code>ledger.jsonl</code>, then the patch (accepted) or the file under <code>rejected/</code>.</li>
+</ol>
+<p class="small">Sources for every figure: <code>docs/memory-model.md</code> (KV table), <code>research/inkling-turing/THEORY.md</code> and <code>progress.md</code> (ceilings, staircase, rejected experiments), <code>research/obliterated-q4km-2080ti/README.md</code> (drafting, cache), <code>docs/dense-iq3s-dflash2-20261112.md</code> (DFlash2 sweep), <code>research/inkling-deepopt/ledger.jsonl</code> (new baseline and profile), README results table (coding passes). The bandwidth ceilings in Figure 6 are computed in <code>docs/guide/charts.py</code>.</p>
+
+</body>
+</html>
